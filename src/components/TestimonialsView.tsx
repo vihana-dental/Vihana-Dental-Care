@@ -24,7 +24,7 @@ export const TestimonialsView: React.FC = () => {
       text: newText,
       date: new Date().toISOString().split('T')[0],
       verifiedGoogle: true,
-      clinicReply: "Thank you for sharing your review! We appreciate your trust in Vihanna Dental Clinic."
+      clinicReply: "Thank you for sharing your review! We appreciate your trust in Vihana Dental Clinic."
     };
 
     setReviewsList([newRev, ...reviewsList]);
@@ -56,7 +56,7 @@ export const TestimonialsView: React.FC = () => {
             What Our Patients Say
           </h2>
           <p className="text-slate-600 text-base leading-relaxed">
-            Real feedback from verified patients who experienced gentle, world-class dental care at Vihanna Dental Clinic in Coimbatore.
+            Real feedback from verified patients who experienced gentle, world-class dental care at Vihana Dental Clinic in Coimbatore.
           </p>
         </motion.div>
 
@@ -159,7 +159,7 @@ export const TestimonialsView: React.FC = () => {
                 <div className="bg-teal-50/80 p-3.5 rounded-xl border border-teal-100 text-xs space-y-1 mt-2">
                   <p className="font-bold text-teal-900 flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Response from Vihanna Dental Clinic:</span>
+                    <span>Response from Vihana Dental Clinic:</span>
                   </p>
                   <p className="text-slate-700 leading-relaxed">{review.clinicReply}</p>
                 </div>
@@ -193,7 +193,7 @@ export const TestimonialsView: React.FC = () => {
 
               <div className="space-y-1">
                 <h3 className="text-xl font-extrabold text-slate-900">Write a Google Review</h3>
-                <p className="text-xs text-slate-500 font-medium">Share your experience at Vihanna Dental Clinic, Coimbatore</p>
+                <p className="text-xs text-slate-500 font-medium">Share your experience at Vihana Dental Clinic, Coimbatore</p>
               </div>
 
               {submitSuccess ? (

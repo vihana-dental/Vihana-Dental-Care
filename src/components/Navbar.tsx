@@ -12,7 +12,7 @@ import { CLINIC_INFO } from '../data/clinicData';
 import { AuthUser } from '../types';
 
 // Updated to point to the public/images folder
-const vihannaLogo = '/images/vihanna_dental_logo_1784918513788.jpg';
+const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
 interface NavbarProps {
   activeTab: string;
@@ -78,15 +78,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shadow-xs flex items-center justify-center bg-white">
             <img 
-              src={vihannaLogo} 
-              alt="Vihanna Dental Clinic Logo" 
+              src={vihanaLogo} 
+              alt="Vihana Dental Clinic Logo" 
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
           </div>
           <div>
             <h1 className="text-xl font-extrabold tracking-tight text-slate-900 leading-tight flex items-center gap-1.5">
-              <span>VIHANNA</span>
+              <span>VIHANA</span>
               <span className="text-teal-700 font-light">DENTAL</span>
             </h1>
             <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">

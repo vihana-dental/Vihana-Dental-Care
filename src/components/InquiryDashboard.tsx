@@ -64,7 +64,7 @@ export const InquiryDashboard: React.FC = () => {
               <span>Doctor & Reception Inquiry Portal</span>
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Track, filter, and respond to incoming web inquiries for Vihanna Dental Clinic
+              Track, filter, and respond to incoming web inquiries for Vihana Dental Clinic
             </p>
           </div>
 

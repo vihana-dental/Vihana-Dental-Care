@@ -54,7 +54,7 @@ export const StaffLoginModal: React.FC<StaffLoginModalProps> = ({
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 bg-teal-100 text-teal-800 text-xs font-bold px-3 py-1 rounded-full">
               <ShieldCheck className="w-4 h-4 text-teal-600" />
-              <span>Vihanna Clinic Staff Portal</span>
+              <span>Vihana Clinic Staff Portal</span>
             </div>
             <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">
               Staff & Admin Login

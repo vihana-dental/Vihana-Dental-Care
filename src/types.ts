@@ -1,5 +1,5 @@
 /**
- * Vihanna Dental Clinic - Data Models and Interfaces
+ * vihana Dental Clinic - Data Models and Interfaces
  */
 
 export type UserRole = 'guest' | 'patient' | 'doctor' | 'admin' | 'caregiver';

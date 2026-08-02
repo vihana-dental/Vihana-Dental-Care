@@ -20,7 +20,7 @@ export const WhatsAppAutomationWidget: React.FC = () => {
     {
       id: 'w1',
       sender: 'system',
-      text: "👋 Welcome to *Vihanna Dental Clinic, Coimbatore* WhatsApp AI Assistant!\n\nI can help you with:\n1. 📅 Instant Appointment Booking\n2. 🔄 Rescheduling & Cancellations\n3. 🦷 Treatment Inquiries & Fee Estimates\n4. 📍 Directions to Gandhipuram Clinic",
+      text: "👋 Welcome to *Vihana Dental Clinic, Coimbatore* WhatsApp AI Assistant!\n\nI can help you with:\n1. 📅 Instant Appointment Booking\n2. 🔄 Rescheduling & Cancellations\n3. 🦷 Treatment Inquiries & Fee Estimates\n4. 📍 Directions to Gandhipuram Clinic",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -76,7 +76,7 @@ export const WhatsAppAutomationWidget: React.FC = () => {
       const fallbackMsg: WhatsAppMessage = {
         id: `bot-${Date.now()}`,
         sender: 'bot',
-        text: "🦷 *Vihanna Dental Clinic Coimbatore*\nThank you for reaching out! To book or reschedule an appointment directly, please call us at *+91 98765 43210*.",
+        text: "🦷 *Vihana Dental Clinic Coimbatore*\nThank you for reaching out! To book or reschedule an appointment directly, please call us at *+91 98765 43210*.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, fallbackMsg]);
@@ -102,7 +102,7 @@ export const WhatsAppAutomationWidget: React.FC = () => {
             <span>WhatsApp API & Gemini AI Automation Bench</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-            Vihanna Clinic WhatsApp Booking Bot
+            Vihana Clinic WhatsApp Booking Bot
           </h2>
           <p className="text-xs sm:text-sm text-slate-300">
             Automated WhatsApp scheduling, instant appointment confirmations, reminders, and Gemini AI auto-replies.
@@ -122,7 +122,7 @@ export const WhatsAppAutomationWidget: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-sm leading-tight flex items-center gap-1">
-                  <span>Vihanna Dental WhatsApp AI</span>
+                  <span>Vihana Dental WhatsApp AI</span>
                   <CheckCheck className="w-4 h-4 text-emerald-300" />
                 </h3>
                 <p className="text-[11px] text-emerald-200">Official Business Account • Gemini 3.6 Powered</p>

@@ -17,8 +17,8 @@ let appointmentsStorage: Appointment[] = [
     patientName: "Senthil Kumar",
     patientPhone: "+91 98421 88320",
     patientEmail: "senthil@example.com",
-    doctorId: "dr-vihanna-subramanian",
-    doctorName: "Dr. Vihanna Subramanian",
+    doctorId: "dr-vihana-subramanian",
+    doctorName: "Dr. Sanchana",
     serviceId: "dental-implants",
     serviceName: "Dental Implants & Full Mouth Rehab",
     date: "2026-07-28",
@@ -87,7 +87,7 @@ let careTeamNotesStorage: Record<string, CareTeamNote[]> = {
     {
       id: "CTN-1",
       patientId: "P-10021",
-      authorName: "Dr. Vihanna Subramanian (Orthodontist)",
+      authorName: "Dr. Sanchana (Orthodontist)",
       authorRole: "Lead Surgeon",
       note: "Bone density at #24 site is D2 type. Implant post torque reached 35Ncm cleanly. Proceeding with custom Zirconia abutment.",
       timestamp: "2026-07-10 11:45 AM",
@@ -122,7 +122,7 @@ const getGeminiClient = () => {
 };
 
 // Helper to log HIPAA Audit Trail
-function logAudit(action: AuditLog['action'], resourceType: AuditLog['resourceType'], resourceId: string, details: string, userId: string = "DOC-001", userName: string = "Dr. Vihanna Subramanian", userRole: string = "doctor") {
+function logAudit(action: AuditLog['action'], resourceType: AuditLog['resourceType'], resourceId: string, details: string, userId: string = "DOC-001", userName: string = "Dr. Sanchana", userRole: string = "doctor") {
   const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
   const hash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const newLog: AuditLog = {
@@ -205,14 +205,14 @@ app.post('/api/appointments', (req, res) => {
   logAudit('CREATE', 'APPOINTMENT', newAppointment.id, `Created appointment for ${patientName} on ${date} ${timeSlot} with ${doctor.name}`);
 
   // Formulate automated WhatsApp message text
-  const whatsappMessage = `🦷 *Vihanna Dental Clinic, Coimbatore*\n\nDear ${patientName}, your appointment is *CONFIRMED*! 🎉\n\n📅 *Date:* ${date}\n⏰ *Time:* ${timeSlot}\n👨‍⚕️ *Doctor:* ${doctor.name}\n🏥 *Service:* ${service.title}\n📍 *Location:* 124, 100 Feet Road, Gandhipuram, Coimbatore\n\n🗓️ *Google Calendar:* Synced to Doctor's Schedule\n\n🔄 *Need to Reschedule or Cancel?* Click here: ${process.env.APP_URL || 'http://localhost:3000'}?reschedule=${rescheduleToken}\n\nEmergency Helpline: +91 98765 43210. See you soon!`;
+  const whatsappMessage = `🦷 *vihana Dental Clinic, Coimbatore*\n\nDear ${patientName}, your appointment is *CONFIRMED*! 🎉\n\n📅 *Date:* ${date}\n⏰ *Time:* ${timeSlot}\n👨‍⚕️ *Doctor:* ${doctor.name}\n🏥 *Service:* ${service.title}\n📍 *Location:* 124, 100 Feet Road, Gandhipuram, Coimbatore\n\n🗓️ *Google Calendar:* Synced to Doctor's Schedule\n\n🔄 *Need to Reschedule or Cancel?* Click here: ${process.env.APP_URL || 'http://localhost:3000'}?reschedule=${rescheduleToken}\n\nEmergency Helpline: +91 98765 43210. See you soon!`;
 
   res.json({
     success: true,
     appointment: newAppointment,
     googleCalendarSync: {
       status: "Synced",
-      calendarId: "dr.vihanna.calendar@gmail.com",
+      calendarId: "dr.vihana.calendar@gmail.com",
       eventId: calendarEventId,
       eventSummary: `Dental Consult: ${patientName} - ${service.title}`,
       location: CLINIC_INFO.address
@@ -245,7 +245,7 @@ app.put('/api/appointments/:id/reschedule', (req, res) => {
 
   logAudit('UPDATE', 'APPOINTMENT', appt.id, `Rescheduled appointment to ${appt.date} ${appt.timeSlot}`);
 
-  const rescheduleMessage = `🦷 *Vihanna Dental Clinic, Coimbatore*\n\nDear ${appt.patientName}, your appointment has been successfully *RESCHEDULED*! 🔄\n\n📅 *New Date:* ${appt.date}\n⏰ *New Time:* ${appt.timeSlot}\n👨‍⚕️ *Doctor:* ${appt.doctorName}\n📍 *Location:* Gandhipuram, Coimbatore\n\nGoogle Calendar updated automatically. Doctor notified!`;
+  const rescheduleMessage = `🦷 *vihana Dental Clinic, Coimbatore*\n\nDear ${appt.patientName}, your appointment has been successfully *RESCHEDULED*! 🔄\n\n📅 *New Date:* ${appt.date}\n⏰ *New Time:* ${appt.timeSlot}\n👨‍⚕️ *Doctor:* ${appt.doctorName}\n📍 *Location:* Gandhipuram, Coimbatore\n\nGoogle Calendar updated automatically. Doctor notified!`;
 
   res.json({
     success: true,
@@ -362,7 +362,7 @@ app.post('/api/patients/:id/care-team-notes', (req, res) => {
   const newNote: CareTeamNote = {
     id: `CTN-${Date.now()}`,
     patientId: id,
-    authorName: authorName || 'Dr. Vihanna Subramanian',
+    authorName: authorName || 'Dr. Sanchana',
     authorRole: authorRole || 'Chief Consultant',
     note,
     timestamp: new Date().toLocaleString(),
@@ -402,7 +402,7 @@ app.post('/api/patients/:id/fhir-export', (req, res) => {
           name: [{ family: patient.name.split(' ').pop(), given: [patient.name.split(' ')[0]] }],
           telecom: [{ system: "phone", value: patient.phone }, { system: "email", value: patient.email }],
           gender: patient.gender.toLowerCase(),
-          managingOrganization: { display: "Vihanna Dental Clinic, Coimbatore" }
+          managingOrganization: { display: "vihana Dental Clinic, Coimbatore" }
         }
       },
       {
@@ -438,13 +438,13 @@ app.post('/api/gemini/whatsapp-bot', async (req, res) => {
       throw new Error("Gemini API key is not configured.");
     }
 
-    const systemInstruction = `You are VihannaBot, the official AI WhatsApp assistant for Vihanna Dental Clinic in Coimbatore, Tamil Nadu.
+    const systemInstruction = `You are vihanaBot, the official AI WhatsApp assistant for vihana Dental Clinic in Coimbatore, Tamil Nadu.
 Clinic Details:
-- Name: Vihanna Dental Clinic
+- Name: vihana Dental Clinic
 - Location: 124, 100 Feet Road, Gandhipuram, Coimbatore
 - Phone: +91 98765 43210
 - Working Hours: Mon-Sat 9:00 AM - 8:30 PM, Sun 10:00 AM - 2:00 PM
-- Chief Doctor: Dr. Vihanna Subramanian (Orthodontist & Implantologist) and Dr. K. Anitha (Root Canal Specialist)
+- Chief Doctor: Dr. Sanchana (Orthodontist & Implantologist) and Dr. K. Anitha (Root Canal Specialist)
 - Services offered: Dental Implants, Invisalign Aligners, Laser Root Canal, Cosmetic Smile Design, Teeth Whitening, Pediatric Care, Wisdom Tooth Surgery, Zirconia Crowns.
 
 Your job:
@@ -466,7 +466,7 @@ Provide a helpful, friendly WhatsApp auto-reply.`;
       }
     });
 
-    const replyText = response.text || "Hello! Thank you for reaching out to Vihanna Dental Clinic, Coimbatore. How can we assist with your smile today?";
+    const replyText = response.text || "Hello! Thank you for reaching out to vihana Dental Clinic, Coimbatore. How can we assist with your smile today?";
 
     res.json({
       replyText,
@@ -475,13 +475,13 @@ Provide a helpful, friendly WhatsApp auto-reply.`;
   } catch (error) {
     console.log("Note: Using contextual fallback for whatsapp-bot:", (error as any)?.message || error);
     
-    let fallbackReply = `Hello! Thank you for contacting *Vihanna Dental Clinic, Coimbatore*. 🦷\n\nOur clinic is located at 124, 100 Feet Road, Gandhipuram. How can we assist you today? You can book an appointment, check treatment costs, or speak with our team at *+91 98765 43210*.`;
+    let fallbackReply = `Hello! Thank you for contacting *vihana Dental Clinic, Coimbatore*. 🦷\n\nOur clinic is located at 124, 100 Feet Road, Gandhipuram. How can we assist you today? You can book an appointment, check treatment costs, or speak with our team at *+91 98765 43210*.`;
     
     const msg = (userMessage || "").toLowerCase();
     if (msg.includes("book") || msg.includes("appointment") || msg.includes("timing") || msg.includes("slot")) {
-      fallbackReply = `🦷 *Vihanna Dental Clinic Appointment Booking*\n\nOur clinic hours in Gandhipuram, Coimbatore:\n• Mon - Sat: 9:00 AM - 8:30 PM\n• Sunday: 10:00 AM - 2:00 PM\n\nWould you like to reserve a consultation with Dr. Vihanna Subramanian? Click [ACTION:BOOK_APPOINTMENT] below to pick your date & time!`;
+      fallbackReply = `🦷 *vihana Dental Clinic Appointment Booking*\n\nOur clinic hours in Gandhipuram, Coimbatore:\n• Mon - Sat: 9:00 AM - 8:30 PM\n• Sunday: 10:00 AM - 2:00 PM\n\nWould you like to reserve a consultation with Dr. Sanchana? Click [ACTION:BOOK_APPOINTMENT] below to pick your date & time!`;
     } else if (msg.includes("cost") || msg.includes("price") || msg.includes("invisalign") || msg.includes("implant") || msg.includes("root canal")) {
-      fallbackReply = `🦷 *Vihanna Dental Clinic Specialised Treatments*\n\nWe specialize in:\n• Computer-Guided Dental Implants\n• 3D Invisalign Aligners\n• Painless Laser Root Canal Therapy\n• Cosmetic Smile Design & Whitening\n\nCall *+91 98765 43210* or click [ACTION:BOOK_APPOINTMENT] to schedule an evaluation!`;
+      fallbackReply = `🦷 *vihana Dental Clinic Specialised Treatments*\n\nWe specialize in:\n• Computer-Guided Dental Implants\n• 3D Invisalign Aligners\n• Painless Laser Root Canal Therapy\n• Cosmetic Smile Design & Whitening\n\nCall *+91 98765 43210* or click [ACTION:BOOK_APPOINTMENT] to schedule an evaluation!`;
     }
 
     res.json({
@@ -536,8 +536,8 @@ app.post('/api/gemini/patient-advice', async (req, res) => {
       throw new Error("Gemini API key is not configured.");
     }
 
-    const prompt = `A patient at Vihanna Dental Clinic describes the following dental symptom or concern: "${symptomDescription}".
-Provide preliminary care guidance, probable treatment option at Vihanna Dental Clinic in Coimbatore, and urgency level (Low/Medium/Urgent Emergency). Remind them that an in-person dental consultation is necessary.`;
+    const prompt = `A patient at vihana Dental Clinic describes the following dental symptom or concern: "${symptomDescription}".
+Provide preliminary care guidance, probable treatment option at vihana Dental Clinic in Coimbatore, and urgency level (Low/Medium/Urgent Emergency). Remind them that an in-person dental consultation is necessary.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -551,7 +551,7 @@ Provide preliminary care guidance, probable treatment option at Vihanna Dental C
   } catch (err) {
     console.log("Note: Using contextual fallback for patient-advice:", (err as any)?.message || err);
     res.json({
-      advice: `Based on your symptom description ("${symptomDescription}"), we recommend an in-person evaluation at Vihanna Dental Clinic in Gandhipuram, Coimbatore.\n\n• Urgency Level: Moderate - Evaluation recommended within 24-48 hours.\n• Home Care Advice: Avoid extreme hot or cold foods. Rinse gently with warm saline solution. Do not apply hot compression directly to cheek.\n• Next Step: Please book a consultation or call our helpline at +91 98765 43210.`
+      advice: `Based on your symptom description ("${symptomDescription}"), we recommend an in-person evaluation at vihana Dental Clinic in Gandhipuram, Coimbatore.\n\n• Urgency Level: Moderate - Evaluation recommended within 24-48 hours.\n• Home Care Advice: Avoid extreme hot or cold foods. Rinse gently with warm saline solution. Do not apply hot compression directly to cheek.\n• Next Step: Please book a consultation or call our helpline at +91 98765 43210.`
     });
   }
 });
@@ -574,7 +574,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Vihanna Dental Clinic App server running on http://localhost:${PORT}`);
+    console.log(`vihana Dental Clinic App server running on http://localhost:${PORT}`);
   });
 }
 

@@ -1,7 +1,7 @@
 import { ClinicInfo, DentalService, Doctor, GalleryItem, Review, PatientRecord, AuditLog } from '../types';
 
-const vihannaDoctor = '/images/vihanna_doctor_1784918556857.jpg';
-const vihannaOperatory = '/images/vihanna_operatory_1784918541912.jpg';
+const vihanaDoctor = '/images/vihana_doctor_1784918556857.jpg';
+const vihanaOperatory = '/images/vihana_operatory_1784918541912.jpg';
 const vihanaExteriorSign = '/images/vihana_exterior_sign_1784919394277.jpg';
 const drSanchanaConsultation = '/images/dr_sanchana_consultation_1784919412452.jpg';
 const vihanaDentalCamp = '/images/vihana_dental_camp_1784919430609.jpg';
@@ -245,7 +245,7 @@ export const DOCTORS: Doctor[] = [
     qualification: "BDS, MDS (Orthodontics & Dentofacial Orthopedics)",
     specialization: "Invisalign & Clear Aligners, Jaw Bite Correction, Pediatric Braces & Smile Design",
     experienceYears: 12,
-    photo: vihannaDoctor,
+    photo: vihanaDoctor,
     bio: "Dr. N. Sanchana, MDS is the Lead Orthodontist and Founder at Vihana Dental Care, Kalapatti, Coimbatore. Specializing in advanced clear aligners, adult & pediatric braces, microscopic root canals, and gentle jaw alignment treatments.",
     availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
   }
@@ -277,7 +277,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
     id: "g-operatory-chair",
     title: "Modern Clinical Operatory & Dental Chair",
     category: "facilities",
-    imageUrl: vihannaOperatory,
+    imageUrl: vihanaOperatory,
     caption: "Fully equipped ergonomic dental operatory with overhead LED lighting and computer-controlled dental unit."
   },
   {
@@ -392,7 +392,7 @@ export const REVIEWS: Review[] = [
     authorPhoto: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150",
     rating: 5,
     relativeTimeDescription: "2 months ago",
-    text: "Extremely satisfied with my dental treatment at Vihana Dental Care in Kalapatti! Dr. Vihanna explained the whole process clearly. Painless procedure and super clean clinic.",
+    text: "Extremely satisfied with my dental treatment at Vihana Dental Care in Kalapatti! Dr. vihana explained the whole process clearly. Painless procedure and super clean clinic.",
     date: "2026-05-18",
     verifiedGoogle: true,
     clinicReply: "Thank you Senthil sir! We are delighted to hear about your positive experience."
@@ -462,7 +462,7 @@ export const INITIAL_PATIENTS: PatientRecord[] = [
       {
         id: "V-501",
         date: "2026-07-10",
-        doctorName: "Dr. Vihanna Subramanian",
+        doctorName: "Dr. Sanchana",
         serviceName: "Dental Implant Surgery",
         diagnosis: "Edentulous space #24 due to trauma",
         treatmentGiven: "Surgical placement of Straumann Implant post. Cold compress advised.",
@@ -474,7 +474,7 @@ export const INITIAL_PATIENTS: PatientRecord[] = [
       {
         id: "V-480",
         date: "2026-07-01",
-        doctorName: "Dr. Vihanna Subramanian",
+        doctorName: "Dr. Sanchana",
         serviceName: "Consultation & CBCT",
         diagnosis: "Missing Tooth #24",
         treatmentGiven: "Diagnostic CBCT 3D Scan & Implant Workup Plan",
@@ -548,7 +548,7 @@ export const INITIAL_PATIENTS: PatientRecord[] = [
       {
         id: "V-492",
         date: "2026-06-25",
-        doctorName: "Dr. Vihanna Subramanian",
+        doctorName: "Dr. Sanchana",
         serviceName: "Invisalign Tray Fitting",
         diagnosis: "Class I Malocclusion with mild anterior crowding",
         treatmentGiven: "Bonded composite attachments, handed Tray #1 to #6.",
@@ -565,7 +565,7 @@ export const INITIAL_AUDIT_LOGS: AuditLog[] = [
     id: "AUD-9901",
     timestamp: "2026-07-24 10:15:22",
     userId: "DOC-001",
-    userName: "Dr. Vihanna Subramanian",
+    userName: "Dr. Sanchana",
     userRole: "doctor",
     action: "VIEW",
     resourceType: "PATIENT_RECORD",
@@ -578,7 +578,7 @@ export const INITIAL_AUDIT_LOGS: AuditLog[] = [
     id: "AUD-9902",
     timestamp: "2026-07-24 10:30:05",
     userId: "DOC-001",
-    userName: "Dr. Vihanna Subramanian",
+    userName: "Dr. Sanchana",
     userRole: "doctor",
     action: "UPDATE",
     resourceType: "TREATMENT_PLAN",

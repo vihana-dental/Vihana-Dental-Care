@@ -8,8 +8,8 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import { CLINIC_INFO } from '../data/clinicData';
-const vihannaOperatory = '/images/vihanna_operatory_1784918541912.jpg';
-const vihannaDoctor = '/images/vihanna_doctor_1784918556857.jpg';
+const vihanaOperatory = '/images/vihana_operatory_1784918541912.jpg';
+const vihanaDoctor = '/images/vihana_doctor_1784918556857.jpg';
 
 interface HeroProps {
   onOpenBooking: () => void;
@@ -60,23 +60,23 @@ export const Hero: React.FC<HeroProps> = ({
             <span className="text-slate-300">Kalapatti, Coimbatore</span>
           </motion.div>
 
-          {/* Main Headline */}
+          {/* Main Headline - Optimized for SEO */}
           <motion.h1 
             variants={itemVariants} 
             className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.08] font-sans"
           >
-            Painless, Precision <br />
+            Top-Rated Dental Clinic <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-300 via-emerald-300 to-teal-100">
-              Smile Architecture.
+              in Kalapatti, Coimbatore.
             </span>
           </motion.h1>
 
-          {/* Subheading */}
+          {/* Subheading - Optimized for GEO */}
           <motion.p 
             variants={itemVariants} 
             className="text-slate-300 text-base sm:text-xl max-w-2xl mx-auto font-normal leading-relaxed tracking-wide"
           >
-            Vihana Dental Care brings Swiss computer-guided implants, 3D Invisalign aligners, and microscopic laser root canals under one roof in Coimbatore.
+            Located in the heart of Kalapatti, Vihana Dental Care brings Swiss computer-guided implants, 3D Invisalign aligners, and microscopic laser root canals to Coimbatore. Experience 100% sterile, pain-free dentistry.
           </motion.p>
 
           {/* Action Button Group */}
@@ -107,8 +107,8 @@ export const Hero: React.FC<HeroProps> = ({
           <div className="md:col-span-7 bg-slate-900/80 border border-white/10 backdrop-blur-xl rounded-[28px] overflow-hidden p-2 flex flex-col justify-between group hover:border-teal-500/30 transition-colors shadow-2xl">
             <div className="relative h-64 sm:h-80 rounded-[22px] overflow-hidden bg-slate-950">
               <img
-                src={vihannaOperatory}
-                alt="Vihana Dental Care Operatory"
+                src={vihanaOperatory}
+                alt="Vihana Dental Care Operatory in Kalapatti"
                 className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-700"
                 referrerPolicy="no-referrer"
               />
@@ -118,7 +118,7 @@ export const Hero: React.FC<HeroProps> = ({
                   <span className="bg-teal-500/20 text-teal-300 border border-teal-500/30 text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                     Advanced Operatory
                   </span>
-                  <h3 className="text-lg font-bold mt-1 text-white">German Class-B Sterilization & 3D Scanner</h3>
+                  <h2 className="text-lg font-bold mt-1 text-white">German Class-B Sterilization & 3D Scanner</h2>
                 </div>
               </div>
             </div>
@@ -140,8 +140,8 @@ export const Hero: React.FC<HeroProps> = ({
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <img
-                  src={vihannaDoctor}
-                  alt="Dr. N. Sanchana MDS"
+                  src={vihanaDoctor}
+                  alt="Dr. N. Sanchana MDS - Orthodontist in Kalapatti"
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-teal-500/40 shadow-lg"
                   referrerPolicy="no-referrer"
                 />
@@ -149,13 +149,13 @@ export const Hero: React.FC<HeroProps> = ({
                   <span className="bg-teal-500/10 text-teal-300 border border-teal-500/20 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                     Chief Orthodontist
                   </span>
-                  <h3 className="text-lg font-bold text-white mt-0.5">Dr. N. Sanchana, M.D.S.</h3>
+                  <h2 className="text-lg font-bold text-white mt-0.5">Dr. N. Sanchana, M.D.S.</h2>
                   <p className="text-xs text-slate-400 font-medium">BDS, MDS (Orthodontics & Aligners)</p>
                 </div>
               </div>
 
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
-                12+ years of specialist experience in Invisalign, custom clear aligners, pediatric braces, and jaw alignment transformations in Kalapatti.
+                12+ years of specialist experience in Invisalign, custom clear aligners, pediatric braces, and jaw alignment transformations in the Kalapatti region.
               </p>
             </div>
 

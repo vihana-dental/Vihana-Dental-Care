@@ -171,7 +171,7 @@ export const StaffLeadsDashboard: React.FC<StaffLeadsDashboardProps> = ({
               </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-              <span>Vihanna Clinic Live Staff Dashboard</span>
+              <span>Vihana Clinic Live Staff Dashboard</span>
             </h2>
             <p className="text-xs sm:text-sm text-slate-300">
               Manage live website lead inquiries, WhatsApp bot interactions, and clinic appointments.
@@ -417,7 +417,7 @@ export const StaffLeadsDashboard: React.FC<StaffLeadsDashboardProps> = ({
 
                         <div className="flex items-center gap-2">
                           <a
-                            href={`https://wa.me/${inq.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(inq.name)},%20this%20is%20Vihanna%20Dental%20Clinic%20Coimbatore%20regarding%20your%20inquiry%20for%20${encodeURIComponent(inq.service)}.`}
+                            href={`https://wa.me/${inq.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(inq.name)},%20this%20is%20Vihana%20Dental%20Clinic%20Coimbatore%20regarding%20your%20inquiry%20for%20${encodeURIComponent(inq.service)}.`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -591,7 +591,7 @@ export const StaffLeadsDashboard: React.FC<StaffLeadsDashboardProps> = ({
                     </div>
 
                     <a
-                      href={`https://wa.me/${wLead.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(wLead.patientName)},%20this%20is%20Vihanna%20Dental%20Clinic%20Coimbatore%20following%20up%20on%20your%20WhatsApp%20query.`}
+                      href={`https://wa.me/${wLead.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(wLead.patientName)},%20this%20is%20Vihana%20Dental%20Clinic%20Coimbatore%20following%20up%20on%20your%20WhatsApp%20query.`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5"

@@ -84,7 +84,7 @@ export const LocationMapSection: React.FC = () => {
                 <Map
                   defaultCenter={CLINIC_INFO.location}
                   defaultZoom={15}
-                  mapId="VIHANNA_DENTAL_MAP"
+                  mapId="VIHANA_DENTAL_MAP"
                   className="w-full h-full"
                   gestureHandling="greedy"
                 >

@@ -1,0 +1,6 @@
+# Allow all search engines and AI crawlers to index the site
+User-agent: *
+Allow: /
+
+# Point to your sitemap (Update with your actual custom domain once live)
+Sitemap: https://vihana.vercel.app/sitemap.xml

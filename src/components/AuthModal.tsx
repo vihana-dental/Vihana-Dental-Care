@@ -37,7 +37,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     },
     {
       id: "u-doc-1",
-      name: "Dr. Vihanna Subramanian",
+      name: "Dr. Sanchana",
       role: "doctor"
     },
     {

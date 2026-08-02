@@ -33,7 +33,7 @@ export const AiDentalAssistantModal: React.FC<AiDentalAssistantModalProps> = ({
       setAdviceResult(data.advice);
     } catch (err) {
       console.error(err);
-      setAdviceResult("We recommend an in-person dental consultation at Vihanna Dental Clinic. Call +91 98765 43210 for immediate care.");
+      setAdviceResult("We recommend an in-person dental consultation at Vihana Dental Clinic. Call +91 98765 43210 for immediate care.");
     } finally {
       setLoading(false);
     }

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { DOCTORS, CLINIC_INFO } from '../data/clinicData';
 import { Award, ShieldCheck, HeartPulse, Sparkles, CheckCircle2, UserCheck, Stethoscope } from 'lucide-react';
-const vihannaDoctor = '/images/vihanna_doctor_1784918556857.jpg';
+const vihanaDoctor = '/images/vihana_doctor_1784918556857.jpg';
 
 export const AboutUs: React.FC = () => {
   const springTransition = { type: 'spring', stiffness: 100, damping: 20 };
@@ -120,7 +120,7 @@ export const AboutUs: React.FC = () => {
 
           <div className="max-w-4xl mx-auto">
             {DOCTORS.map((doc) => {
-              const photo = doc.id === 'doc-1' ? vihannaDoctor : doc.photo;
+              const photo = doc.id === 'doc-1' ? vihanaDoctor : doc.photo;
               return (
                 <motion.div 
                   key={doc.id}

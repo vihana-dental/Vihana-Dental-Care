@@ -107,7 +107,7 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ currentUser }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          authorName: currentUser.name || "Dr. Vihanna Subramanian",
+          authorName: currentUser.name || "Dr.Sanchana",
           authorRole: noteAuthorRole,
           note: newNote
         })
@@ -150,7 +150,7 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ currentUser }) => {
               <span>Doctor & Multidisciplinary Care Workspace</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Vihanna Clinical Management Portal
+              Vihana Clinical Management Portal
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               LoggedIn: <span className="font-bold text-white">{currentUser.name}</span> ({currentUser.role.toUpperCase()})

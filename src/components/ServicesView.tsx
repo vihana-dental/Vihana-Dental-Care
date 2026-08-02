@@ -7,7 +7,8 @@ import {
   CheckCircle2, 
   Clock, 
   Calendar, 
-  X
+  X,
+  MessageCircleQuestion
 } from 'lucide-react';
 
 interface ServicesViewProps {
@@ -27,7 +28,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
   return (
     <section className="py-20 bg-[#F5F5F7] text-slate-800">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 space-y-12">
-        {/* Title */}
+        {/* Title - Optimized for SEO */}
         <motion.div 
           className="text-center max-w-3xl mx-auto space-y-4"
           initial={{ opacity: 0, y: 30 }}
@@ -40,10 +41,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
             <span>Multispecialty Clinical Portfolio</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
-            Precision Dental Care.
+            Specialized Dental Services in Kalapatti.
           </h2>
           <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-            From computer-guided implants to 3D clear aligners and painless laser endodontics, explore our complete treatment spectrum at Vihana Dental Care.
+            From computer-guided implants to 3D clear aligners and painless laser endodontics, explore our complete treatment spectrum at Kalapatti's premier dental center.
           </p>
         </motion.div>
 
@@ -87,7 +88,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                 <div className="relative h-56 overflow-hidden bg-slate-100">
                   <img
                     src={service.image}
-                    alt={service.title}
+                    alt={`${service.title} in Kalapatti`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     referrerPolicy="no-referrer"
                   />
@@ -148,6 +149,45 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
             </motion.div>
           ))}
         </motion.div>
+
+        {/* AEO Voice Search Optimization Block */}
+        <section className="mt-20 pt-16 border-t border-slate-200">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center">
+                <MessageCircleQuestion className="w-6 h-6 text-teal-700" />
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Common Patient Questions</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <article>
+                <h3 className="text-base font-bold text-slate-900 mb-2">Do you offer painless root canals in Kalapatti?</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Yes, Vihana Dental Clinic provides 100% painless root canals in Kalapatti using computer-controlled local anesthesia and advanced microscopic laser technology to ensure complete patient comfort.
+                </p>
+              </article>
+              <article>
+                <h3 className="text-base font-bold text-slate-900 mb-2">What is the cost of dental implants in Coimbatore?</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  The cost of computer-guided dental implants at Vihana Dental Clinic ranges from ₹22,000 to ₹45,000 per implant, utilizing premium titanium posts for lifetime durability.
+                </p>
+              </article>
+              <article>
+                <h3 className="text-base font-bold text-slate-900 mb-2">How long does an Invisalign treatment take?</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Invisalign clear aligner treatments typically take between 6 to 18 months depending on case complexity. We use 3D iTero scanners to provide exact timelines during your first consultation.
+                </p>
+              </article>
+              <article>
+                <h3 className="text-base font-bold text-slate-900 mb-2">Is teeth whitening safe for enamel?</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Absolutely. Our advanced laser teeth whitening procedure is completely safe for enamel. It removes deep stains without causing structural damage or long-term sensitivity.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* Service Detail Modal */}

@@ -107,7 +107,7 @@ export const HipaaPatientPortal: React.FC<HipaaPatientPortalProps> = ({ currentU
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>256-bit AES End-to-End Encrypted</span>
             </p>
-            <p className="text-slate-400">Vihanna Dental Practice Management System</p>
+            <p className="text-slate-400">Vihana Dental Practice Management System</p>
           </div>
         </div>
 

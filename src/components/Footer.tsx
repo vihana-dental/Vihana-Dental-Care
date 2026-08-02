@@ -1,7 +1,7 @@
 import React from 'react';
 import { CLINIC_INFO, SERVICES } from '../data/clinicData';
 import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, Lock } from 'lucide-react';
-const vihannaLogo = '/images/vihanna_dental_logo_1784918513788.jpg';
+const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
 interface FooterProps {
   setActiveTab: (tab: string) => void;
@@ -19,20 +19,20 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking, onO
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-800 bg-white">
                 <img 
-                  src={vihannaLogo} 
-                  alt="Vihanna Dental Clinic Logo"
+                  src={vihanaLogo} 
+                  alt="Vihana Dental Clinic Logo"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
               </div>
               <div>
-                <h3 className="text-lg font-extrabold text-white tracking-tight">VIHANNA DENTAL</h3>
+                <h3 className="text-lg font-extrabold text-white tracking-tight">VIHANA DENTAL</h3>
                 <p className="text-[10px] text-teal-400 font-mono font-semibold">COIMBATORE • TAMIL NADU</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-400 leading-relaxed">
-              Vihanna Dental Clinic is Coimbatore's premier multispecialty center specializing in computer-guided implants, 3D Invisalign aligners, and laser root canal therapy.
+              Vihana Dental Clinic is Coimbatore's premier multispecialty center specializing in computer-guided implants, 3D Invisalign aligners, and laser root canal therapy.
             </p>
 
             <div className="pt-2 flex items-center gap-2">
@@ -128,7 +128,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking, onO
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Vihanna Dental Clinic, Coimbatore. All Rights Reserved.</p>
+          <p>© {new Date().getFullYear()} Vihana Dental Clinic, Coimbatore. All Rights Reserved.</p>
           <div className="flex items-center gap-4 text-slate-400">
             <span>Designed for Coimbatore Dental Excellence</span>
             <button

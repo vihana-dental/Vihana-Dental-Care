@@ -44,7 +44,7 @@ export const InquirySection: React.FC = () => {
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-1.5 bg-teal-100 text-teal-800 text-xs font-semibold px-3 py-1 rounded-full">
             <Mail className="w-3.5 h-3.5 text-teal-600" />
-            <span>Get in Touch with Vihanna Specialists</span>
+            <span>Get in Touch with Vihana Specialists</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
             Have Questions About Dental Treatments?
@@ -58,7 +58,7 @@ export const InquirySection: React.FC = () => {
           {/* Contact Details Card */}
           <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950 text-white p-8 rounded-3xl space-y-8 shadow-xl border border-slate-800">
             <div className="space-y-2">
-              <h3 className="text-2xl font-bold text-white">Vihanna Dental Clinic</h3>
+              <h3 className="text-2xl font-bold text-white">Vihana Dental Clinic</h3>
               <p className="text-slate-300 text-xs sm:text-sm">
                 Gandhipuram, Coimbatore • Tamil Nadu, India
               </p>
@@ -114,7 +114,7 @@ export const InquirySection: React.FC = () => {
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900">Inquiry Submitted!</h3>
                 <p className="text-sm text-slate-600 max-w-md mx-auto">
-                  Thank you for reaching out to Vihanna Dental Clinic. Our medical receptionist and doctors have received your message and will get back to you shortly.
+                  Thank you for reaching out to Vihana Dental Clinic. Our medical receptionist and doctors have received your message and will get back to you shortly.
                 </p>
                 <button
                   onClick={() => setSubmitted(false)}
