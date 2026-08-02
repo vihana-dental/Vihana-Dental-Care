@@ -2,5 +2,5 @@
 User-agent: *
 Allow: /
 
-# Point to your sitemap (Update with your actual custom domain once live)
-Sitemap: https://vihana.vercel.app/sitemap.xml
+# Point to your sitemap (Update this with your custom domain later)
+Sitemap: https://vihanna.vercel.app/sitemap.xml
