@@ -1,15 +1,14 @@
 import React from 'react';
 import { CLINIC_INFO, SERVICES } from '../data/clinicData';
-import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, Lock, MessageCircle } from 'lucide-react';
+import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle } from 'lucide-react';
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
 interface FooterProps {
   setActiveTab: (tab: string) => void;
   onOpenBooking: () => void;
-  onOpenStaffLogin: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking, onOpenStaffLogin }) => {
+export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking }) => {
   return (
     <footer className="bg-slate-950 text-slate-300 pt-16 pb-12 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
@@ -71,16 +70,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking, onO
                   Google Patient Reviews (4.9★)
                 </button>
               </li>
-              <li>
-                <button 
-                  onClick={onOpenStaffLogin} 
-                  className="text-teal-400 hover:text-teal-300 font-semibold transition-colors flex items-center gap-1 mt-1"
-                  id="footer-staff-login-link"
-                >
-                  <Lock className="w-3 h-3 text-teal-400" />
-                  <span>Staff / Admin Portal Login</span>
-                </button>
-              </li>
             </ul>
           </div>
 
@@ -140,14 +129,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking, onO
           <p>© {new Date().getFullYear()} Vihana Dental Clinic, Coimbatore. All Rights Reserved.</p>
           <div className="flex items-center gap-4 text-slate-400">
             <span>Designed for Coimbatore Dental Excellence</span>
-            <button
-              onClick={onOpenStaffLogin}
-              className="text-slate-400 hover:text-teal-300 transition-colors font-medium flex items-center gap-1 border-l border-slate-800 pl-4"
-              id="footer-bottom-staff-login"
-            >
-              <Lock className="w-3 h-3 text-teal-400" />
-              <span>Staff Login</span>
-            </button>
           </div>
         </div>
       </div>

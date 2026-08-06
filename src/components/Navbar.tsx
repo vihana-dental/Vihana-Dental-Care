@@ -7,12 +7,9 @@ import {
   Calendar,
   Menu,
   X,
-  MessageCircle,
-  UserCircle2,
-  LogOut
+  MessageCircle
 } from 'lucide-react';
 import { CLINIC_INFO } from '../data/clinicData';
-import { AuthUser } from '../types';
 
 // Updated to point to the public/images folder
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
@@ -21,18 +18,12 @@ interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenBooking: (serviceId?: string) => void;
-  currentUser: AuthUser;
-  onOpenAuthModal: () => void;
-  onLogout: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   onOpenBooking,
-  currentUser,
-  onOpenAuthModal,
-  onLogout,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -137,28 +128,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* CTA Actions */}
         <div className="hidden sm:flex items-center gap-3">
-          {currentUser.role === 'guest' ? (
-            <button
-              onClick={onOpenAuthModal}
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-teal-700 px-2 py-2 rounded-lg text-xs font-semibold transition-colors"
-              id="navbar-demo-role-switcher"
-              title="Preview Patient or Doctor Portal (demo)"
-            >
-              <UserCircle2 className="w-4 h-4" />
-              <span className="hidden xl:inline">Preview Portals</span>
-            </button>
-          ) : (
-            <button
-              onClick={onLogout}
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-red-600 px-2 py-2 rounded-lg text-xs font-semibold transition-colors"
-              id="navbar-logout-button"
-              title={`Logged in as ${currentUser.name} (${currentUser.role}) — click to exit`}
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden xl:inline">Exit {currentUser.role}</span>
-            </button>
-          )}
-
           <motion.button
             onClick={() => onOpenBooking()}
             whileHover={{ scale: 1.02, y: -1 }}

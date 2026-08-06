@@ -1,10 +1,9 @@
 import express from 'express';
 import path from 'path';
-import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { Appointment, Inquiry, PatientRecord, AuditLog, CareTeamNote, UserRole } from './src/types';
-import { INITIAL_PATIENTS, INITIAL_AUDIT_LOGS, SERVICES, DOCTORS, CLINIC_INFO } from './src/data/clinicData';
+import { Appointment, Inquiry } from './src/types';
+import { SERVICES, DOCTORS, CLINIC_INFO } from './src/data/clinicData';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -96,22 +95,6 @@ let inquiriesStorage: Inquiry[] = [
   }
 ];
 
-let patientsStorage: PatientRecord[] = [...INITIAL_PATIENTS];
-let auditLogsStorage: AuditLog[] = [...INITIAL_AUDIT_LOGS];
-let careTeamNotesStorage: Record<string, CareTeamNote[]> = {
-  "P-10021": [
-    {
-      id: "CTN-1",
-      patientId: "P-10021",
-      authorName: "Dr. N. Sanchana (Orthodontist)",
-      authorRole: "Lead Surgeon",
-      note: "Bone density at #24 site is D2 type. Implant post torque reached 35Ncm cleanly. Proceeding with custom Zirconia abutment.",
-      timestamp: "2026-07-10 11:45 AM",
-      isEncrypted: true
-    }
-  ]
-};
-
 // Initialize Gemini Client
 const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY || "";
@@ -134,176 +117,11 @@ function getPublicFeeConfig() {
   return publicConfig;
 }
 
-// Helper to log HIPAA Audit Trail
-function logAudit(action: AuditLog['action'], resourceType: AuditLog['resourceType'], resourceId: string, details: string, userId: string = "DOC-001", userName: string = "Dr. N. Sanchana", userRole: string = "doctor") {
-  const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  const hash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  const newLog: AuditLog = {
-    id: `AUD-${Date.now()}`,
-    timestamp,
-    userId,
-    userName,
-    userRole,
-    action,
-    resourceType,
-    resourceId,
-    details,
-    ipAddress: "117.201.42.18",
-    encryptedHash: `sha256:${hash}`
-  };
-  auditLogsStorage.unshift(newLog);
-  return newLog;
-}
-
-// ---------------- SESSION AUTH (minimal, in-memory) ----------------
-// Lightweight bearer-token session store. Not production-grade auth (no
-// expiry/rotation, tokens live only as long as the process), but it closes
-// the gap where every clinical/admin route was reachable with zero
-// server-side gating.
-interface SessionRecord {
-  token: string;
-  userId: string;
-  name: string;
-  role: UserRole;
-  patientId?: string;
-}
-
-const sessions = new Map<string, SessionRecord>();
-
-function createSession(userId: string, name: string, role: UserRole, patientId?: string): string {
-  const token = crypto.randomBytes(24).toString('hex');
-  sessions.set(token, { token, userId, name, role, patientId });
-  return token;
-}
-
-function requireAuth(...allowedRoles: UserRole[]) {
-  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-    const session = token ? sessions.get(token) : undefined;
-
-    if (!session) {
-      return res.status(401).json({ error: 'Authentication required.' });
-    }
-    if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions for this resource.' });
-    }
-
-    (req as any).session = session as SessionRecord;
-    next();
-  };
-}
-
 // ---------------- API ROUTES ----------------
 
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', clinic: CLINIC_INFO.name, timestamp: new Date().toISOString() });
-});
-
-// AUTH: OTP Request & Verification Endpoints (Master Number: +91 98943 17823)
-app.post('/api/auth/request-otp', (req, res) => {
-  const { phone } = req.body;
-  const masterPhone = "+91 98943 17823";
-
-  if (!phone) {
-    return res.status(400).json({ error: "Phone number is required" });
-  }
-
-  const mockOtp = "4829";
-  logAudit('LOGIN', 'APPOINTMENT', 'AUTH', `OTP requested for staff login attempt on phone: ${phone}`, 'SYS', 'System', 'admin');
-
-  res.json({
-    success: true,
-    message: `OTP successfully dispatched to registered number ${masterPhone}`,
-    simulatedOtp: mockOtp
-  });
-});
-
-app.post('/api/auth/verify-otp', (req, res) => {
-  const { phone, otp } = req.body;
-  
-  if (otp === "4829") {
-    logAudit('LOGIN', 'APPOINTMENT', 'AUTH', `Staff login success via OTP verification for ${phone || '+91 98943 17823'}`, 'DOC-001', 'Dr. N. Sanchana', 'doctor');
-    const token = createSession('doc-1', 'Dr. N. Sanchana, M.D.S.', 'doctor');
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: "doc-1",
-        name: "Dr. N. Sanchana, M.D.S.",
-        role: "doctor",
-        phone: "+91 98943 17823"
-      }
-    });
-  } else {
-    return res.status(400).json({ success: false, error: "Invalid OTP code provided." });
-  }
-});
-
-// AUTH: Phone + Password Login (temporary bypass password for pre-launch dev builds —
-// pending full Supabase-backed RBAC & per-staff credentials in a later phase)
-const TEMP_STAFF_BYPASS_PASSWORD = "Admin@123";
-
-app.post('/api/auth/login-password', (req, res) => {
-  const { phone, password } = req.body;
-
-  if (typeof phone !== 'string' || !phone.trim() || typeof password !== 'string' || !password) {
-    return res.status(400).json({ success: false, error: "Phone and password are required" });
-  }
-
-  if (password === TEMP_STAFF_BYPASS_PASSWORD) {
-    logAudit('LOGIN', 'APPOINTMENT', 'AUTH', `Staff login success via password for ${phone}`, 'DOC-001', 'Dr. N. Sanchana', 'doctor');
-    const token = createSession('doc-1', 'Dr. N. Sanchana, M.D.S.', 'doctor');
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: "doc-1",
-        name: "Dr. N. Sanchana, M.D.S.",
-        role: "doctor",
-        phone
-      }
-    });
-  }
-
-  return res.status(400).json({ success: false, error: "Invalid phone or password. Try OTP login instead." });
-});
-
-// AUTH: Demo role-switcher session (powers the in-app AuthModal "preview as
-// patient/doctor/admin" switcher). Issues a session token without verifying
-// credentials — acceptable for this prototype's mock/in-memory data, but
-// this endpoint must be removed or gated behind real credential checks
-// before any real patient data is stored.
-app.post('/api/auth/dev-session', (req, res) => {
-  const { role, name, patientId } = req.body;
-  const allowedRoles: UserRole[] = ['guest', 'patient', 'doctor', 'admin'];
-
-  if (typeof role !== 'string' || !allowedRoles.includes(role as UserRole)) {
-    return res.status(400).json({ error: "A valid role is required." });
-  }
-
-  if (role === 'patient') {
-    if (typeof patientId !== 'string' || !patientId.trim()) {
-      return res.status(400).json({ error: "patientId is required for the patient role." });
-    }
-    const patientExists = patientsStorage.some(p => p.id === patientId || p.patientId === patientId);
-    if (!patientExists) {
-      return res.status(404).json({ error: "No patient record matches that patientId." });
-    }
-  }
-
-  const token = createSession(`demo-${role}-${Date.now()}`, name || role, role as UserRole, patientId);
-  res.json({ success: true, token });
-});
-
-// AUTH: Logout — invalidates a session token
-app.post('/api/auth/logout', (req, res) => {
-  const authHeader = req.headers.authorization || '';
-  const headerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  const token = headerToken || req.body?.token;
-  if (token) sessions.delete(token);
-  res.json({ success: true });
 });
 
 // GOOGLE PLACES: Live Reviews (server-side proxy — Places API has no CORS support for browsers)
@@ -385,27 +203,12 @@ app.get('/api/clinic-info', (req, res) => {
   });
 });
 
-// ADMIN: GET / PUT Dual Fee Configuration
-app.get('/api/admin/fee-config', requireAuth('doctor', 'admin'), (req, res) => {
-  res.json(getPublicFeeConfig());
-});
-
-app.put('/api/admin/fee-config', requireAuth('doctor', 'admin'), (req, res) => {
-  const { confirmationFeeEnabled, inClinicFeeINR, onlineFeeINR } = req.body;
-  if (confirmationFeeEnabled !== undefined) clinicFeeConfig.confirmationFeeEnabled = !!confirmationFeeEnabled;
-  if (inClinicFeeINR !== undefined) clinicFeeConfig.inClinicFeeINR = Number(inClinicFeeINR);
-  if (onlineFeeINR !== undefined) clinicFeeConfig.onlineFeeINR = Number(onlineFeeINR);
-
-  logAudit('UPDATE', 'APPOINTMENT', 'CONFIG', `Updated dual fees: In-Clinic=₹${clinicFeeConfig.inClinicFeeINR}, Online=₹${clinicFeeConfig.onlineFeeINR}`, 'ADMIN-01', 'Dr. N. Sanchana', 'admin');
-  res.json({ success: true, feeConfig: getPublicFeeConfig() });
-});
-
 // RAZORPAY: Create Order Endpoint with Dual Fee Support
 app.post('/api/razorpay/create-order', (req, res) => {
   const { consultationType, receipt } = req.body;
-  
-  const fee = consultationType === 'online-video' 
-    ? clinicFeeConfig.onlineFeeINR 
+
+  const fee = consultationType === 'online-video'
+    ? clinicFeeConfig.onlineFeeINR
     : clinicFeeConfig.inClinicFeeINR;
 
   const orderAmount = fee * 100; // Amount in paisa
@@ -423,17 +226,12 @@ app.post('/api/razorpay/create-order', (req, res) => {
   });
 });
 
-// GET Appointments
-app.get('/api/appointments', requireAuth('doctor', 'admin'), (req, res) => {
-  res.json(appointmentsStorage);
-});
-
 // POST Appointment (Create pending online consultation or direct confirmed in-clinic booking)
 app.post('/api/appointments', (req, res) => {
-  const { 
-    patientName, patientPhone, patientEmail, doctorId, serviceId, 
-    date, timeSlot, notes, caregiverPhone, consultationType, 
-    razorpayPaymentId, razorpayOrderId 
+  const {
+    patientName, patientPhone, patientEmail, doctorId, serviceId,
+    date, timeSlot, notes, caregiverPhone, consultationType,
+    razorpayPaymentId, razorpayOrderId
   } = req.body;
 
   if (
@@ -496,65 +294,17 @@ app.post('/api/appointments', (req, res) => {
 
   appointmentsStorage.unshift(newAppointment);
 
-  logAudit('CREATE', 'APPOINTMENT', newAppointment.id, `Created ${isOnline ? 'Online Video (Pending Approval)' : 'In-Clinic'} appointment for ${patientName}`);
-
   res.json({
     success: true,
     appointment: newAppointment,
     requiresApproval: isOnline,
-    message: isOnline 
-      ? "Payment received! Your online consultation request has been sent to Dr. N. Sanchana for approval." 
+    message: isOnline
+      ? "Payment received! Your online consultation request has been sent to Dr. N. Sanchana for approval."
       : "Appointment confirmed successfully."
   });
 });
 
-// PUT Doctor Approval Endpoint
-app.put('/api/appointments/:id/approve', requireAuth('doctor', 'admin'), (req, res) => {
-  const { id } = req.params;
-  const { confirmedTimeSlot, confirmedDate } = req.body;
-
-  const apptIndex = appointmentsStorage.findIndex(a => a.id === id);
-  if (apptIndex === -1) {
-    return res.status(404).json({ error: "Appointment not found" });
-  }
-
-  const appt = appointmentsStorage[apptIndex];
-  appt.status = 'confirmed';
-  if (confirmedDate) appt.date = confirmedDate;
-  if (confirmedTimeSlot) appt.timeSlot = confirmedTimeSlot;
-
-  const calendarEventId = `gcal_appr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const videoRoomUrl = `https://meet.google.com/vih-${Math.random().toString(36).substring(2, 5)}-${Math.random().toString(36).substring(2, 5)}`;
-
-  appt.googleCalendarEventId = calendarEventId;
-  appt.googleCalendarSynced = true;
-  appt.videoRoomUrl = videoRoomUrl;
-  appt.whatsappConfirmationSent = true;
-  appt.updatedAt = new Date().toISOString();
-
-  appointmentsStorage[apptIndex] = appt;
-
-  logAudit('UPDATE', 'APPOINTMENT', appt.id, `Dr. N. Sanchana approved online consultation for ${appt.patientName}. Meet link generated.`);
-
-  const approvalWhatsAppMessage = `🦷 *Vihana Dental Care, Coimbatore*\n\nGreat news, ${appt.patientName}! Dr. N. Sanchana has *APPROVED* your Online Video Consultation. 🎉\n\n📅 *Date:* ${appt.date}\n⏰ *Time:* ${appt.timeSlot}\n💻 *Google Meet Link:* ${videoRoomUrl}\n\nPlease join 5 minutes prior to your slot.\n\nHelpline: +91 98943 17823`;
-
-  res.json({
-    success: true,
-    appointment: appt,
-    googleCalendarSync: {
-      status: "Synced",
-      eventId: calendarEventId,
-      videoRoomUrl
-    },
-    whatsappNotification: {
-      sent: true,
-      recipient: appt.patientPhone,
-      messagePreview: approvalWhatsAppMessage
-    }
-  });
-});
-
-// DELETE Appointment (Cancel)
+// DELETE Appointment (Cancel via ID or self-service reschedule token)
 app.delete('/api/appointments/:id', (req, res) => {
   const { id } = req.params;
   const apptIndex = appointmentsStorage.findIndex(a => a.id === id || a.rescheduleToken === id);
@@ -567,18 +317,11 @@ app.delete('/api/appointments/:id', (req, res) => {
   appt.status = 'cancelled';
   appt.updatedAt = new Date().toISOString();
 
-  logAudit('DELETE', 'APPOINTMENT', appt.id, `Cancelled appointment for ${appt.patientName}`);
-
   res.json({
     success: true,
     message: "Appointment cancelled and calendar updated.",
     cancelledAppointment: appt
   });
-});
-
-// GET Inquiries
-app.get('/api/inquiries', requireAuth('doctor', 'admin'), (req, res) => {
-  res.json(inquiriesStorage);
 });
 
 // POST Inquiry
@@ -604,137 +347,8 @@ app.post('/api/inquiries', (req, res) => {
   };
 
   inquiriesStorage.unshift(newInquiry);
-  logAudit('CREATE', 'INQUIRY', newInquiry.id, `New inquiry submitted by ${name} (${service})`);
 
   res.json({ success: true, inquiry: newInquiry });
-});
-
-// PUT Inquiry (Update status / internal notes)
-app.put('/api/inquiries/:id', requireAuth('doctor', 'admin'), (req, res) => {
-  const { id } = req.params;
-  const { status, notes } = req.body;
-
-  const inqIndex = inquiriesStorage.findIndex(i => i.id === id);
-  if (inqIndex === -1) {
-    return res.status(404).json({ success: false, error: "Inquiry not found" });
-  }
-
-  const inquiry = inquiriesStorage[inqIndex];
-  if (status !== undefined) inquiry.status = status;
-  if (notes !== undefined) inquiry.notes = notes;
-  inquiriesStorage[inqIndex] = inquiry;
-
-  logAudit('UPDATE', 'INQUIRY', inquiry.id, `Inquiry status updated to "${inquiry.status}" for ${inquiry.name}`);
-
-  res.json({ success: true, inquiry });
-});
-
-// GET Patients (HIPAA Protected)
-app.get('/api/patients', requireAuth('doctor', 'admin'), (req, res) => {
-  logAudit('VIEW', 'PATIENT_RECORD', 'ALL', 'Doctor viewed patient directory list');
-  res.json(patientsStorage);
-});
-
-// GET Patient by ID (doctor/admin can view any record; a patient session may only view its own)
-app.get('/api/patients/:id', requireAuth('doctor', 'admin', 'patient'), (req, res) => {
-  const { id } = req.params;
-  const session = (req as any).session as SessionRecord;
-  const patient = patientsStorage.find(p => p.id === id || p.patientId === id);
-  if (!patient) {
-    return res.status(404).json({ error: "Patient record not found" });
-  }
-
-  if (session.role === 'patient' && session.patientId !== patient.id && session.patientId !== patient.patientId) {
-    return res.status(403).json({ error: "You are not authorized to view this patient record." });
-  }
-
-  logAudit('VIEW', 'PATIENT_RECORD', patient.id, `Accessed medical history & treatment records for ${patient.name}`);
-  const teamNotes = careTeamNotesStorage[patient.id] || [];
-
-  res.json({
-    patient,
-    careTeamNotes: teamNotes
-  });
-});
-
-// POST Care Team Note
-app.post('/api/patients/:id/care-team-notes', requireAuth('doctor', 'admin'), (req, res) => {
-  const { id } = req.params;
-  const { authorName, authorRole, note } = req.body;
-
-  const patient = patientsStorage.find(p => p.id === id || p.patientId === id);
-  if (!patient) {
-    return res.status(404).json({ success: false, error: "Patient record not found" });
-  }
-
-  if (typeof note !== 'string' || !note.trim()) {
-    return res.status(400).json({ success: false, error: "Note text is required" });
-  }
-
-  const newNote: CareTeamNote = {
-    id: `CTN-${Date.now()}`,
-    patientId: patient.id,
-    authorName: authorName || "Dr. N. Sanchana",
-    authorRole: authorRole || "Chief Surgeon",
-    note,
-    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-    isEncrypted: true
-  };
-
-  if (!careTeamNotesStorage[patient.id]) careTeamNotesStorage[patient.id] = [];
-  careTeamNotesStorage[patient.id].unshift(newNote);
-
-  logAudit('CREATE', 'PATIENT_RECORD', patient.id, `Added care team note for ${patient.name}`);
-
-  res.json({ success: true, note: newNote });
-});
-
-// POST FHIR R4 Export
-app.post('/api/patients/:id/fhir-export', requireAuth('doctor', 'admin'), (req, res) => {
-  const { id } = req.params;
-  const patient = patientsStorage.find(p => p.id === id || p.patientId === id);
-  if (!patient) {
-    return res.status(404).json({ success: false, error: "Patient record not found" });
-  }
-
-  const fhirBundle = {
-    resourceType: "Bundle",
-    type: "collection",
-    timestamp: new Date().toISOString(),
-    entry: [
-      {
-        resource: {
-          resourceType: "Patient",
-          id: patient.id,
-          name: [{ text: patient.name }],
-          gender: patient.gender.toLowerCase(),
-          telecom: [
-            { system: "phone", value: patient.phone },
-            { system: "email", value: patient.email }
-          ]
-        }
-      },
-      ...patient.visits.map(v => ({
-        resource: {
-          resourceType: "Procedure",
-          id: v.id,
-          status: v.status === 'Completed' ? 'completed' : 'in-progress',
-          code: { text: v.serviceName },
-          performedDateTime: v.date,
-          note: [{ text: `${v.diagnosis} — ${v.treatmentGiven}` }]
-        }
-      }))
-    ]
-  };
-
-  logAudit('EXPORT_FHIR', 'PATIENT_RECORD', patient.id, `Generated encrypted FHIR R4 JSON bundle for interoperability export — ${patient.name}`);
-
-  res.json({ success: true, fhirBundle });
-});
-
-// GET Audit Logs
-app.get('/api/audit-logs', requireAuth('doctor', 'admin'), (req, res) => {
-  res.json(auditLogsStorage);
 });
 
 // POST Gemini WhatsApp Bot API Endpoint
@@ -776,7 +390,7 @@ Provide a helpful, friendly WhatsApp auto-reply.`;
     });
   } catch (error) {
     let fallbackReply = `Hello! Thank you for contacting *Vihana Dental Care, Kalapatti, Coimbatore*. 🦷\n\nHow can we assist you today? You can book an in-clinic or online video consultation, check our services, or speak with our team at *+91 98943 17823*.`;
-    
+
     const msg = (userMessage || "").toLowerCase();
     if (msg.includes("book") || msg.includes("appointment") || msg.includes("timing") || msg.includes("video")) {
       fallbackReply = `🦷 *Vihana Dental Care Booking*\n\nWe offer both In-Clinic visits and Secure Online Video Consultations with Dr. N. Sanchana, MDS.\n\nClick [ACTION:BOOK_APPOINTMENT] below to pick your slot!`;
@@ -817,37 +431,6 @@ app.post('/api/gemini/patient-advice', async (req, res) => {
   } catch (error) {
     console.error("Gemini patient-advice failed:", error);
     res.json({ advice: fallbackAdvice });
-  }
-});
-
-// POST Gemini Clinical Summary (Doctor Portal)
-app.post('/api/gemini/clinical-summary', async (req, res) => {
-  const { patientRecord } = req.body;
-
-  if (!patientRecord || typeof patientRecord !== 'object') {
-    return res.status(400).json({ error: "patientRecord is required" });
-  }
-
-  const fallbackSummary = `${patientRecord.name || 'Patient'} — ${patientRecord.visits?.length || 0} recorded visit(s). Review full chart for detailed treatment history. (AI summary unavailable — Gemini API key not configured.)`;
-
-  try {
-    const ai = getGeminiClient();
-    if (!ai) {
-      throw new Error("Gemini API key is not configured.");
-    }
-
-    const systemInstruction = `You are a clinical documentation assistant for a dentist at Vihana Dental Care. Summarize the given patient record into a concise clinical handoff note (3-5 sentences): key medical history/allergies, current treatment plan status, and any follow-up needed. Be factual and use the data provided only.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Patient record JSON:\n${JSON.stringify(patientRecord)}`,
-      config: { systemInstruction, temperature: 0.4 }
-    });
-
-    res.json({ summary: response.text || fallbackSummary });
-  } catch (error) {
-    console.error("Gemini clinical-summary failed:", error);
-    res.json({ summary: fallbackSummary });
   }
 });
 
