@@ -13,6 +13,10 @@ import { AppointmentBookingModal } from './components/AppointmentBookingModal';
 import { WhatsAppAutomationWidget } from './components/WhatsAppAutomationWidget';
 import { AiDentalAssistantModal } from './components/AiDentalAssistantModal';
 import { StaffLoginModal } from './components/StaffLoginModal';
+import { AuthModal } from './components/AuthModal';
+import { DoctorPortal } from './components/DoctorPortal';
+import { HipaaPatientPortal } from './components/HipaaPatientPortal';
+import { StickyCtaBar } from './components/StickyCtaBar';
 import { Footer } from './components/Footer';
 import { AuthUser } from './types';
 
@@ -23,6 +27,7 @@ export function App() {
   const [isAiTriageOpen, setIsAiTriageOpen] = useState<boolean>(false);
   const [isStaffLoginOpen, setIsStaffLoginOpen] = useState<boolean>(false);
   const [isStaffLoggedIn, setIsStaffLoggedIn] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   // Current logged-in user state
   const [currentUser, setCurrentUser] = useState<AuthUser>({
@@ -36,8 +41,52 @@ export function App() {
     setIsBookingModalOpen(true);
   };
 
+  // Demo role switcher (AuthModal): requests a session token for the chosen
+  // role so DoctorPortal / HipaaPatientPortal can call protected API routes.
+  const handleSelectDemoUser = async (user: AuthUser) => {
+    try {
+      const res = await fetch('/api/auth/dev-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: user.role, name: user.name, patientId: user.patientId })
+      });
+      const data = await res.json();
+      setCurrentUser({ ...user, token: data.token });
+    } catch (err) {
+      console.error('Failed to start demo session:', err);
+      setCurrentUser(user);
+    }
+
+    if (user.role === 'doctor') setActiveTab('doctor-portal');
+    else if (user.role === 'patient') setActiveTab('patient-portal');
+    else if (user.role === 'admin') setActiveTab('staff-leads');
+    else setActiveTab('home');
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (currentUser.token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentUser.token}` }
+        });
+      }
+    } catch (err) {
+      console.error('Logout request failed:', err);
+    }
+    setIsStaffLoggedIn(false);
+    setCurrentUser({ id: 'u-guest', name: 'Public Visitor', role: 'guest' });
+    setActiveTab('home');
+  };
+
+  const isStaffArea =
+    activeTab === 'staff-leads' ||
+    activeTab === 'inquiries-dash' ||
+    activeTab === 'doctor-portal' ||
+    activeTab === 'patient-portal';
+
   return (
-    <div className="min-h-screen bg-[#F5F5F7] font-sans text-slate-800 flex flex-col justify-between selection:bg-teal-500 selection:text-white">
+    <div className={`min-h-screen bg-[#F5F5F7] font-sans text-slate-800 flex flex-col justify-between selection:bg-teal-500 selection:text-white ${isStaffArea ? '' : 'pb-20 lg:pb-0'}`}>
       {/* Premium Initial Loader Sequence */}
       <InitialLoader />
 
@@ -47,7 +96,8 @@ export function App() {
         setActiveTab={setActiveTab}
         onOpenBooking={handleOpenBooking}
         currentUser={currentUser}
-        onOpenAuthModal={() => setIsStaffLoginOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main View Switching */}
@@ -81,16 +131,17 @@ export function App() {
           </div>
         )}
         {activeTab === 'whatsapp-simulator' && <WhatsAppAutomationWidget />}
-        
+
         {(activeTab === 'staff-leads' || activeTab === 'inquiries-dash') && (
           <StaffLeadsDashboard
-            onLogout={() => {
-              setIsStaffLoggedIn(false);
-              setActiveTab('home');
-            }}
+            onLogout={handleLogout}
             onOpenBookingModal={() => handleOpenBooking()}
+            token={currentUser.token}
           />
         )}
+
+        {activeTab === 'doctor-portal' && <DoctorPortal currentUser={currentUser} />}
+        {activeTab === 'patient-portal' && <HipaaPatientPortal currentUser={currentUser} />}
       </main>
 
       {/* Footer */}
@@ -99,6 +150,9 @@ export function App() {
         onOpenBooking={handleOpenBooking}
         onOpenStaffLogin={() => setIsStaffLoginOpen(true)}
       />
+
+      {/* Sticky High-Contrast Conversion CTAs (patient-facing only) */}
+      {!isStaffArea && <StickyCtaBar onOpenBooking={() => handleOpenBooking()} />}
 
       {/* Interactive Modals */}
       <AppointmentBookingModal
@@ -116,15 +170,23 @@ export function App() {
       <StaffLoginModal
         isOpen={isStaffLoginOpen}
         onClose={() => setIsStaffLoginOpen(false)}
-        onLoginSuccess={() => {
+        onLoginSuccess={(token) => {
           setIsStaffLoggedIn(true);
           setCurrentUser({
             id: 'u-admin',
             name: 'Admin Staff',
-            role: 'admin'
+            role: 'admin',
+            token
           });
           setActiveTab('staff-leads');
         }}
+      />
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onSelectUser={handleSelectDemoUser}
       />
     </div>
   );

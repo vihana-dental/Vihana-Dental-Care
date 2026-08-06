@@ -1,6 +1,6 @@
 import React from 'react';
 import { CLINIC_INFO, SERVICES } from '../data/clinicData';
-import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, Lock } from 'lucide-react';
+import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, Lock, MessageCircle } from 'lucide-react';
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
 interface FooterProps {
@@ -105,12 +105,21 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking, onO
               <MapPin className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
               <span>{CLINIC_INFO.address}, Coimbatore - {CLINIC_INFO.pincode}</span>
             </p>
-            <p className="flex items-center gap-2 text-slate-300">
+            <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-center gap-2 text-slate-300 hover:text-teal-300 transition-colors">
               <Phone className="w-4 h-4 text-teal-400 shrink-0" />
               <span>{CLINIC_INFO.phone}</span>
-            </p>
-            <p className="flex items-center gap-2 text-slate-300">
-              <Clock className="w-4 h-4 text-teal-400 shrink-0" />
+            </a>
+            <a
+              href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-slate-300 hover:text-emerald-300 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{CLINIC_INFO.whatsapp} (WhatsApp)</span>
+            </a>
+            <p className="flex items-start gap-2 text-slate-300">
+              <Clock className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
               <span>{CLINIC_INFO.workingHours.weekdays}</span>
             </p>
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { CLINIC_INFO } from '../data/clinicData';
-import { MapPin, Phone, Clock, ExternalLink, Navigation, Sparkles } from 'lucide-react';
+import { MapPin, Phone, Clock, ExternalLink, Navigation, Sparkles, MessageCircle } from 'lucide-react';
 
 export const LocationMapSection: React.FC = () => {
   const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY || process.env.GOOGLE_MAPS_PLATFORM_KEY || "";
@@ -47,8 +47,16 @@ export const LocationMapSection: React.FC = () => {
                 <div className="flex items-start gap-3">
                   <Phone className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold text-white">Direct Phone & WhatsApp</p>
+                    <p className="font-bold text-white">Call Us</p>
                     <p className="mt-0.5">{CLINIC_INFO.phone}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <MessageCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-white">WhatsApp Us</p>
+                    <p className="mt-0.5">{CLINIC_INFO.whatsapp}</p>
                   </div>
                 </div>
 
@@ -74,6 +82,15 @@ export const LocationMapSection: React.FC = () => {
                 <span>Open in Google Maps App</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
+              <a
+                href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Chat on WhatsApp</span>
+              </a>
             </div>
           </div>
 
@@ -97,7 +114,7 @@ export const LocationMapSection: React.FC = () => {
               <div className="relative w-full h-full min-h-[380px] bg-slate-950">
                 <iframe
                   title="Vihana Dental Care Kalapatti Google Map"
-                  src="https://maps.google.com/maps?q=11.0772,77.0264(Vihana%20Dental%20Care)&t=&z=16&ie=UTF8&iwloc=B&output=embed"
+                  src="https://maps.google.com/maps?q=32HP%2B7V+Kalapatti,+Tamil+Nadu&t=&z=17&ie=UTF8&iwloc=B&output=embed"
                   width="100%"
                   height="100%"
                   style={{ border: 0, minHeight: '380px' }}

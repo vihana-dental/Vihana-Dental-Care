@@ -87,10 +87,7 @@ export const GalleryView: React.FC = () => {
 
               <div className="absolute bottom-0 inset-x-0 p-6 flex items-end justify-between">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300 bg-teal-950/90 px-2.5 py-1 rounded-full border border-teal-500/30">
-                    {item.category}
-                  </span>
-                  <h3 className="text-lg font-bold text-white mt-2 leading-snug">{item.title}</h3>
+                  <h3 className="text-lg font-bold text-white leading-snug">{item.title}</h3>
                   <p className="text-xs text-slate-300 line-clamp-1 mt-0.5 font-normal">{item.caption}</p>
                 </div>
                 <div className="p-3 rounded-2xl bg-teal-500/20 text-teal-300 border border-teal-500/30 group-hover:scale-110 transition-transform shadow-lg">
@@ -136,10 +133,7 @@ export const GalleryView: React.FC = () => {
 
               <div className="p-6 sm:p-8 bg-slate-900 border-t border-white/10 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-teal-300 bg-teal-950 px-3 py-1 rounded-full border border-teal-500/30">
-                    {activeImage.category}
-                  </span>
-                  <span className="text-xs text-slate-400">• Vihana Dental Care Kalapatti</span>
+                  <span className="text-xs text-slate-400">Vihana Dental Care • Kalapatti, Coimbatore</span>
                 </div>
                 <h3 className="text-2xl font-extrabold text-white">{activeImage.title}</h3>
                 <p className="text-sm text-slate-300 leading-relaxed font-normal">{activeImage.caption}</p>

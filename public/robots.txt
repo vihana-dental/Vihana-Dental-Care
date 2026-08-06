@@ -2,5 +2,5 @@
 User-agent: *
 Allow: /
 
-# Point to your sitemap (Update this with your custom domain later)
-Sitemap: https://vihanna.vercel.app/sitemap.xml
+# Sitemap
+Sitemap: https://vihanadental.in/sitemap.xml

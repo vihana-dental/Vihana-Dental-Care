@@ -34,14 +34,14 @@ export const CLINIC_INFO: ClinicInfo = {
   pincode: "641048",
   phone: "+91 98943 17823",
   alternatePhone: "098943 17823",
-  whatsapp: "+91 98943 17823",
+  whatsapp: "+91 86680 82140",
   email: "care@vihanadental.com",
-  googleBusinessUrl: "https://maps.google.com/?q=Vihana+Dental+Care+Kalapatti+Coimbatore",
+  googleBusinessUrl: "https://www.google.com/maps/search/?api=1&query=32HP%2B7V+Kalapatti%2C+Tamil+Nadu",
   rating: 4.9,
   totalReviews: 185,
   workingHours: {
-    weekdays: "Monday - Saturday: 9:00 AM – 8:30 PM",
-    sundays: "Sunday: 10:00 AM – 2:00 PM",
+    weekdays: "Monday - Saturday: 9:00 AM – 1:30 PM & 5:00 PM – 8:30 PM",
+    sundays: "Sunday: 10:30 AM – 1:00 PM",
     emergency: "24/7 Emergency Care on Call"
   },
   location: {
@@ -59,7 +59,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Our computer-guided dental implant procedures restore lost teeth with natural aesthetics, 100% biting efficiency, and lifetime stability. Using top Swiss titanium implants and 3D CBCT bone scans.",
     image: implantsServiceImg,
     durationMinutes: 45,
-    priceRange: "₹22,000 - ₹45,000 per implant",
+    priceRange: "",
     benefits: [
       "Looks and functions like natural teeth",
       "Prevents jawbone loss and sagging",
@@ -82,7 +82,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Straighten your teeth seamlessly without metallic wires. Custom 3D aligner trays designed with iTero digital scanner allow you to see your transformed smile before starting treatment.",
     image: invisalignServiceImg,
     durationMinutes: 30,
-    priceRange: "₹45,000 - ₹1,50,000",
+    priceRange: "",
     benefits: [
       "100% Nearly invisible tray design",
       "Removable for effortless eating and brushing",
@@ -105,7 +105,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Save infected or severely painful teeth in a single comfortable 45-minute session. Microscopic endodontics ensures complete removal of bacteria with zero pain.",
     image: rootCanalServiceImg,
     durationMinutes: 45,
-    priceRange: "₹4,500 - ₹8,500 per tooth",
+    priceRange: "",
     benefits: [
       "100% Painless single-sitting procedure",
       "Dental microscope precision for narrow canals",
@@ -128,7 +128,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Transform chipped, discolored, or gapped teeth into a confident celebrity smile. Customized facial proportions analysis ensures natural shade and shape.",
     image: cosmeticSmileServiceImg,
     durationMinutes: 60,
-    priceRange: "₹8,000 - ₹35,000",
+    priceRange: "",
     benefits: [
       "Immediate visual transformation in 2 visits",
       "Stain-resistant ultra-thin porcelain veneers",
@@ -151,7 +151,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Remove deep tea, coffee, smoking, and age-related stains safely under expert supervision. Includes desensitizing shield for zero post-op sensitivity.",
     image: teethWhiteningServiceImg,
     durationMinutes: 45,
-    priceRange: "₹6,000 - ₹12,000",
+    priceRange: "",
     benefits: [
       "Up to 8 shades lighter in 1 visit",
       "Safe light-activated formula protects enamel",
@@ -174,7 +174,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Our specialized child specialists ensure positive dental experiences. From cavity prevention sealants to painless filling and habit correction appliances.",
     image: pediatricServiceImg,
     durationMinutes: 30,
-    priceRange: "₹1,200 - ₹4,500",
+    priceRange: "",
     benefits: [
       "Kid-friendly painless techniques",
       "Pit & fissure sealants for cavity prevention",
@@ -197,7 +197,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Expert surgical removal of painful, impacted or misaligned wisdom teeth under local anesthesia with platelet-rich fibrin (PRF) for rapid pain-free healing.",
     image: wisdomToothServiceImg,
     durationMinutes: 45,
-    priceRange: "₹3,500 - ₹8,000 per tooth",
+    priceRange: "",
     benefits: [
       "Zero discomfort painless anesthesia",
       "Preserves adjacent molar roots",
@@ -220,7 +220,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "High-strength, bio-compatible Zirconia crowns designed using CAD/CAM digital scanners for perfect margin fit, high translucency, and natural look.",
     image: zirconiaBridgeServiceImg,
     durationMinutes: 30,
-    priceRange: "₹7,500 - ₹18,000 per crown",
+    priceRange: "",
     benefits: [
       "100% Metal-free, hyper-allergenic design",
       "15-year warranty card with serial tracking",
@@ -234,6 +234,98 @@ export const SERVICES: DentalService[] = [
       "Bioceramic Resin Cementing"
     ],
     iconName: "Award"
+  },
+  {
+    id: "metal-braces",
+    title: "Metal Braces",
+    category: "Orthodontics",
+    shortDescription: "Traditional stainless-steel fixed braces offering reliable, budget-friendly correction for complex bite issues.",
+    fullDescription: "Time-tested stainless-steel brackets and archwires that gradually reposition teeth for a well-aligned bite. A durable, cost-effective choice for children, teens, and adults with moderate to complex misalignment.",
+    image: jawAlignmentPoster,
+    durationMinutes: 30,
+    priceRange: "",
+    benefits: [
+      "Most affordable fixed orthodontic option",
+      "Effective for complex bite and crowding cases",
+      "Durable stainless-steel components",
+      "Fun colored band options for kids & teens"
+    ],
+    procedures: [
+      "Digital OPG X-Ray & Bite Assessment",
+      "Bracket Bonding & Archwire Placement",
+      "Monthly Wire Adjustment Visits",
+      "Retainer Fitting Post-Treatment"
+    ],
+    iconName: "ShieldCheck"
+  },
+  {
+    id: "ceramic-braces",
+    title: "Ceramic Braces",
+    category: "Orthodontics",
+    shortDescription: "Tooth-colored, low-visibility fixed braces that blend with your natural smile while correcting alignment.",
+    fullDescription: "Ceramic brackets matched to natural tooth shade deliver the same reliable correction as metal braces with a far more discreet, aesthetic appearance — ideal for image-conscious teens and adults.",
+    image: jawAlignmentPoster,
+    durationMinutes: 30,
+    priceRange: "",
+    benefits: [
+      "Tooth-colored, far less noticeable than metal",
+      "Same predictable results as traditional braces",
+      "Stain-resistant ceramic brackets",
+      "Comfortable, smooth bracket design"
+    ],
+    procedures: [
+      "Digital OPG X-Ray & Bite Assessment",
+      "Ceramic Bracket Bonding & Archwire Placement",
+      "Monthly Wire Adjustment Visits",
+      "Retainer Fitting Post-Treatment"
+    ],
+    iconName: "Sparkles"
+  },
+  {
+    id: "damon-braces",
+    title: "Damon Braces (Q2 & Ultima)",
+    category: "Orthodontics",
+    shortDescription: "Advanced self-ligating braces system for faster, more comfortable correction with fewer clinic visits.",
+    fullDescription: "Damon Q2 and Ultima self-ligating braces use a sliding mechanism instead of elastic ties, reducing friction and discomfort while enabling shorter treatment timelines and fewer adjustment appointments.",
+    image: jawAlignmentPoster,
+    durationMinutes: 45,
+    priceRange: "₹70,000 - ₹1,20,000",
+    benefits: [
+      "Self-ligating design needs fewer tightening visits",
+      "Lower friction for greater comfort",
+      "Often shorter overall treatment duration",
+      "Low-profile, sleek bracket design"
+    ],
+    procedures: [
+      "Digital OPG X-Ray & Bite Assessment",
+      "Damon Self-Ligating Bracket Bonding",
+      "Sliding Archwire Placement",
+      "Periodic Progress Review Visits"
+    ],
+    iconName: "Zap"
+  },
+  {
+    id: "normal-braces",
+    title: "Normal Braces",
+    category: "Orthodontics",
+    shortDescription: "Standard fixed braces treatment for everyday bite and spacing correction at an accessible cost.",
+    fullDescription: "Our standard fixed braces protocol corrects common spacing, crowding, and bite issues with regular wire-tie brackets, offering dependable results for patients seeking a straightforward orthodontic solution.",
+    image: jawAlignmentPoster,
+    durationMinutes: 30,
+    priceRange: "₹35,000 - ₹60,000",
+    benefits: [
+      "Accessible entry-level orthodontic option",
+      "Reliable correction for common alignment issues",
+      "Well-established, predictable technique",
+      "Suitable for teens and adults"
+    ],
+    procedures: [
+      "Digital OPG X-Ray & Bite Assessment",
+      "Standard Bracket Bonding & Archwire Placement",
+      "Monthly Wire Adjustment Visits",
+      "Retainer Fitting Post-Treatment"
+    ],
+    iconName: "CheckCircle2"
   }
 ];
 
@@ -242,11 +334,11 @@ export const DOCTORS: Doctor[] = [
     id: "doc-1",
     name: "Dr. N. Sanchana, M.D.S.",
     title: "Chief Consultant Orthodontist & Aligner Specialist",
-    qualification: "BDS, MDS (Orthodontics & Dentofacial Orthopedics)",
+    qualification: "MDS (Orthodontics & Dentofacial Orthopedics)",
     specialization: "Invisalign & Clear Aligners, Jaw Bite Correction, Pediatric Braces & Smile Design",
-    experienceYears: 12,
+    experienceYears: 5,
     photo: vihanaDoctor,
-    bio: "Dr. N. Sanchana, MDS is the Lead Orthodontist and Founder at Vihana Dental Care, Kalapatti, Coimbatore. Specializing in advanced clear aligners, adult & pediatric braces, microscopic root canals, and gentle jaw alignment treatments.",
+    bio: "Dr. N. Sanchana, MDS is the Lead Orthodontist and Founder at Vihana Dental Care, Kalapatti, Coimbatore. Specializing in advanced clear aligners, adult & pediatric braces, microscopic root canals, and gentle jaw alignment treatments. Received Special Training at Coimbatore Medical College, Coimbatore.",
     availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
   }
 ];

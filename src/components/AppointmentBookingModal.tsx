@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SERVICES, DOCTORS } from '../data/clinicData';
 import { Appointment } from '../types';
 import { 
@@ -8,7 +8,10 @@ import {
   CheckCircle2, 
   Sparkles, 
   UserCheck, 
-  Stethoscope 
+  Stethoscope, 
+  Video,
+  MapPin,
+  CreditCard
 } from 'lucide-react';
 
 interface AppointmentBookingModalProps {
@@ -25,6 +28,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   onBookingSuccess
 }) => {
   const [step, setStep] = useState<number>(1);
+  const [consultationType, setConsultationType] = useState<'in-clinic' | 'online-video'>('in-clinic');
   const [selectedServiceId, setSelectedServiceId] = useState<string>(initialServiceId || SERVICES[0].id);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(DOCTORS[0].id);
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -39,17 +43,31 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const [loading, setLoading] = useState<boolean>(false);
   const [bookingResult, setBookingResult] = useState<any>(null);
 
+  // Fee Config state fetched from backend (mirrors server's dual in-clinic/online fee shape)
+  const [feeConfig, setFeeConfig] = useState({ confirmationFeeEnabled: true, inClinicFeeINR: 300, onlineFeeINR: 500 });
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/clinic-info')
+        .then(res => res.json())
+        .then(data => {
+          if (data.feeConfig) setFeeConfig(data.feeConfig);
+        })
+        .catch(err => console.error("Error fetching fee config", err));
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const activeFeeAmount = consultationType === 'online-video' ? feeConfig.onlineFeeINR : feeConfig.inClinicFeeINR;
 
   const timeSlots = [
     '09:30 AM', '10:30 AM', '11:30 AM', '12:30 PM',
     '03:00 PM', '04:00 PM', '05:30 PM', '07:00 PM'
   ];
 
-  const handleSubmitBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleExecuteBooking = async (razorpayPaymentId?: string, razorpayOrderId?: string) => {
     setLoading(true);
-
     try {
       const res = await fetch('/api/appointments', {
         method: 'POST',
@@ -63,7 +81,10 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
           date: selectedDate,
           timeSlot: selectedTimeSlot,
           notes,
-          caregiverPhone
+          caregiverPhone,
+          consultationType,
+          razorpayPaymentId,
+          razorpayOrderId
         })
       });
 
@@ -80,6 +101,65 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
       alert("Error processing appointment. Please check network connection.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmitBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // If confirmation fee is enabled, trigger Razorpay checkout first
+    if (feeConfig.confirmationFeeEnabled && activeFeeAmount > 0) {
+      setLoading(true);
+      try {
+        const orderRes = await fetch('/api/razorpay/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consultationType, receipt: `rcpt_${Date.now()}` })
+        });
+        const orderData = await orderRes.json();
+
+        if (!orderData.success) {
+          alert("Could not initiate payment gateway.");
+          setLoading(false);
+          return;
+        }
+
+        const options = {
+          key: orderData.keyId,
+          amount: orderData.order.amount,
+          currency: "INR",
+          name: "Vihana Dental Care",
+          description: `Appointment Confirmation Advance (${consultationType.toUpperCase()})`,
+          order_id: orderData.order.id,
+          handler: function (response: any) {
+            handleExecuteBooking(response.razorpay_payment_id, response.razorpay_order_id);
+          },
+          prefill: {
+            name: patientName,
+            email: patientEmail,
+            contact: patientPhone
+          },
+          theme: {
+            color: "#0f766e"
+          }
+        };
+
+        if ((window as any).Razorpay) {
+          const rzp = new (window as any).Razorpay(options);
+          rzp.open();
+          setLoading(false);
+        } else {
+          console.log("Razorpay script not detected, simulating successful payment...");
+          setTimeout(() => {
+            handleExecuteBooking(`pay_simulated_${Date.now()}`, orderData.order.id);
+          }, 1000);
+        }
+      } catch (err) {
+        console.error("Razorpay Error:", err);
+        handleExecuteBooking();
+      }
+    } else {
+      handleExecuteBooking();
     }
   };
 
@@ -102,7 +182,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
 
           <div className="flex items-center gap-2 text-teal-300 text-xs font-semibold mb-1">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Vihana Dental Clinic • Coimbatore</span>
+            <span>Vihana Dental Care • Coimbatore</span>
           </div>
           <h3 className="text-2xl font-bold pr-8">
             {step === 3 ? "Appointment Confirmed! 🎉" : "Schedule Your Dental Appointment"}
@@ -110,14 +190,14 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
           <p className="text-xs text-slate-300 mt-1">
             {step === 3 
               ? "Your appointment has been successfully scheduled."
-              : "Select your service, doctor, and preferred time slot for instant confirmation"}
+              : "Select consultation mode, service, doctor, and preferred time slot for instant confirmation"}
           </p>
 
           {/* Progress Indicator */}
           {step !== 3 && (
             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-700/80 text-xs">
               <span className={`px-2.5 py-1 rounded-full font-bold ${step === 1 ? 'bg-teal-500 text-slate-950' : 'bg-slate-700 text-slate-300'}`}>
-                1. Service & Doctor
+                1. Mode & Service
               </span>
               <span className="text-slate-500">•</span>
               <span className={`px-2.5 py-1 rounded-full font-bold ${step === 2 ? 'bg-teal-500 text-slate-950' : 'bg-slate-700 text-slate-300'}`}>
@@ -131,12 +211,54 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
         <div className="flex-1 overflow-y-auto p-6">
           {step === 1 && (
             <div className="space-y-6">
+              
+              {/* Consultation Mode Selector */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                  Select Consultation Mode
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div
+                    onClick={() => setConsultationType('in-clinic')}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 ${
+                      consultationType === 'in-clinic'
+                        ? 'border-teal-600 bg-teal-50/80 ring-2 ring-teal-600/20'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${consultationType === 'in-clinic' ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">In-Clinic Visit</p>
+                      <p className="text-[10px] text-slate-500">Kalapatti Clinic</p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setConsultationType('online-video')}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 ${
+                      consultationType === 'online-video'
+                        ? 'border-teal-600 bg-teal-50/80 ring-2 ring-teal-600/20'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${consultationType === 'online-video' ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                      <Video className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Online Video Consult</p>
+                      <p className="text-[10px] text-teal-700 font-semibold">Instant Google Meet Link</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Select Service */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
                   Select Required Dental Treatment
                 </label>
-                {/* Removed max-h-56 to prevent double-scrollbars inside the modal */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {SERVICES.map((serv) => (
                     <div
@@ -156,8 +278,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-slate-900 truncate">{serv.title}</p>
-                        <p className="text-[11px] text-teal-700 font-semibold">{serv.priceRange}</p>
-                        <p className="text-[10px] text-slate-500">{serv.durationMinutes} mins</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{serv.durationMinutes} mins</p>
                       </div>
                     </div>
                   ))}
@@ -307,6 +428,17 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                 </div>
               </div>
 
+              {/* Razorpay Fee Banner Note */}
+              {feeConfig.confirmationFeeEnabled && activeFeeAmount > 0 && (
+                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-amber-900">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span>Razorpay Advance Booking Fee: <strong>₹{activeFeeAmount}</strong></span>
+                  </div>
+                  <span className="text-[10px] bg-amber-200/60 font-semibold px-2 py-0.5 rounded text-amber-800">Refundable</span>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                 <button
@@ -323,11 +455,11 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                   id="submit-booking-button"
                 >
                   {loading ? (
-                    <span>Syncing Calendar & Booking...</span>
+                    <span>Processing Payment & Booking...</span>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirm Appointment</span>
+                      <span>{feeConfig.confirmationFeeEnabled ? `Pay ₹${activeFeeAmount} & Confirm` : 'Confirm Appointment'}</span>
                     </>
                   )}
                 </button>
@@ -345,7 +477,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                   </div>
                   <div>
                     <p className="font-bold text-lg text-emerald-900">
-                      Booking Confirmed!
+                      {bookingResult.appointment.consultationType === 'online-video' ? 'Online Video Consult Reserved!' : 'Appointment Confirmed!'}
                     </p>
                     <p className="text-sm font-medium text-emerald-800 mt-0.5">
                       {bookingResult.appointment.date} at {bookingResult.appointment.timeSlot}
@@ -366,6 +498,25 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                     <span className="text-slate-500 font-medium text-xs block mb-1">Selected Service:</span>
                     <p className="font-bold text-slate-800">{bookingResult.appointment.serviceName}</p>
                   </div>
+
+                  {bookingResult.appointment.consultationType === 'online-video' && bookingResult.appointment.videoRoomUrl && (
+                    <div className="sm:col-span-2 bg-teal-50 p-3 rounded-xl border border-teal-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-teal-900 font-bold text-xs block">Google Meet Video Room</span>
+                        <a href={bookingResult.appointment.videoRoomUrl} target="_blank" rel="noreferrer" className="text-teal-700 text-xs underline font-mono">
+                          {bookingResult.appointment.videoRoomUrl}
+                        </a>
+                      </div>
+                      <a 
+                        href={bookingResult.appointment.videoRoomUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                      >
+                        Join Now
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 

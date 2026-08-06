@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Phone, MapPin, Send, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, CheckCircle2, Clock, Sparkles, MessageCircle } from 'lucide-react';
 import { CLINIC_INFO, SERVICES } from '../data/clinicData';
 
 export const InquirySection: React.FC = () => {
@@ -50,7 +50,7 @@ export const InquirySection: React.FC = () => {
             Have Questions About Dental Treatments?
           </h2>
           <p className="text-slate-600 text-base leading-relaxed">
-            Send an inquiry to our clinical team in Gandhipuram, Coimbatore. We usually respond within 30 minutes during working hours.
+            Send an inquiry to our clinical team in Kalapatti, Coimbatore. We usually respond within 30 minutes during working hours.
           </p>
         </div>
 
@@ -60,7 +60,7 @@ export const InquirySection: React.FC = () => {
             <div className="space-y-2">
               <h3 className="text-2xl font-bold text-white">Vihana Dental Clinic</h3>
               <p className="text-slate-300 text-xs sm:text-sm">
-                Gandhipuram, Coimbatore • Tamil Nadu, India
+                Kalapatti, Coimbatore • Tamil Nadu, India
               </p>
             </div>
 
@@ -71,7 +71,7 @@ export const InquirySection: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-slate-200">Address Location</p>
-                  <p className="text-xs text-slate-300 mt-0.5">{CLINIC_INFO.address}, Gandhipuram, Coimbatore - {CLINIC_INFO.pincode}</p>
+                  <p className="text-xs text-slate-300 mt-0.5">{CLINIC_INFO.address}, {CLINIC_INFO.city} - {CLINIC_INFO.pincode}</p>
                 </div>
               </div>
 
@@ -80,8 +80,18 @@ export const InquirySection: React.FC = () => {
                   <Phone className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-200">Phone & WhatsApp</p>
-                  <p className="text-xs text-slate-300 mt-0.5">{CLINIC_INFO.phone} / {CLINIC_INFO.alternatePhone}</p>
+                  <p className="font-semibold text-slate-200">Call Us</p>
+                  <p className="text-xs text-slate-300 mt-0.5">{CLINIC_INFO.phone}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-emerald-500/20 text-emerald-300 rounded-xl border border-emerald-500/30">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-200">WhatsApp Us</p>
+                  <p className="text-xs text-slate-300 mt-0.5">{CLINIC_INFO.whatsapp}</p>
                 </div>
               </div>
 

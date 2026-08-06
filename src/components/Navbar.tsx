@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Phone, 
-  Clock, 
-  MapPin, 
-  Calendar, 
-  Menu, 
-  X
+import {
+  Phone,
+  Clock,
+  MapPin,
+  Calendar,
+  Menu,
+  X,
+  MessageCircle,
+  UserCircle2,
+  LogOut
 } from 'lucide-react';
 import { CLINIC_INFO } from '../data/clinicData';
 import { AuthUser } from '../types';
@@ -20,6 +23,7 @@ interface NavbarProps {
   onOpenBooking: (serviceId?: string) => void;
   currentUser: AuthUser;
   onOpenAuthModal: () => void;
+  onLogout: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -28,6 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenBooking,
   currentUser,
   onOpenAuthModal,
+  onLogout,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -46,13 +51,23 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="bg-slate-900 text-slate-100 text-xs py-2 px-4 sm:px-6 border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-4 flex-wrap">
-            <a 
-              href={`tel:${CLINIC_INFO.phone}`} 
+            <a
+              href={`tel:${CLINIC_INFO.phone}`}
               className="flex items-center gap-1.5 hover:text-teal-300 transition-colors"
               id="top-bar-phone"
             >
               <Phone className="w-3.5 h-3.5 text-teal-400" />
               <span className="font-semibold">{CLINIC_INFO.phone}</span>
+            </a>
+            <a
+              href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 hover:text-emerald-300 transition-colors"
+              id="top-bar-whatsapp"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-semibold">WhatsApp Us</span>
             </a>
             <div className="hidden md:flex items-center gap-1.5 text-slate-300">
               <MapPin className="w-3.5 h-3.5 text-teal-400" />
@@ -60,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div className="hidden sm:flex items-center gap-1.5 text-slate-300">
               <Clock className="w-3.5 h-3.5 text-teal-400" />
-              <span>Mon-Sat: 9 AM - 8:30 PM</span>
+              <span>Mon-Sat: 9-1:30 & 5-8:30 PM</span>
             </div>
           </div>
         </div>
@@ -122,6 +137,28 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* CTA Actions */}
         <div className="hidden sm:flex items-center gap-3">
+          {currentUser.role === 'guest' ? (
+            <button
+              onClick={onOpenAuthModal}
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-teal-700 px-2 py-2 rounded-lg text-xs font-semibold transition-colors"
+              id="navbar-demo-role-switcher"
+              title="Preview Patient or Doctor Portal (demo)"
+            >
+              <UserCircle2 className="w-4 h-4" />
+              <span className="hidden xl:inline">Preview Portals</span>
+            </button>
+          ) : (
+            <button
+              onClick={onLogout}
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-red-600 px-2 py-2 rounded-lg text-xs font-semibold transition-colors"
+              id="navbar-logout-button"
+              title={`Logged in as ${currentUser.name} (${currentUser.role}) — click to exit`}
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden xl:inline">Exit {currentUser.role}</span>
+            </button>
+          )}
+
           <motion.button
             onClick={() => onOpenBooking()}
             whileHover={{ scale: 1.02, y: -1 }}

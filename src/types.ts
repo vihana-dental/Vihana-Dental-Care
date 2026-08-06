@@ -1,5 +1,5 @@
 /**
- * vihana Dental Clinic - Data Models and Interfaces
+ * vihana Dental Clinic - Data Models and Interfaces (Updated for Online Consult & Razorpay)
  */
 
 export type UserRole = 'guest' | 'patient' | 'doctor' | 'admin' | 'caregiver';
@@ -14,6 +14,7 @@ export interface AuthUser {
   avatar?: string;
   doctorSpecialization?: string;
   patientRecordId?: string;
+  token?: string;
 }
 
 export interface ClinicInfo {
@@ -99,7 +100,7 @@ export interface Appointment {
   date: string; // YYYY-MM-DD
   timeSlot: string; // e.g. "10:30 AM"
   notes?: string;
-  status: 'pending' | 'confirmed' | 'rescheduled' | 'completed' | 'cancelled';
+  status: 'pending' | 'pending_approval' | 'confirmed' | 'rescheduled' | 'completed' | 'cancelled';
   googleCalendarEventId?: string;
   googleCalendarSynced: boolean;
   whatsappConfirmationSent: boolean;
@@ -108,6 +109,13 @@ export interface Appointment {
   createdAt: string;
   updatedAt: string;
   caregiverPhone?: string;
+  
+  // NEW: Online Consultation & Razorpay Fields
+  consultationType: 'in-clinic' | 'online-video';
+  videoRoomUrl?: string;
+  paymentStatus: 'pending' | 'paid' | 'waived';
+  paymentId?: string;
+  feeAmount?: number;
 }
 
 export interface Inquiry {

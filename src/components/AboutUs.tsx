@@ -23,7 +23,7 @@ export const AboutUs: React.FC = () => {
             <span>Pioneering Dental Care in Kalapatti</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
-            Engineered for Healthy Smiles.
+            Your Trusted Partner for a Confident, Healthy Smile.
           </h2>
           <p className="text-slate-600 text-base sm:text-lg leading-relaxed font-normal">
             At Vihana Dental Care, we pair Swiss computer-guided implant dentistry with gentle human care, establishing new standards for clinical precision in Coimbatore.
@@ -43,9 +43,9 @@ export const AboutUs: React.FC = () => {
             <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-800 flex items-center justify-center mb-5 border border-teal-500/20">
               <Award className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-extrabold text-slate-900 mb-2">14+ Years Experience</h3>
+            <h3 className="text-lg font-extrabold text-slate-900 mb-2">5+ Years Experience</h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-              Over 12,000 successful computer-guided implants, Invisalign cases, and laser root canals delivered in Coimbatore.
+              Over 5,000 successful computer-guided implants, Invisalign cases, and laser root canals delivered in Coimbatore.
             </p>
           </motion.div>
 

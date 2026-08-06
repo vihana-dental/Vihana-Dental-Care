@@ -1,11 +1,13 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { 
-  Calendar, 
-  Star, 
+import {
+  Calendar,
+  Star,
   ShieldCheck,
   Zap,
-  ArrowUpRight
+  ArrowUpRight,
+  MessageCircle,
+  Sparkles
 } from 'lucide-react';
 import { CLINIC_INFO } from '../data/clinicData';
 const vihanaOperatory = '/images/vihana_operatory_1784918541912.jpg';
@@ -20,6 +22,8 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({
   onOpenBooking,
+  onOpenWhatsAppBot,
+  onOpenAiTriage,
 }) => {
   const springTransition = { type: 'spring', stiffness: 100, damping: 20 };
 
@@ -80,7 +84,7 @@ export const Hero: React.FC<HeroProps> = ({
           </motion.p>
 
           {/* Action Button Group */}
-          <motion.div variants={itemVariants} className="pt-2 flex items-center justify-center">
+          <motion.div variants={itemVariants} className="pt-2 flex flex-wrap items-center justify-center gap-3">
             <motion.button
               onClick={onOpenBooking}
               whileTap={{ scale: 0.98 }}
@@ -91,6 +95,28 @@ export const Hero: React.FC<HeroProps> = ({
               <Calendar className="w-5 h-5 text-slate-950" />
               <span>Book Appointment Online</span>
               <ArrowUpRight className="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </motion.button>
+
+            <motion.button
+              onClick={onOpenAiTriage}
+              whileTap={{ scale: 0.98 }}
+              transition={springTransition}
+              className="bg-slate-900/90 hover:bg-slate-800 border border-white/10 text-white font-semibold px-6 py-4 rounded-2xl shadow-lg flex items-center gap-2 text-sm transition-all"
+              id="hero-ai-triage-button"
+            >
+              <Sparkles className="w-4 h-4 text-teal-300" />
+              <span>Ask the AI Symptom Checker</span>
+            </motion.button>
+
+            <motion.button
+              onClick={onOpenWhatsAppBot}
+              whileTap={{ scale: 0.98 }}
+              transition={springTransition}
+              className="bg-slate-900/90 hover:bg-slate-800 border border-white/10 text-white font-semibold px-6 py-4 rounded-2xl shadow-lg flex items-center gap-2 text-sm transition-all"
+              id="hero-whatsapp-bot-button"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-300" />
+              <span>Try WhatsApp Booking Bot</span>
             </motion.button>
           </motion.div>
         </motion.div>
@@ -150,18 +176,18 @@ export const Hero: React.FC<HeroProps> = ({
                     Chief Orthodontist
                   </span>
                   <h2 className="text-lg font-bold text-white mt-0.5">Dr. N. Sanchana, M.D.S.</h2>
-                  <p className="text-xs text-slate-400 font-medium">BDS, MDS (Orthodontics & Aligners)</p>
+                  <p className="text-xs text-slate-400 font-medium">MDS (Orthodontics & Aligners)</p>
                 </div>
               </div>
 
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
-                12+ years of specialist experience in Invisalign, custom clear aligners, pediatric braces, and jaw alignment transformations in the Kalapatti region.
+                5+ years of specialist experience in Invisalign, custom clear aligners, pediatric braces, and jaw alignment transformations in the Kalapatti region.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10 text-center">
               <div className="bg-slate-950/60 p-3 rounded-2xl border border-white/5">
-                <p className="text-2xl font-extrabold text-white">12,000+</p>
+                <p className="text-2xl font-extrabold text-white">5,000+</p>
                 <p className="text-[11px] text-slate-400 font-medium mt-0.5">Smiles Designed</p>
               </div>
               <div className="bg-slate-950/60 p-3 rounded-2xl border border-white/5">

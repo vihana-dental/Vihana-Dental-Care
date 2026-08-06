@@ -31,7 +31,9 @@ export const HipaaPatientPortal: React.FC<HipaaPatientPortalProps> = ({ currentU
   const fetchPatientData = async () => {
     try {
       const patientId = currentUser.patientId || "P-10021";
-      const res = await fetch(`/api/patients/${patientId}`);
+      const res = await fetch(`/api/patients/${patientId}`, {
+        headers: currentUser.token ? { Authorization: `Bearer ${currentUser.token}` } : {}
+      });
       if (res.ok) {
         const data = await res.json();
         setPatientRecord(data.patient);
