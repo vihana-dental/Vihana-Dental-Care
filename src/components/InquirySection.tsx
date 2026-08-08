@@ -58,7 +58,7 @@ export const InquirySection: React.FC = () => {
           {/* Contact Details Card */}
           <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950 text-white p-8 rounded-3xl space-y-8 shadow-xl border border-slate-800">
             <div className="space-y-2">
-              <h3 className="text-2xl font-bold text-white">Vihana Dental Clinic</h3>
+              <h3 className="text-2xl font-bold text-white">Vihana Dental Care</h3>
               <p className="text-slate-300 text-xs sm:text-sm">
                 Kalapatti, Coimbatore • Tamil Nadu, India
               </p>
@@ -75,25 +75,40 @@ export const InquirySection: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
+              <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-start gap-4 group">
                 <div className="p-3 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-500/30">
                   <Phone className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="font-semibold text-slate-200">Call Us</p>
-                  <p className="text-xs text-slate-300 mt-0.5">{CLINIC_INFO.phone}</p>
+                  <p className="text-xs text-slate-300 mt-0.5 group-hover:text-teal-300 transition-colors">{CLINIC_INFO.phone}</p>
                 </div>
-              </div>
+              </a>
 
-              <div className="flex items-start gap-4">
+              <a
+                href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-4 group"
+              >
                 <div className="p-3 bg-emerald-500/20 text-emerald-300 rounded-xl border border-emerald-500/30">
                   <MessageCircle className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="font-semibold text-slate-200">WhatsApp Us</p>
-                  <p className="text-xs text-slate-300 mt-0.5">{CLINIC_INFO.whatsapp}</p>
+                  <p className="text-xs text-slate-300 mt-0.5 group-hover:text-emerald-300 transition-colors">{CLINIC_INFO.whatsapp}</p>
                 </div>
-              </div>
+              </a>
+
+              <a href={`mailto:${CLINIC_INFO.email}`} className="flex items-start gap-4 group">
+                <div className="p-3 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-500/30">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-200">Email Us</p>
+                  <p className="text-xs text-slate-300 mt-0.5 group-hover:text-teal-300 transition-colors">{CLINIC_INFO.email}</p>
+                </div>
+              </a>
 
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-500/30">
@@ -111,7 +126,10 @@ export const InquirySection: React.FC = () => {
               <p className="font-bold text-teal-300 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" /> Emergency Care Helpline
               </p>
-              <p>For urgent dental trauma or toothache emergencies, call +91 98765 43210 immediately.</p>
+              <p>
+                For urgent dental trauma or toothache emergencies, call{' '}
+                <a href={`tel:${CLINIC_INFO.phone}`} className="underline hover:text-teal-300 transition-colors">{CLINIC_INFO.phone}</a> immediately.
+              </p>
             </div>
           </div>
 
@@ -124,7 +142,7 @@ export const InquirySection: React.FC = () => {
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900">Inquiry Submitted!</h3>
                 <p className="text-sm text-slate-600 max-w-md mx-auto">
-                  Thank you for reaching out to Vihana Dental Clinic. Our medical receptionist and doctors have received your message and will get back to you shortly.
+                  Thank you for reaching out to Vihana Dental Care. Our medical receptionist and doctors have received your message and will get back to you shortly.
                 </p>
                 <button
                   onClick={() => setSubmitted(false)}

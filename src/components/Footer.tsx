@@ -1,16 +1,15 @@
 import React from 'react';
 import { CLINIC_INFO, SERVICES } from '../data/clinicData';
-import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle } from 'lucide-react';
+import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle, Mail } from 'lucide-react';
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
 interface FooterProps {
   setActiveTab: (tab: string) => void;
-  onOpenBooking: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking }) => {
+export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
   return (
-    <footer className="bg-slate-950 text-slate-300 pt-16 pb-12 border-t border-slate-800">
+    <footer className="bg-slate-950 text-slate-300 pt-16 pb-28 lg:pb-24 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Col 1: Brand Info */}
@@ -19,19 +18,19 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking }) =
               <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-800 bg-white">
                 <img 
                   src={vihanaLogo} 
-                  alt="Vihana Dental Clinic Logo"
+                  alt="Vihana Dental Care Logo"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
               </div>
               <div>
-                <h3 className="text-lg font-extrabold text-white tracking-tight">VIHANA DENTAL</h3>
+                <h3 className="text-lg font-extrabold text-white tracking-tight">VIHANA DENTAL CARE</h3>
                 <p className="text-[10px] text-teal-400 font-mono font-semibold">COIMBATORE • TAMIL NADU</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-400 leading-relaxed">
-              Vihana Dental Clinic is Coimbatore's premier multispecialty center specializing in computer-guided implants, 3D Invisalign aligners, and laser root canal therapy.
+              Vihana Dental Care is Coimbatore's premier multispecialty center specializing in computer-guided implants, 3D Invisalign aligners, and laser root canal therapy.
             </p>
 
             <div className="pt-2 flex items-center gap-2">
@@ -107,6 +106,10 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking }) =
               <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{CLINIC_INFO.whatsapp} (WhatsApp)</span>
             </a>
+            <a href={`mailto:${CLINIC_INFO.email}`} className="flex items-center gap-2 text-slate-300 hover:text-teal-300 transition-colors">
+              <Mail className="w-4 h-4 text-teal-400 shrink-0" />
+              <span>{CLINIC_INFO.email}</span>
+            </a>
             <p className="flex items-start gap-2 text-slate-300">
               <Clock className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
               <span>{CLINIC_INFO.workingHours.weekdays}</span>
@@ -126,10 +129,15 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenBooking }) =
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Vihana Dental Clinic, Coimbatore. All Rights Reserved.</p>
-          <div className="flex items-center gap-4 text-slate-400">
-            <span>Designed for Coimbatore Dental Excellence</span>
-          </div>
+          <p>© {new Date().getFullYear()} Vihana Dental Care, Coimbatore. All Rights Reserved.</p>
+          <a
+            href="https://www.thepaperplane.co.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-teal-400 transition-colors"
+          >
+            Designed &amp; Developed by <span className="font-semibold">The Paper Plane</span>
+          </a>
         </div>
       </div>
     </footer>

@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { SERVICES, DOCTORS } from '../data/clinicData';
-import { Appointment } from '../types';
-import { 
-  X, 
-  Calendar, 
-  Bell, 
-  CheckCircle2, 
-  Sparkles, 
-  UserCheck, 
-  Stethoscope, 
+import { Appointment, AvailabilitySlot } from '../types';
+import {
+  X,
+  Bell,
+  CheckCircle2,
+  Sparkles,
   Video,
   MapPin,
-  CreditCard
+  CreditCard,
+  AlertTriangle,
+  Loader2,
+  MessageCircle
 } from 'lucide-react';
 
 interface AppointmentBookingModalProps {
@@ -42,9 +42,19 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const [notes, setNotes] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [bookingResult, setBookingResult] = useState<any>(null);
+  const [slotError, setSlotError] = useState<string>('');
+  const [paymentError, setPaymentError] = useState<string>('');
+  const [pendingRetry, setPendingRetry] = useState<(() => void) | null>(null);
 
   // Fee Config state fetched from backend (mirrors server's dual in-clinic/online fee shape)
   const [feeConfig, setFeeConfig] = useState({ confirmationFeeEnabled: true, inClinicFeeINR: 300, onlineFeeINR: 500 });
+
+  // Live availability for the selected date, synced against Google Calendar.
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState<boolean>(false);
+  const [availabilityError, setAvailabilityError] = useState<string>('');
+  const [dayFullyBooked, setDayFullyBooked] = useState<boolean>(false);
+  const [degradedMessage, setDegradedMessage] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -57,17 +67,45 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     }
   }, [isOpen]);
 
+  const loadAvailability = async (date: string) => {
+    setAvailabilityLoading(true);
+    setAvailabilityError('');
+    setDegradedMessage('');
+    try {
+      const res = await fetch(`/api/availability?date=${date}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Could not load availability for this date.');
+
+      setSlots(data.slots || []);
+      setDayFullyBooked(Boolean(data.dayFullyBooked));
+      if (data.degraded) setDegradedMessage(data.message || 'Live availability temporarily unavailable — showing standard hours.');
+
+      const firstAvailable = (data.slots || []).find((s: AvailabilitySlot) => s.available);
+      setSelectedTimeSlot(firstAvailable ? firstAvailable.time : '');
+    } catch (err: any) {
+      setAvailabilityError(err?.message || 'Could not load availability for this date.');
+      setSlots([]);
+      setSelectedTimeSlot('');
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && step === 2) loadAvailability(selectedDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, step, selectedDate]);
+
   if (!isOpen) return null;
 
   const activeFeeAmount = consultationType === 'online-video' ? feeConfig.onlineFeeINR : feeConfig.inClinicFeeINR;
 
-  const timeSlots = [
-    '09:30 AM', '10:30 AM', '11:30 AM', '12:30 PM',
-    '03:00 PM', '04:00 PM', '05:30 PM', '07:00 PM'
-  ];
-
-  const handleExecuteBooking = async (razorpayPaymentId?: string, razorpayOrderId?: string) => {
+  // Free/waived bookings only — no payment to verify, so this goes straight
+  // to appointment creation. Paid bookings never call this; they go through
+  // create-order -> Razorpay checkout -> handleVerifyPayment instead.
+  const handleExecuteFreeBooking = async () => {
     setLoading(true);
+    setPaymentError('');
     try {
       const res = await fetch('/api/appointments', {
         method: 'POST',
@@ -83,8 +121,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
           notes,
           caregiverPhone,
           consultationType,
-          razorpayPaymentId,
-          razorpayOrderId
+          channel: 'website_cta'
         })
       });
 
@@ -92,74 +129,167 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
       if (data.success) {
         setBookingResult(data);
         if (onBookingSuccess) onBookingSuccess(data.appointment);
-        setStep(3); // Success step
+        setStep(3);
       } else {
-        alert(data.error || "Booking failed. Please try again.");
+        setPaymentError(data.error || 'Booking failed. Please try again.');
+        setPendingRetry(() => handleExecuteFreeBooking);
       }
     } catch (err) {
       console.error(err);
-      alert("Error processing appointment. Please check network connection.");
+      setPaymentError('Could not reach the server. Please check your connection and try again.');
+      setPendingRetry(() => handleExecuteFreeBooking);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmitBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Sends the three Razorpay Checkout callback fields to the server for HMAC
+  // verification. The server is the only thing that ever flips a booking to
+  // "confirmed" — this call can fail (bad signature, network drop) without
+  // ever having falsely told the patient they're booked.
+  const handleVerifyPayment = async (razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature?: string) => {
+    setLoading(true);
+    setPaymentError('');
+    try {
+      const res = await fetch('/api/payments/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpay_order_id: razorpayOrderId,
+          razorpay_payment_id: razorpayPaymentId,
+          razorpay_signature: razorpaySignature
+        })
+      });
+      const data = await res.json();
 
-    // If confirmation fee is enabled, trigger Razorpay checkout first
-    if (feeConfig.confirmationFeeEnabled && activeFeeAmount > 0) {
-      setLoading(true);
-      try {
-        const orderRes = await fetch('/api/razorpay/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ consultationType, receipt: `rcpt_${Date.now()}` })
-        });
-        const orderData = await orderRes.json();
-
-        if (!orderData.success) {
-          alert("Could not initiate payment gateway.");
-          setLoading(false);
-          return;
-        }
-
-        const options = {
-          key: orderData.keyId,
-          amount: orderData.order.amount,
-          currency: "INR",
-          name: "Vihana Dental Care",
-          description: `Appointment Confirmation Advance (${consultationType.toUpperCase()})`,
-          order_id: orderData.order.id,
-          handler: function (response: any) {
-            handleExecuteBooking(response.razorpay_payment_id, response.razorpay_order_id);
-          },
-          prefill: {
-            name: patientName,
-            email: patientEmail,
-            contact: patientPhone
-          },
-          theme: {
-            color: "#0f766e"
-          }
-        };
-
-        if ((window as any).Razorpay) {
-          const rzp = new (window as any).Razorpay(options);
-          rzp.open();
-          setLoading(false);
-        } else {
-          console.log("Razorpay script not detected, simulating successful payment...");
-          setTimeout(() => {
-            handleExecuteBooking(`pay_simulated_${Date.now()}`, orderData.order.id);
-          }, 1000);
-        }
-      } catch (err) {
-        console.error("Razorpay Error:", err);
-        handleExecuteBooking();
+      if (data.success) {
+        setBookingResult(data);
+        if (onBookingSuccess) onBookingSuccess(data.appointment);
+        setStep(3);
+      } else {
+        setPaymentError(data.error || 'Payment verification failed. Please try again — you have not been charged twice.');
+        // Retrying re-runs handleSubmitBooking, which requests a fresh order —
+        // safer than reusing one that just failed verification.
+        setPendingRetry(() => handleSubmitBooking);
       }
-    } else {
-      handleExecuteBooking();
+    } catch (err) {
+      console.error('Payment verification request failed:', err);
+      setPaymentError('We could not confirm your payment due to a network issue. If you were charged, contact us with your payment ID — otherwise, please try again.');
+      setPendingRetry(() => handleSubmitBooking);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitBooking = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setSlotError('');
+    setPaymentError('');
+    setPendingRetry(null);
+
+    // Re-verify the chosen slot is still free right before payment/Meet
+    // generation — it may have been booked or blocked since the page loaded.
+    setLoading(true);
+    try {
+      const confirmRes = await fetch('/api/availability/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: selectedDate, timeSlot: selectedTimeSlot })
+      });
+      const confirmData = await confirmRes.json();
+      if (!confirmData.valid) {
+        setSlotError(confirmData.message || 'That slot was just booked. Please pick another time.');
+        setLoading(false);
+        loadAvailability(selectedDate);
+        return;
+      }
+    } catch {
+      // Fail open — the server does a hard re-check again on final booking anyway.
+    }
+    setLoading(false);
+
+    if (!(feeConfig.confirmationFeeEnabled && activeFeeAmount > 0)) {
+      handleExecuteFreeBooking();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const orderRes = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientName,
+          patientPhone,
+          patientEmail,
+          doctorId: selectedDoctorId,
+          serviceId: selectedServiceId,
+          date: selectedDate,
+          timeSlot: selectedTimeSlot,
+          notes,
+          caregiverPhone,
+          consultationType
+        })
+      });
+      const orderData = await orderRes.json();
+
+      if (!orderData.success) {
+        setPaymentError(orderData.error || 'Could not initiate payment gateway.');
+        setLoading(false);
+        return;
+      }
+
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.order.amount,
+        currency: 'INR',
+        name: 'Vihana Dental Care',
+        description: `Appointment Confirmation Advance (${consultationType.toUpperCase()})`,
+        order_id: orderData.order.id,
+        handler: function (response: any) {
+          handleVerifyPayment(response.razorpay_order_id, response.razorpay_payment_id, response.razorpay_signature);
+        },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+            setPaymentError('Payment was cancelled. Your slot is not booked yet — you can try again whenever you\'re ready.');
+            setPendingRetry(() => handleSubmitBooking);
+          }
+        },
+        prefill: {
+          name: patientName,
+          email: patientEmail,
+          contact: patientPhone
+        },
+        theme: {
+          color: '#0f766e'
+        }
+      };
+
+      // orderData.mock reflects whether the server has real Razorpay keys
+      // configured — not window.Razorpay presence. The Checkout SDK script is
+      // always loaded, so opening it with the placeholder mock key would show
+      // the user a real Razorpay "invalid key" error instead of a clean demo.
+      if (!orderData.mock && (window as any).Razorpay) {
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (response: any) {
+          setLoading(false);
+          setPaymentError(response?.error?.description || 'Payment failed. Please try again.');
+          setPendingRetry(() => handleSubmitBooking);
+        });
+        rzp.open();
+        setLoading(false);
+      } else {
+        console.log('Running in mock payment mode (no live Razorpay keys configured), simulating successful payment...');
+        setTimeout(() => {
+          handleVerifyPayment(orderData.order.id, `pay_simulated_${Date.now()}`, undefined);
+        }, 1000);
+      }
+    } catch (err) {
+      console.error('Razorpay order/checkout error:', err);
+      setPaymentError('Could not start the payment process. Please check your connection and try again.');
+      setPendingRetry(() => handleSubmitBooking);
+      setLoading(false);
     }
   };
 
@@ -208,7 +338,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
         </div>
 
         {/* 4. MODAL BODY: Scrollable container (flex-1 + overflow-y-auto) */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto scroll-thin p-6">
           {step === 1 && (
             <div className="space-y-6">
               
@@ -349,17 +479,62 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Select Available Time Slot
                   </label>
-                  <select
-                    value={selectedTimeSlot}
-                    onChange={(e) => setSelectedTimeSlot(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                  >
-                    {timeSlots.map((slot) => (
-                      <option key={slot} value={slot}>{slot}</option>
-                    ))}
-                  </select>
+
+                  {availabilityLoading && (
+                    <div className="flex flex-wrap gap-1.5 py-1">
+                      {[...Array(4)].map((_, i) => (
+                        <span key={i} className="w-16 h-8 rounded-lg bg-slate-100 animate-pulse inline-block" />
+                      ))}
+                    </div>
+                  )}
+
+                  {!availabilityLoading && availabilityError && (
+                    <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 text-rose-700 text-xs p-2.5 rounded-xl">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <p>{availabilityError}</p>
+                        <button type="button" onClick={() => loadAvailability(selectedDate)} className="underline font-semibold mt-1">Retry</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!availabilityLoading && !availabilityError && dayFullyBooked && (
+                    <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+                      Fully booked on this date — please choose another date.
+                    </p>
+                  )}
+
+                  {!availabilityLoading && !availabilityError && !dayFullyBooked && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {slots.map((s) => (
+                        <button
+                          key={s.time}
+                          type="button"
+                          onClick={() => s.available && setSelectedTimeSlot(s.time)}
+                          disabled={!s.available}
+                          title={!s.available ? 'Already booked' : undefined}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                            !s.available
+                              ? 'bg-slate-50 border-slate-100 text-slate-300 line-through cursor-not-allowed'
+                              : selectedTimeSlot === s.time
+                              ? 'bg-teal-700 border-teal-700 text-white'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-teal-300'
+                          }`}
+                        >
+                          {s.time}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {degradedMessage && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] p-2.5 rounded-xl">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{degradedMessage}</span>
+                </div>
+              )}
 
               {/* Patient Contact Info */}
               <div className="space-y-3 pt-2">
@@ -439,6 +614,31 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                 </div>
               )}
 
+              {slotError && (
+                <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 text-rose-700 text-xs p-2.5 rounded-xl">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{slotError}</span>
+                </div>
+              )}
+
+              {paymentError && (
+                <div className="flex items-start justify-between gap-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{paymentError}</span>
+                  </div>
+                  {pendingRetry && (
+                    <button
+                      type="button"
+                      onClick={() => pendingRetry()}
+                      className="shrink-0 bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg"
+                    >
+                      Try Again
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                 <button
@@ -450,12 +650,15 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-8 py-3 rounded-xl shadow transition-all flex items-center gap-2"
+                  disabled={loading || availabilityLoading || dayFullyBooked || !selectedTimeSlot}
+                  className="bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-xs font-bold px-8 py-3 rounded-xl shadow transition-all flex items-center gap-2"
                   id="submit-booking-button"
                 >
                   {loading ? (
-                    <span>Processing Payment & Booking...</span>
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Confirming slot & processing...</span>
+                    </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
@@ -487,6 +690,10 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-white/90 p-4 rounded-xl border border-emerald-100/50 shadow-sm">
                   <div>
+                    <span className="text-slate-500 font-medium text-xs block mb-1">Appointment ID:</span>
+                    <p className="font-bold text-slate-800 font-mono">#{bookingResult.appointment.id}</p>
+                  </div>
+                  <div>
                     <span className="text-slate-500 font-medium text-xs block mb-1">Patient Name:</span>
                     <p className="font-bold text-slate-800">{bookingResult.appointment.patientName}</p>
                   </div>
@@ -507,9 +714,9 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                           {bookingResult.appointment.videoRoomUrl}
                         </a>
                       </div>
-                      <a 
-                        href={bookingResult.appointment.videoRoomUrl} 
-                        target="_blank" 
+                      <a
+                        href={bookingResult.appointment.videoRoomUrl}
+                        target="_blank"
                         rel="noreferrer"
                         className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold"
                       >
@@ -517,8 +724,30 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                       </a>
                     </div>
                   )}
+
+                  {bookingResult.appointment.consultationType === 'online-video' && !bookingResult.appointment.videoRoomUrl && (
+                    <div className="sm:col-span-2 bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs text-amber-900">
+                      <span className="font-bold block mb-0.5">Google Meet link — coming shortly</span>
+                      <span>Dr. N. Sanchana is confirming availability for this slot. Your Google Meet link will be sent to your WhatsApp number the moment it's ready.</span>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {bookingResult.whatsappLink && (
+                <a
+                  href={bookingResult.whatsappLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebd5a] text-white text-sm font-bold px-5 py-3.5 rounded-2xl shadow transition-colors"
+                >
+                  <MessageCircle className="w-4.5 h-4.5" />
+                  <span>Get Confirmation on WhatsApp</span>
+                </a>
+              )}
+              <p className="text-[11px] text-slate-500 -mt-3 text-center">
+                Opens WhatsApp with a pre-filled message — send it to receive your confirmed appointment details.
+              </p>
 
               <div className="pt-2 flex justify-end">
                 <button

@@ -1,6 +1,6 @@
-import { ClinicInfo, DentalService, Doctor, GalleryItem, Review, PatientRecord, AuditLog } from '../types';
+import { ClinicInfo, DentalService, Doctor, ConsultantDoctor, GalleryItem, Review, PatientRecord, AuditLog } from '../types';
 
-const vihanaDoctor = '/images/vihana_doctor_1784918556857.jpg';
+const vihanaDoctor = '/images/Dr.Sanchana.jpeg';
 const vihanaOperatory = '/images/vihana_operatory_1784918541912.jpg';
 const vihanaExteriorSign = '/images/vihana_exterior_sign_1784919394277.jpg';
 const drSanchanaConsultation = '/images/dr_sanchana_consultation_1784919412452.jpg';
@@ -17,6 +17,12 @@ const teethWhiteningServiceImg = '/images/teeth_whitening_img_1784928192826.jpg'
 const pediatricServiceImg = '/images/pediatric_dental_img_1784928204990.jpg';
 const wisdomToothServiceImg = '/images/wisdom_tooth_img_1784928216053.jpg';
 const zirconiaBridgeServiceImg = '/images/zirconia_bridge_img_1784928230230.jpg';
+
+// Braces service images
+const metalBracesServiceImg = '/images/Metal%20Braces.jpeg';
+const ceramicBracesServiceImg = '/images/Ceramic%20Braces.jpeg';
+const damonBracesServiceImg = '/images/DAMON%20Q2%20and%20Ultima.png';
+const normalBracesServiceImg = '/images/Normal%20Braces.jpeg';
 
 // Gallery poster custom images
 const wisdomImpactionPoster = '/images/wisdom_impaction_poster_1784958272384.jpg';
@@ -50,7 +56,88 @@ export const CLINIC_INFO: ClinicInfo = {
   }
 };
 
+// ---------------- Structured Working Hours ----------------
+// Single source of truth for bookable windows, consumed by both the server
+// (availability computation) and the client (rendering slot chips). Indexed
+// by day-of-week: 0 = Sunday ... 6 = Saturday, matching Date#getUTCDay().
+export interface TimeWindow {
+  start: string; // "HH:mm", 24-hour
+  end: string;
+}
+
+const WEEKDAY_WINDOWS: TimeWindow[] = [
+  { start: '09:00', end: '13:30' },
+  { start: '17:00', end: '20:30' }
+];
+const SUNDAY_WINDOWS: TimeWindow[] = [{ start: '10:30', end: '13:00' }];
+
+export const WEEKLY_SCHEDULE: TimeWindow[][] = [
+  SUNDAY_WINDOWS,   // Sun
+  WEEKDAY_WINDOWS,  // Mon
+  WEEKDAY_WINDOWS,  // Tue
+  WEEKDAY_WINDOWS,  // Wed
+  WEEKDAY_WINDOWS,  // Thu
+  WEEKDAY_WINDOWS,  // Fri
+  WEEKDAY_WINDOWS   // Sat
+];
+
+const SLOT_INTERVAL_MINUTES = 30;
+const APPOINTMENT_DURATION_MINUTES = 30;
+
+function formatSlotLabel(hours: number, minutes: number): string {
+  const meridiem = hours >= 12 ? 'PM' : 'AM';
+  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${displayHour}:${String(minutes).padStart(2, '0')} ${meridiem}`;
+}
+
+/** Day-of-week (0=Sun) for a "YYYY-MM-DD" string, independent of server timezone. */
+export function getWeekdayForDate(dateISO: string): number {
+  return new Date(`${dateISO}T00:00:00Z`).getUTCDay();
+}
+
+/** Every bookable slot label for a given date, derived from WEEKLY_SCHEDULE. */
+export function getTimeSlotsForDate(dateISO: string): string[] {
+  const windows = WEEKLY_SCHEDULE[getWeekdayForDate(dateISO)] || [];
+  const slots: string[] = [];
+
+  for (const window of windows) {
+    const [startH, startM] = window.start.split(':').map(Number);
+    const [endH, endM] = window.end.split(':').map(Number);
+    const windowStartMin = startH * 60 + startM;
+    const windowEndMin = endH * 60 + endM;
+
+    for (let t = windowStartMin; t + APPOINTMENT_DURATION_MINUTES <= windowEndMin; t += SLOT_INTERVAL_MINUTES) {
+      slots.push(formatSlotLabel(Math.floor(t / 60), t % 60));
+    }
+  }
+
+  return slots;
+}
+
 export const SERVICES: DentalService[] = [
+  {
+    id: "general-consultation",
+    title: "General Consultation",
+    category: "General",
+    shortDescription: "A thorough dental checkup and consultation to diagnose issues and plan the right treatment.",
+    fullDescription: "Not sure what you need? Start here. Dr. N. Sanchana examines your teeth and gums, reviews any concerns or symptoms, and recommends the right next steps — whether that's a simple filling, a specialist referral, or a full treatment plan. The starting point for most new patients.",
+    image: drSanchanaConsultation,
+    durationMinutes: 20,
+    priceRange: "₹300 - ₹600",
+    benefits: [
+      "Full oral examination by Dr. N. Sanchana",
+      "Clear, honest treatment recommendations",
+      "No pressure to commit to treatment same-day",
+      "Ideal first visit for new patients"
+    ],
+    procedures: [
+      "Patient History & Symptom Review",
+      "Visual & Instrument-Based Oral Exam",
+      "Diagnosis & Treatment Plan Discussion",
+      "Cost Estimate for Recommended Treatment"
+    ],
+    iconName: "Stethoscope"
+  },
   {
     id: "dental-implants",
     title: "Dental Implants & Full Mouth Rehab",
@@ -59,7 +146,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Our computer-guided dental implant procedures restore lost teeth with natural aesthetics, 100% biting efficiency, and lifetime stability. Using top Swiss titanium implants and 3D CBCT bone scans.",
     image: implantsServiceImg,
     durationMinutes: 45,
-    priceRange: "",
+    priceRange: "₹22,000 - ₹45,000 per implant",
     benefits: [
       "Looks and functions like natural teeth",
       "Prevents jawbone loss and sagging",
@@ -82,7 +169,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Straighten your teeth seamlessly without metallic wires. Custom 3D aligner trays designed with iTero digital scanner allow you to see your transformed smile before starting treatment.",
     image: invisalignServiceImg,
     durationMinutes: 30,
-    priceRange: "",
+    priceRange: "₹45,000 - ₹1,50,000",
     benefits: [
       "100% Nearly invisible tray design",
       "Removable for effortless eating and brushing",
@@ -105,7 +192,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Save infected or severely painful teeth in a single comfortable 45-minute session. Microscopic endodontics ensures complete removal of bacteria with zero pain.",
     image: rootCanalServiceImg,
     durationMinutes: 45,
-    priceRange: "",
+    priceRange: "₹4,500 - ₹8,500 per tooth",
     benefits: [
       "100% Painless single-sitting procedure",
       "Dental microscope precision for narrow canals",
@@ -128,7 +215,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Transform chipped, discolored, or gapped teeth into a confident celebrity smile. Customized facial proportions analysis ensures natural shade and shape.",
     image: cosmeticSmileServiceImg,
     durationMinutes: 60,
-    priceRange: "",
+    priceRange: "₹8,000 - ₹35,000",
     benefits: [
       "Immediate visual transformation in 2 visits",
       "Stain-resistant ultra-thin porcelain veneers",
@@ -151,7 +238,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Remove deep tea, coffee, smoking, and age-related stains safely under expert supervision. Includes desensitizing shield for zero post-op sensitivity.",
     image: teethWhiteningServiceImg,
     durationMinutes: 45,
-    priceRange: "",
+    priceRange: "₹6,000 - ₹12,000",
     benefits: [
       "Up to 8 shades lighter in 1 visit",
       "Safe light-activated formula protects enamel",
@@ -174,7 +261,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Our specialized child specialists ensure positive dental experiences. From cavity prevention sealants to painless filling and habit correction appliances.",
     image: pediatricServiceImg,
     durationMinutes: 30,
-    priceRange: "",
+    priceRange: "₹1,200 - ₹4,500",
     benefits: [
       "Kid-friendly painless techniques",
       "Pit & fissure sealants for cavity prevention",
@@ -197,7 +284,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "Expert surgical removal of painful, impacted or misaligned wisdom teeth under local anesthesia with platelet-rich fibrin (PRF) for rapid pain-free healing.",
     image: wisdomToothServiceImg,
     durationMinutes: 45,
-    priceRange: "",
+    priceRange: "₹3,500 - ₹8,000 per tooth",
     benefits: [
       "Zero discomfort painless anesthesia",
       "Preserves adjacent molar roots",
@@ -220,7 +307,7 @@ export const SERVICES: DentalService[] = [
     fullDescription: "High-strength, bio-compatible Zirconia crowns designed using CAD/CAM digital scanners for perfect margin fit, high translucency, and natural look.",
     image: zirconiaBridgeServiceImg,
     durationMinutes: 30,
-    priceRange: "",
+    priceRange: "₹7,500 - ₹18,000 per crown",
     benefits: [
       "100% Metal-free, hyper-allergenic design",
       "15-year warranty card with serial tracking",
@@ -241,9 +328,9 @@ export const SERVICES: DentalService[] = [
     category: "Orthodontics",
     shortDescription: "Traditional stainless-steel fixed braces offering reliable, budget-friendly correction for complex bite issues.",
     fullDescription: "Time-tested stainless-steel brackets and archwires that gradually reposition teeth for a well-aligned bite. A durable, cost-effective choice for children, teens, and adults with moderate to complex misalignment.",
-    image: jawAlignmentPoster,
+    image: metalBracesServiceImg,
     durationMinutes: 30,
-    priceRange: "",
+    priceRange: "₹25,000 - ₹50,000",
     benefits: [
       "Most affordable fixed orthodontic option",
       "Effective for complex bite and crowding cases",
@@ -264,9 +351,9 @@ export const SERVICES: DentalService[] = [
     category: "Orthodontics",
     shortDescription: "Tooth-colored, low-visibility fixed braces that blend with your natural smile while correcting alignment.",
     fullDescription: "Ceramic brackets matched to natural tooth shade deliver the same reliable correction as metal braces with a far more discreet, aesthetic appearance — ideal for image-conscious teens and adults.",
-    image: jawAlignmentPoster,
+    image: ceramicBracesServiceImg,
     durationMinutes: 30,
-    priceRange: "",
+    priceRange: "₹35,000 - ₹75,000",
     benefits: [
       "Tooth-colored, far less noticeable than metal",
       "Same predictable results as traditional braces",
@@ -287,7 +374,7 @@ export const SERVICES: DentalService[] = [
     category: "Orthodontics",
     shortDescription: "Advanced self-ligating braces system for faster, more comfortable correction with fewer clinic visits.",
     fullDescription: "Damon Q2 and Ultima self-ligating braces use a sliding mechanism instead of elastic ties, reducing friction and discomfort while enabling shorter treatment timelines and fewer adjustment appointments.",
-    image: jawAlignmentPoster,
+    image: damonBracesServiceImg,
     durationMinutes: 45,
     priceRange: "₹70,000 - ₹1,20,000",
     benefits: [
@@ -310,7 +397,7 @@ export const SERVICES: DentalService[] = [
     category: "Orthodontics",
     shortDescription: "Standard fixed braces treatment for everyday bite and spacing correction at an accessible cost.",
     fullDescription: "Our standard fixed braces protocol corrects common spacing, crowding, and bite issues with regular wire-tie brackets, offering dependable results for patients seeking a straightforward orthodontic solution.",
-    image: jawAlignmentPoster,
+    image: normalBracesServiceImg,
     durationMinutes: 30,
     priceRange: "₹35,000 - ₹60,000",
     benefits: [
@@ -340,6 +427,44 @@ export const DOCTORS: Doctor[] = [
     photo: vihanaDoctor,
     bio: "Dr. N. Sanchana, MDS is the Lead Orthodontist and Founder at Vihana Dental Care, Kalapatti, Coimbatore. Specializing in advanced clear aligners, adult & pediatric braces, microscopic root canals, and gentle jaw alignment treatments. Received Special Training at Coimbatore Medical College, Coimbatore.",
     availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+  }
+];
+
+// Visiting specialists who consult at the clinic on a case-referral basis.
+// Informational only — deliberately excluded from DOCTORS/the booking flow;
+// there is no appointment-booking module for them.
+export const CONSULTANT_DOCTORS: ConsultantDoctor[] = [
+  {
+    id: "consultant-saraaj-bhuvan",
+    name: "Dr. R. Saraaj Bhuvan, M.D.S.",
+    specialty: "Consultant Periodontist & Oral Implantologist",
+    qualification: "BDS — Sri Ramakrishna Dental College & Hospital, Coimbatore (2012–2017) · MDS — Periodontics & Oral Implantology, Sri Ramachandra",
+    bio: "An MDS specialist in Periodontics and Oral Implantology, focused on gum health and dental implants. Completed his BDS at Sri Ramakrishna Dental College and Hospital, Coimbatore, and later served there as a Lecturer in the Department of Periodontics.",
+    photo: "/images/Dr.Saraaj%20Bhuvan.jpeg"
+  },
+  {
+    id: "consultant-santhosh-babu",
+    name: "Dr. Santhosh Babu, M.D.S.",
+    specialty: "Consultant Oral & Maxillofacial Surgeon",
+    qualification: "MDS — Oral & Maxillofacial Surgery",
+    bio: "Consultant surgeon specializing in Oral & Maxillofacial Surgery, providing expert surgical care for complex extractions, impactions, and other oral surgical procedures at Vihana Dental Care.",
+    photo: "/images/Dr.%20Santhosh%20Babu%20MDS.jpeg"
+  },
+  {
+    id: "consultant-kavimalar",
+    name: "Dr. Kavimalar, M.D.S.",
+    specialty: "Consultant Endodontist & Root Canal Specialist",
+    qualification: "BDS — Sri Ramakrishna Dental College & Hospital · MDS — Faculty of Dental Sciences, Ramaiah University of Applied Sciences",
+    bio: "Consultant Endodontist and root canal specialist. Previously served as Senior Lecturer at Sri Ramakrishna Dental College & Hospital, Coimbatore.",
+    photo: "/images/Dr.Kavimalar.jpeg"
+  },
+  {
+    id: "consultant-sandhiya",
+    name: "Dr. Sandhiya V, M.D.S.",
+    specialty: "Consultant Pedodontist & Preventive Dentist",
+    qualification: "BDS, MDS — Paedodontics & Preventive Dentistry · 5-8 years clinical experience",
+    bio: "A Paediatric and Preventive Dentist with 5 to 8 years of clinical experience in Coimbatore, specializing in children's dentistry — including child dental care, tongue-tie release, pulp treatments, and preventive oral care.",
+    photo: "/images/Dr.Sandhiya.jpeg"
   }
 ];
 

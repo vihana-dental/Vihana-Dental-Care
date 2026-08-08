@@ -1,8 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { DOCTORS, CLINIC_INFO } from '../data/clinicData';
-import { Award, ShieldCheck, HeartPulse, Sparkles, CheckCircle2, UserCheck, Stethoscope } from 'lucide-react';
-const vihanaDoctor = '/images/vihana_doctor_1784918556857.jpg';
+import { Award, ShieldCheck, HeartPulse, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export const AboutUs: React.FC = () => {
   const springTransition = { type: 'spring', stiffness: 100, damping: 20 };
@@ -23,10 +21,54 @@ export const AboutUs: React.FC = () => {
             <span>Pioneering Dental Care in Kalapatti</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
-            Your Trusted Partner for a Confident, Healthy Smile.
+            Your Trusted Partner for a Confident, Radiant Smile.
           </h2>
           <p className="text-slate-600 text-base sm:text-lg leading-relaxed font-normal">
             At Vihana Dental Care, we pair Swiss computer-guided implant dentistry with gentle human care, establishing new standards for clinical precision in Coimbatore.
+          </p>
+        </motion.div>
+
+        {/* Why Choose Us */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={springTransition}
+          className="bg-[#F5F5F7] text-slate-800 rounded-[32px] p-8 sm:p-12 space-y-8 border border-slate-200/60"
+        >
+          <div className="max-w-3xl space-y-4">
+            <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Why Kalapatti Chooses Vihana</span>
+            </div>
+            <h3 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              Modern Dentistry, Delivered Without the Anxiety.
+            </h3>
+            <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+              Vihana Dental Care is a modern dental clinic in Kalapatti, Coimbatore, built around painless dentistry and advanced digital diagnostics. From root canal treatment and crowns &amp; bridges to cosmetic dentistry, pediatric care, and same-day emergency appointments — our patient-first approach means transparent pricing, minimal wait times, and dedicated follow-up care for every single procedure.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              'Root canal treatment (RCT), crowns & bridges',
+              'Cosmetic dentistry & smile makeovers',
+              'Pediatric dental care for kids of all ages',
+              'Emergency treatment with same-day appointments',
+              'Transparent, upfront pricing — no surprises',
+              'Minimal wait times & dedicated follow-up care',
+              'Walk-ins welcome, or book online in advance',
+              'Comfortable, anxiety-free visits for every patient'
+            ].map((point) => (
+              <div key={point} className="flex items-start gap-2.5 text-sm text-slate-700 bg-white border border-slate-200/80 rounded-2xl px-4 py-3">
+                <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
+                <span>{point}</span>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">
+            Whether it's a routine checkup or a complex treatment plan, our experienced team ensures every visit is comfortable from start to finish. Visit us in Kalapatti for a healthier smile today.
           </p>
         </motion.div>
 
@@ -99,81 +141,6 @@ export const AboutUs: React.FC = () => {
               Computer-controlled targeted local anesthesia guaranteeing completely comfortable, anxiety-free visits.
             </p>
           </motion.div>
-        </div>
-
-        {/* Doctor Profile Section */}
-        <div className="space-y-8 pt-8">
-          <motion.div 
-            className="text-center max-w-2xl mx-auto space-y-2"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={springTransition}
-          >
-            <h3 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-              Lead Doctor & Specialist
-            </h3>
-            <p className="text-slate-600 text-sm sm:text-base font-normal">
-              Experienced, board-certified care dedicated to your family's oral health in Kalapatti, Coimbatore.
-            </p>
-          </motion.div>
-
-          <div className="max-w-4xl mx-auto">
-            {DOCTORS.map((doc) => {
-              const photo = doc.id === 'doc-1' ? vihanaDoctor : doc.photo;
-              return (
-                <motion.div 
-                  key={doc.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={springTransition}
-                  className="bg-[#F5F5F7] rounded-[32px] overflow-hidden border border-slate-200/80 shadow-lg hover:shadow-2xl transition-all duration-300 grid grid-cols-1 md:grid-cols-12 gap-0 group"
-                >
-                  {/* Photo Column */}
-                  <div className="md:col-span-5 relative min-h-[320px] md:min-h-[420px] bg-slate-200 overflow-hidden">
-                    <img
-                      src={photo}
-                      alt={doc.name}
-                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute top-4 left-4 bg-slate-900/90 text-teal-300 text-xs font-bold px-3.5 py-1.5 rounded-full border border-slate-700 shadow-lg backdrop-blur-md">
-                      {doc.experienceYears}+ Years Clinical Excellence
-                    </div>
-                  </div>
-
-                  {/* Details Column */}
-                  <div className="md:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-6">
-                    <div className="space-y-3">
-                      <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-3 py-1 rounded-full border border-teal-500/20">
-                        <UserCheck className="w-3.5 h-3.5 text-teal-600" />
-                        <span>Lead Orthodontist & Founder</span>
-                      </div>
-                      <h4 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{doc.name}</h4>
-                      <p className="text-sm font-bold text-teal-700">{doc.title}</p>
-                      <p className="text-xs text-slate-500 font-mono">{doc.qualification}</p>
-                      <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal pt-2">{doc.bio}</p>
-                    </div>
-
-                    <div className="pt-4 border-t border-slate-200 space-y-3">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                        <Stethoscope className="w-4 h-4 text-teal-600" />
-                        <span>Clinical Focus & Specializations:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {doc.specialization.split(',').map((spec, i) => (
-                          <span key={i} className="bg-white text-slate-700 text-xs font-medium px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-2xs">
-                            {spec.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
         </div>
       </div>
     </section>

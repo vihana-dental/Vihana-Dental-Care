@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { SERVICES } from '../data/clinicData';
+import { SERVICES as STATIC_SERVICES } from '../data/clinicData';
 import { DentalService } from '../types';
-import { 
-  Sparkles, 
-  CheckCircle2, 
-  Clock, 
-  Calendar, 
+import {
+  Sparkles,
+  CheckCircle2,
+  Clock,
+  Calendar,
   X,
   MessageCircleQuestion
 } from 'lucide-react';
@@ -19,11 +19,24 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [selectedServiceModal, setSelectedServiceModal] = useState<DentalService | null>(null);
 
+  // Starts from the static catalog so the page renders immediately, then
+  // swaps in live, doctor-editable price ranges from /api/clinic-info
+  // (Supabase-backed — see server/services/pricing.ts) once loaded. Falls
+  // back to the static prices on any fetch error.
+  const [services, setServices] = useState<DentalService[]>(STATIC_SERVICES);
+
+  useEffect(() => {
+    fetch('/api/clinic-info')
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data.services)) setServices(data.services); })
+      .catch(() => {});
+  }, []);
+
   const categories = ['All', 'Implants', 'Orthodontics', 'General', 'Cosmetic', 'Surgical', 'Pediatric'];
 
   const filteredServices = activeCategory === 'All'
-    ? SERVICES
-    : SERVICES.filter(s => s.category === activeCategory);
+    ? services
+    : services.filter(s => s.category === activeCategory);
 
   return (
     <section className="py-20 bg-[#F5F5F7] text-slate-800">
@@ -164,13 +177,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
               <article>
                 <h3 className="text-base font-bold text-slate-900 mb-2">Do you offer painless root canals in Kalapatti?</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  Yes, Vihana Dental Clinic provides 100% painless root canals in Kalapatti using computer-controlled local anesthesia and advanced microscopic laser technology to ensure complete patient comfort.
+                  Yes, Vihana Dental Care provides 100% painless root canals in Kalapatti using computer-controlled local anesthesia and advanced microscopic laser technology to ensure complete patient comfort.
                 </p>
               </article>
               <article>
                 <h3 className="text-base font-bold text-slate-900 mb-2">What is the cost of dental implants in Coimbatore?</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  The cost of computer-guided dental implants at Vihana Dental Clinic ranges from ₹22,000 to ₹45,000 per implant, utilizing premium titanium posts for lifetime durability.
+                  The cost of computer-guided dental implants at Vihana Dental Care ranges from ₹22,000 to ₹45,000 per implant, utilizing premium titanium posts for lifetime durability.
                 </p>
               </article>
               <article>
@@ -183,6 +196,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                 <h3 className="text-base font-bold text-slate-900 mb-2">Is teeth whitening safe for enamel?</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">
                   Absolutely. Our advanced laser teeth whitening procedure is completely safe for enamel. It removes deep stains without causing structural damage or long-term sensitivity.
+                </p>
+              </article>
+              <article>
+                <h3 className="text-base font-bold text-slate-900 mb-2">Why do I need X-rays?</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Digital X-rays let us see what a visual exam alone can't — cavities forming between teeth, bone loss around the roots, or early-stage infections. Catching these early usually means simpler, less invasive treatment than waiting until they cause pain.
                 </p>
               </article>
             </div>
@@ -203,7 +222,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100"
+              className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto scroll-thin shadow-2xl border border-slate-100"
             >
               <div className="relative h-60 bg-slate-900">
                 <img

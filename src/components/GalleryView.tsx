@@ -22,24 +22,24 @@ export const GalleryView: React.FC = () => {
     : GALLERY_ITEMS.filter(item => item.category === activeCategory);
 
   return (
-    <section className="py-20 bg-[#0d1117] text-white">
+    <section className="py-20 bg-white text-slate-800">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 space-y-12">
         {/* Header */}
-        <motion.div 
+        <motion.div
           className="text-center max-w-3xl mx-auto space-y-4"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-50px" }}
           transition={springTransition}
         >
-          <div className="inline-flex items-center gap-1.5 bg-slate-900 border border-white/10 text-teal-300 text-xs font-bold px-4 py-1.5 rounded-full shadow-xl">
-            <ImageIcon className="w-3.5 h-3.5 text-teal-400" />
+          <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20">
+            <ImageIcon className="w-3.5 h-3.5 text-teal-600" />
             <span>Verified Clinic Gallery & Visual Guides</span>
           </div>
-          <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight font-sans">
+          <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
             Inside Vihana Dental Care.
           </h2>
-          <p className="text-slate-300 text-base sm:text-lg leading-relaxed font-normal">
+          <p className="text-slate-600 text-base sm:text-lg leading-relaxed font-normal">
             Explore authentic photos of our operatory, Dr. N. Sanchana's consultation office, Invisalign aligner suites, and patient guides in Kalapatti, Coimbatore.
           </p>
         </motion.div>
@@ -54,8 +54,8 @@ export const GalleryView: React.FC = () => {
               transition={{ type: "spring", stiffness: 120, damping: 15 }}
               className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all ${
                 activeCategory === cat.id
-                  ? 'bg-teal-400 text-slate-950 font-extrabold shadow-xl shadow-teal-400/20'
-                  : 'bg-slate-900/80 text-slate-300 border border-white/10 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-teal-600 text-white font-extrabold shadow-lg shadow-teal-600/20'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 hover:text-slate-900'
               }`}
             >
               {cat.label}
@@ -75,7 +75,7 @@ export const GalleryView: React.FC = () => {
               transition={{ ...springTransition, delay: (index % 3) * 0.08 }}
               whileHover={{ y: -6 }}
               onClick={() => setActiveImage(item)}
-              className="group relative h-72 rounded-[28px] overflow-hidden bg-slate-900 border border-white/10 cursor-pointer shadow-xl hover:border-teal-500/40 transition-all duration-300"
+              className="group relative h-72 rounded-[28px] overflow-hidden bg-slate-100 border border-slate-200/80 cursor-pointer shadow-lg hover:border-teal-500/40 transition-all duration-300"
             >
               <img
                 src={item.imageUrl}
@@ -106,23 +106,23 @@ export const GalleryView: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6"
+            className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               transition={springTransition}
-              className="relative max-w-4xl w-full bg-slate-900 border border-white/10 rounded-[32px] overflow-hidden shadow-2xl"
+              className="relative max-w-4xl w-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-2xl"
             >
               <button
                 onClick={() => setActiveImage(null)}
-                className="absolute top-5 right-5 z-10 bg-slate-800/80 text-white p-2.5 rounded-full hover:bg-slate-700 transition-colors border border-white/10"
+                className="absolute top-5 right-5 z-10 bg-white/90 text-slate-700 p-2.5 rounded-full hover:bg-white transition-colors border border-slate-200 shadow-md"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="relative max-h-[70vh] overflow-hidden bg-slate-950 flex items-center justify-center p-2">
+              <div className="relative max-h-[70vh] overflow-hidden bg-slate-100 flex items-center justify-center p-2">
                 <img
                   src={activeImage.imageUrl}
                   alt={activeImage.title}
@@ -131,12 +131,12 @@ export const GalleryView: React.FC = () => {
                 />
               </div>
 
-              <div className="p-6 sm:p-8 bg-slate-900 border-t border-white/10 space-y-2">
+              <div className="p-6 sm:p-8 bg-white border-t border-slate-200 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Vihana Dental Care • Kalapatti, Coimbatore</span>
+                  <span className="text-xs text-slate-500">Vihana Dental Care • Kalapatti, Coimbatore</span>
                 </div>
-                <h3 className="text-2xl font-extrabold text-white">{activeImage.title}</h3>
-                <p className="text-sm text-slate-300 leading-relaxed font-normal">{activeImage.caption}</p>
+                <h3 className="text-2xl font-extrabold text-slate-900">{activeImage.title}</h3>
+                <p className="text-sm text-slate-600 leading-relaxed font-normal">{activeImage.caption}</p>
               </div>
             </motion.div>
           </motion.div>

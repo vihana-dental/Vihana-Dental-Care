@@ -68,6 +68,19 @@ export interface Doctor {
   availableDays: string[];
 }
 
+// Visiting specialists shown for informational purposes only — deliberately
+// NOT part of the Doctor/DOCTORS shape, so they never show up as a
+// selectable option in the booking flows (AppointmentBookingModal,
+// ChatBookingWidget), which only ever read from DOCTORS.
+export interface ConsultantDoctor {
+  id: string;
+  name: string;
+  specialty: string;
+  qualification: string;
+  bio: string;
+  photo: string;
+}
+
 export interface GalleryItem {
   id: string;
   title: string;
@@ -100,7 +113,7 @@ export interface Appointment {
   date: string; // YYYY-MM-DD
   timeSlot: string; // e.g. "10:30 AM"
   notes?: string;
-  status: 'pending' | 'pending_approval' | 'confirmed' | 'rescheduled' | 'completed' | 'cancelled';
+  status: 'pending' | 'pending_approval' | 'confirmed' | 'rescheduled' | 'completed' | 'cancelled' | 'payment_failed';
   googleCalendarEventId?: string;
   googleCalendarSynced: boolean;
   whatsappConfirmationSent: boolean;
@@ -113,9 +126,23 @@ export interface Appointment {
   // NEW: Online Consultation & Razorpay Fields
   consultationType: 'in-clinic' | 'online-video';
   videoRoomUrl?: string;
-  paymentStatus: 'pending' | 'paid' | 'waived';
+  // Online consults never get an auto-generated Meet link — the doctor may
+  // not actually be free at the slot the patient picked. The calendar event
+  // is created as 'tentative' with no conferenceData; only once the doctor
+  // approves in /doctor-admin does a Meet link get created (videoRoomUrl
+  // populated) and pushed to the patient over WhatsApp. Irrelevant/undefined
+  // for in-clinic visits.
+  onlineConsultStatus?: 'pending_doctor_approval' | 'approved';
+  paymentStatus: 'pending' | 'paid' | 'waived' | 'failed';
   paymentId?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentLinkId?: string;
   feeAmount?: number;
+
+  // Which intake channel produced this booking — drives the "Channel" column
+  // in the Google Sheets appointment log and the source_channel on the
+  // Supabase patient record.
+  channel: 'whatsapp' | 'chatbot' | 'website_cta';
 }
 
 export interface Inquiry {
@@ -215,11 +242,91 @@ export interface AuditLog {
   encryptedHash: string;
 }
 
-export interface WhatsAppMessage {
+// ---------------- Chat Booking Widget ----------------
+
+export type ChatFlowStep =
+  | 'menu'
+  | 'consultation_type'
+  | 'category'
+  | 'service'
+  | 'datetime'
+  | 'patient_details'
+  | 'payment'
+  | 'confirmed'
+  | 'reschedule'
+  | 'free_chat';
+
+export interface ChatBubble {
   id: string;
-  sender: 'user' | 'bot' | 'system';
-  text: string;
+  sender: 'bot' | 'user';
+  kind: 'text' | 'chips' | 'card' | 'form' | 'payment' | 'confirmation' | 'error';
+  text?: string;
+  chips?: string[];
   timestamp: string;
-  options?: string[];
-  actionType?: 'BOOKING_CONFIRMED' | 'RESCHEDULE_PROMPTED' | 'TRIAGE';
+}
+
+export interface BookingDraft {
+  consultationType?: 'in-clinic' | 'online-video';
+  serviceId?: string;
+  doctorId?: string;
+  date?: string;
+  timeSlot?: string;
+  patientName?: string;
+  patientPhone?: string;
+  patientEmail?: string;
+  notes?: string;
+}
+
+export interface RazorpayPaymentLinkResult {
+  success: boolean;
+  paymentLinkId: string;
+  shortUrl: string;
+  qrImageUrl: string;
+  amount: number;
+  currency: string;
+  status: 'created' | 'paid';
+  mock: boolean;
+}
+
+export type CalendarErrorType = 'auth' | 'rate_limit' | 'network' | 'unknown';
+
+export interface GoogleCalendarSyncResult {
+  synced: boolean;
+  eventId?: string;
+  htmlLink?: string;
+  meetLink?: string;
+  mock: boolean;
+  error?: string;
+  errorType?: CalendarErrorType;
+}
+
+export interface BookingBotIntentResponse {
+  action: 'START_BOOKING' | 'CHECK_AVAILABILITY' | 'RESCHEDULE_CANCEL' | 'FAQ_ANSWER' | 'OFF_TOPIC_REDIRECT';
+  reply: string;
+}
+
+export interface FeeConfig {
+  confirmationFeeEnabled: boolean;
+  inClinicFeeINR: number;
+  onlineFeeINR: number;
+}
+
+export interface AvailabilitySlot {
+  time: string;
+  available: boolean;
+}
+
+export interface AvailabilityResponse {
+  success: boolean;
+  date: string;
+  dayFullyBooked: boolean;
+  slots: AvailabilitySlot[];
+  degraded?: boolean; // true when Calendar couldn't be reached and slots are shown as tentative
+  message?: string;
+}
+
+export interface AvailabilityConfirmResponse {
+  success: boolean;
+  valid: boolean;
+  message?: string;
 }

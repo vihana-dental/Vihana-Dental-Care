@@ -65,7 +65,7 @@ export const TestimonialsView: React.FC = () => {
             What Our Patients Say
           </h2>
           <p className="text-slate-600 text-base leading-relaxed">
-            Real feedback from verified patients who experienced gentle, world-class dental care at Vihana Dental Clinic in Coimbatore.
+            Real feedback from verified patients who experienced gentle, world-class dental care at Vihana Dental Care in Coimbatore.
           </p>
         </motion.div>
 
@@ -178,7 +178,7 @@ export const TestimonialsView: React.FC = () => {
                 <div className="bg-teal-50/80 p-3.5 rounded-xl border border-teal-100 text-xs space-y-1 mt-2">
                   <p className="font-bold text-teal-900 flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Response from Vihana Dental Clinic:</span>
+                    <span>Response from Vihana Dental Care:</span>
                   </p>
                   <p className="text-slate-700 leading-relaxed">{review.clinicReply}</p>
                 </div>

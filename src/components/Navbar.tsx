@@ -31,10 +31,16 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'home', label: 'Home' },
     { id: 'about', label: 'About Us' },
     { id: 'services', label: 'Services' },
+    { id: 'team', label: 'Our Team' },
+    { id: 'blog', label: 'Blog' },
     { id: 'gallery', label: 'Gallery' },
     { id: 'reviews', label: 'Reviews' },
     { id: 'location', label: 'Contact & Map' },
   ];
+
+  const whatsappHref = `https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+    "Hi, I'd like to book a dental appointment at Vihana Dental Care."
+  )}`;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-xs border-b border-slate-200">
@@ -85,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shadow-xs flex items-center justify-center bg-white">
             <img 
               src={vihanaLogo} 
-              alt="Vihana Dental Clinic Logo" 
+              alt="Vihana Dental Care Logo"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
@@ -93,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div>
             <h1 className="text-xl font-extrabold tracking-tight text-slate-900 leading-tight flex items-center gap-1.5">
               <span>VIHANA</span>
-              <span className="text-teal-700 font-light">DENTAL</span>
+              <span className="text-teal-700 font-light">DENTAL CARE</span>
             </h1>
             <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">
               COIMBATORE
@@ -173,15 +179,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {item.label}
               </button>
             ))}
-            <button
-              onClick={() => {
-                setActiveTab('whatsapp-simulator');
-                setMobileMenuOpen(false);
-              }}
-              className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50"
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full flex items-center gap-2 text-left px-4 py-2.5 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50"
             >
-              WhatsApp Auto-Booking Bot
-            </button>
+              <MessageCircle className="w-4 h-4" />
+              <span>Book on WhatsApp</span>
+            </a>
 
             <div className="pt-2">
               <button

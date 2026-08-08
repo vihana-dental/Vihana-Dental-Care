@@ -1,7 +1,7 @@
 import React from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { CLINIC_INFO } from '../data/clinicData';
-import { MapPin, Phone, Clock, ExternalLink, Navigation, Sparkles, MessageCircle } from 'lucide-react';
+import { MapPin, Phone, Clock, ExternalLink, Navigation, Sparkles, MessageCircle, Mail } from 'lucide-react';
 
 export const LocationMapSection: React.FC = () => {
   const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY || process.env.GOOGLE_MAPS_PLATFORM_KEY || "";
@@ -44,21 +44,34 @@ export const LocationMapSection: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
+                <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-start gap-3 group">
                   <Phone className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Call Us</p>
-                    <p className="mt-0.5">{CLINIC_INFO.phone}</p>
+                    <p className="mt-0.5 group-hover:text-teal-300 transition-colors">{CLINIC_INFO.phone}</p>
                   </div>
-                </div>
+                </a>
 
-                <div className="flex items-start gap-3">
+                <a
+                  href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-3 group"
+                >
                   <MessageCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">WhatsApp Us</p>
-                    <p className="mt-0.5">{CLINIC_INFO.whatsapp}</p>
+                    <p className="mt-0.5 group-hover:text-emerald-300 transition-colors">{CLINIC_INFO.whatsapp}</p>
                   </div>
-                </div>
+                </a>
+
+                <a href={`mailto:${CLINIC_INFO.email}`} className="flex items-start gap-3 group">
+                  <Mail className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-white">Email Us</p>
+                    <p className="mt-0.5 group-hover:text-teal-300 transition-colors">{CLINIC_INFO.email}</p>
+                  </div>
+                </a>
 
                 <div className="flex items-start gap-3">
                   <Clock className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
