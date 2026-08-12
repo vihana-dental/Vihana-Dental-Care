@@ -1,30 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, Star, ArrowUpRight, MessageCircle } from 'lucide-react';
+import { Calendar, Star, ArrowUpRight, MessageCircle, ChevronDown } from 'lucide-react';
 import { CLINIC_INFO } from '../data/clinicData';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-// Scroll-driven reveal amounts for the three elements that get the
-// slide/fade treatment — halved below the 768px breakpoint per spec.
-// Direction: right-column elements (stat card, CTA group) arrive FROM the
-// right; the left-column closing paragraph arrives FROM the left, so both
-// sides converge toward their resting position as progress goes 0 -> 1.
+// Scroll-driven reveal: everything except the background photo (which
+// already carries the "Vihana Dental Care" branding baked into the image
+// itself) starts fully hidden, off to one side, and slides+fades into place
+// as the user scrolls through the pinned section below. The stat readout
+// and the CTA buttons share one offset (`rightColumn`) and, on desktop, one
+// shared right-10-anchored container — so their right edges align exactly
+// instead of relying on a guessed pixel nudge.
 const REVEAL_OFFSETS = {
-  statCard: { desktop: 120, mobile: 60 },
-  ctaGroup: { desktop: 180, mobile: 90 },
-  closingParagraph: { desktop: -100, mobile: -50 }
+  leftBlock: { desktop: -460, mobile: -200, settleDesktop: 0, settleMobile: 0 },
+  rightColumn: { desktop: 400, mobile: 170, settleDesktop: 0, settleMobile: 0 }
 };
 
-function revealStyle(progress: number, isMobile: boolean, offsets: { desktop: number; mobile: number }): React.CSSProperties {
+function revealStyle(
+  progress: number,
+  isMobile: boolean,
+  offsets: { desktop: number; mobile: number; settleDesktop: number; settleMobile: number }
+): React.CSSProperties {
   const magnitude = isMobile ? offsets.mobile : offsets.desktop;
+  const settle = isMobile ? offsets.settleMobile : offsets.settleDesktop;
   return {
-    transform: `translateX(${(1 - progress) * magnitude}px)`,
-    opacity: 0.35 + progress * 0.65
+    transform: `translateX(${(1 - progress) * magnitude + settle}px)`,
+    opacity: clamp(progress * 2.2, 0, 1)
   };
 }
 
-const heroPhoto = '/images/Hero%20Image.png';
+const heroPhotoDesktop = '/images/Hero%20Image.png';
+const heroPhotoMobile = '/images/Hero%20Image%20Mobile.png';
 
 interface HeroProps {
   onOpenBooking: () => void;
@@ -42,14 +49,19 @@ const whatsappBookingHref = `https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9
 // line (eyebrow, not tooth) — kept as written even though the photo shows
 // a gap tooth, per direct request.
 //
-// Layout v6: the photo stays as the actual full-bleed section background
-// (confirmed: keep it that way), fixed by alignment instead of by
-// containing it — a strong scrim covers roughly the left half where the
-// text sits, easing to fully clear by the right half, and the photo's
-// crop is pushed further right (object-[82%_20%]) so his face lands
-// entirely in that clear right zone. The text column is capped narrower
-// than before so it can't stretch into the fade zone at in-between
-// viewport widths.
+// Layout v8 — scroll-gated reveal, fixed background: on load, only the
+// full-bleed background photo is visible (it already carries the "Vihana
+// Dental Care" wordmark baked into the image, plus the navbar/CTA bar
+// above it) — no dark scrim, no headline, no CTAs. The photo itself is a
+// `position: fixed` layer, completely decoupled from scroll — it never
+// translates. The foreground content sits in a separate sticky-pinned
+// block over a long (480vh) scroll spacer; as the user scrolls through
+// it, the left copy block and the right stat-card/CTA column slide in
+// from their respective sides while a navy gradient fades in over the
+// (still motionless) photo for legibility. Only once that reveal fully
+// completes does further scrolling release the sticky content block,
+// letting Services scroll up and cover the fixed photo from below —
+// curtain-style — rather than the photo itself ever moving.
 export const Hero: React.FC<HeroProps> = ({
   onOpenBooking,
 }) => {
@@ -75,14 +87,25 @@ export const Hero: React.FC<HeroProps> = ({
   }, []);
 
   // Sticky-pin scroll mechanics: the outer <section> is taller than the
-  // viewport (120vh) so extra scroll distance passes underneath while the
-  // inner content stays pinned via `sticky top-0 h-screen`. progress goes
-  // 0 -> 1 across that extra scroll distance and drives the stat
-  // card / CTA group / closing paragraph slide+fade below — everything
-  // else in the Hero keeps its original mount-time entrance, untouched.
+  // viewport so extra scroll distance passes underneath while the inner
+  // content stays pinned via `sticky top-0 h-screen`. progress goes 0 -> 1
+  // across that extra scroll distance and drives every reveal below —
+  // until it hits 1, the background can't visibly advance to the next
+  // section because the pin is still holding.
   const sectionRef = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  // Once the pin releases (progress reaches 1), the now-unpinned content
+  // block still has to scroll a full extra viewport-height past before
+  // Services can occupy the screen — an unavoidable side effect of the
+  // sticky-pin technique. bgOpacity fades the fixed background smoothly
+  // over exactly that trailing stretch (1 -> 0), so it's gone by the time
+  // that scroll finishes instead of hanging on screen with no foreground
+  // content over it, obscuring Services underneath. heroStillInView
+  // unmounts the fixed layer once the fade (and that trailing scroll)
+  // completes.
+  const [bgOpacity, setBgOpacity] = useState(1);
+  const [heroStillInView, setHeroStillInView] = useState(true);
 
   useEffect(() => {
     let ticking = false;
@@ -96,6 +119,11 @@ export const Hero: React.FC<HeroProps> = ({
       const nextProgress = scrollableDistance > 0 ? clamp(-rect.top / scrollableDistance, 0, 1) : 0;
       setProgress(nextProgress);
       setIsMobile(window.innerWidth < 768);
+
+      const overshoot = clamp(-rect.top - scrollableDistance, 0, window.innerHeight);
+      const tailProgress = window.innerHeight > 0 ? overshoot / window.innerHeight : 0;
+      setBgOpacity(1 - tailProgress);
+      setHeroStillInView(tailProgress < 1);
     };
 
     const onScrollOrResize = () => {
@@ -113,76 +141,117 @@ export const Hero: React.FC<HeroProps> = ({
     };
   }, []);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.12, delayChildren: 0.25 },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: springTransition },
-  };
+  const ctaInteractive = progress > 0.04;
 
   return (
-    <section ref={sectionRef} className="relative w-full" style={{ height: '120vh' }}>
-    <div className="sticky top-0 h-screen w-full overflow-hidden text-white flex items-center bg-slate-950">
-      {/* The full-bleed photo, as background. Face pushed well right via
-          object-position; a strong left-to-right scrim covers the text
-          column's side and clears by roughly mid-frame, so the text zone
-          never has his face underneath it regardless of viewport width. */}
-      <div className="absolute inset-0">
-        <motion.img
-          src={heroPhoto}
-          alt="A genuine, confident smile — it's the first thing you notice"
-          loading="eager"
-          fetchPriority="high"
-          className="w-full h-full object-cover object-[82%_20%]"
-          referrerPolicy="no-referrer"
-          initial={{ scale: 1.08 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 via-45% to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/40" />
-        {/* Below lg, text is centered full-width (not confined to a left
-            column), so the left-right gradient alone isn't enough — add a
-            flat scrim across the whole frame at those breakpoints only. */}
-        <div className="absolute inset-0 lg:hidden bg-black/40" />
-      </div>
-
-      {/* Top-right corner stat readout, lg+ only — that's where the layout
-          actually becomes a real left/right split. Below lg (tablet
-          included), everything is one centered, stacked column, and
-          centered headline text at those widths can still span far enough
-          right to reach an absolute corner block (confirmed at 900px
-          tablet width) — so anything short of the true split gets the
-          in-flow mobile copy instead (below). */}
+    <section ref={sectionRef} className="relative w-full" style={{ height: '480vh' }}>
+    {/* The full-bleed photo, as its own `fixed` layer — deliberately NOT
+        part of the sticky-pinned content block below, so it never
+        translates with scroll at all. It already carries the "Vihana
+        Dental Care" wordmark baked into the image itself, so on first load
+        (progress 0) this is the entire screen: no scrim, no overlaid text,
+        nothing else. Stays fully opaque through the whole reveal, then
+        fades smoothly to transparent (bgOpacity) over the pin-release
+        scroll instead of abruptly vanishing or lingering over Services;
+        unmounts once that fade completes. */}
+    {heroStillInView && (
       <div
-        style={revealStyle(progress, isMobile, REVEAL_OFFSETS.statCard)}
-        className="hidden lg:block absolute top-28 right-10 z-10 text-right transition-[transform,opacity] duration-100 ease-out"
+        className="fixed inset-0 z-0 bg-slate-950 transition-opacity duration-100 ease-out"
+        style={{ opacity: bgOpacity }}
       >
-        <div className="flex items-center justify-end gap-1.5">
-          <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-          <span className="text-2xl font-extrabold">{rating.toFixed(1)}</span>
+        {/* Two purpose-composed crops, swapped by viewport via <picture> —
+            the wide desktop image's full-width text can't fit a tall phone
+            screen without either heavy cropping or empty letterbox space,
+            so mobile gets its own portrait crop with the wordmark stacked
+            instead of trying to force one image to serve both shapes. */}
+        <picture>
+          <source media="(max-width: 1023px)" srcSet={heroPhotoMobile} />
+          <motion.img
+            src={heroPhotoDesktop}
+            alt="Vihana Dental Care — a genuine, confident smile"
+            loading="eager"
+            fetchPriority="high"
+            className="w-full h-full object-cover object-[50%_12%] lg:object-[50%_18%]"
+            referrerPolicy="no-referrer"
+            initial={{ scale: 1.08 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
+          />
+        </picture>
+        {/* Navy gradient scrim — invisible at progress 0, fades in to a 40%
+            max as the reveal completes, so the slid-in text stays legible
+            without darkening the photo before that. */}
+        <div
+          className="absolute inset-0 bg-gradient-to-r from-[#0a1128] via-[#0f172a] via-45% to-transparent transition-opacity duration-300 ease-out"
+          style={{ opacity: progress * 0.4 }}
+        />
+        <div
+          className="absolute inset-0 lg:hidden bg-[#0a1128] transition-opacity duration-300 ease-out"
+          style={{ opacity: progress * 0.4 }}
+        />
+      </div>
+    )}
+
+    <div className="sticky top-0 h-screen w-full overflow-hidden text-white flex items-center">
+      {/* Top-right column, lg+ only — stat readout and CTA buttons share
+          this single right-10-anchored container and one reveal animation,
+          so their right edges line up exactly instead of via a guessed
+          pixel nudge. Hidden at progress 0, slides in from the right. */}
+      <div
+        style={revealStyle(progress, isMobile, REVEAL_OFFSETS.rightColumn)}
+        className="hidden lg:flex lg:flex-col lg:items-end absolute top-28 right-10 z-20 gap-6 transition-[transform,opacity] duration-300 ease-out"
+      >
+        <div className="text-right">
+          <div className="flex items-center justify-end gap-1.5">
+            <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+            <span className="text-2xl font-extrabold">{rating.toFixed(1)}</span>
+          </div>
+          <p className="text-xs text-white/50 font-semibold uppercase tracking-wider mt-0.5">Google Rating</p>
+          <div className="mt-3 text-2xl font-extrabold">{totalReviews}+</div>
+          <p className="text-xs text-white/50 font-semibold uppercase tracking-wider mt-0.5">Patient Reviews</p>
         </div>
-        <p className="text-xs text-white/50 font-semibold uppercase tracking-wider mt-0.5">Google Rating</p>
-        <div className="mt-3 text-2xl font-extrabold">{totalReviews}+</div>
-        <p className="text-xs text-white/50 font-semibold uppercase tracking-wider mt-0.5">Patient Reviews</p>
+
+        <div className="flex flex-col items-end gap-3">
+          <motion.button
+            onClick={onOpenBooking}
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            transition={springTransition}
+            style={{ pointerEvents: ctaInteractive ? 'auto' : 'none' }}
+            className="bg-white hover:bg-slate-100 text-slate-900 font-bold pl-6 pr-2 py-2 rounded-full shadow-xl flex items-center gap-3 text-base transition-colors w-full sm:w-auto justify-center"
+            id="hero-book-now-button"
+          >
+            <Calendar className="w-5 h-5" />
+            <span>Book Appointment Online</span>
+            <span className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
+              <ArrowUpRight className="w-[18px] h-[18px] text-slate-950" />
+            </span>
+          </motion.button>
+
+          <motion.a
+            href={whatsappBookingHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            transition={springTransition}
+            style={{ pointerEvents: ctaInteractive ? 'auto' : 'none' }}
+            className="bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/25 text-white font-semibold px-6 py-3.5 rounded-full flex items-center justify-center gap-2 text-sm transition-colors w-full sm:w-auto"
+            id="hero-whatsapp-bot-button"
+          >
+            <MessageCircle className="w-4 h-4 text-teal-300" />
+            <span>Book Appointment on WhatsApp</span>
+          </motion.a>
+        </div>
       </div>
 
-      {/* Main content — copy left (on the plain canvas), photo + CTAs
-          right. */}
+      {/* Main content — copy left, CTAs right. Both blocks start hidden and
+          slide in from their own side as the user scrolls. */}
       <div className="relative z-10 max-w-7xl mx-auto w-full px-5 sm:px-10 lg:px-16 pt-20 lg:pt-16 pb-16">
-        {/* In-flow stat readout for everything below the lg split — in
-            normal document flow, above everything else, so it can never
-            overlap the headline the way an absolutely-positioned corner
-            block did at narrow/stacked widths. */}
+        {/* In-flow stat readout for everything below the lg split. */}
         <div
-          style={revealStyle(progress, isMobile, REVEAL_OFFSETS.statCard)}
-          className="lg:hidden flex items-center justify-center gap-6 mb-8 transition-[transform,opacity] duration-100 ease-out"
+          style={revealStyle(progress, isMobile, REVEAL_OFFSETS.rightColumn)}
+          className="lg:hidden flex items-center justify-center gap-6 mb-8 transition-[transform,opacity] duration-300 ease-out"
         >
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5">
@@ -198,31 +267,22 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-10 items-center">
-          {/* Left — the hook. Capped to lg:col-span-6 (not 7) and given an
-              explicit max-width so it can't stretch into the gradient's
-              fade zone toward mid-frame at lg, which is exactly where his
-              face starts becoming visible again. */}
-          <motion.div
-            className="lg:col-span-6 lg:max-w-lg text-center lg:text-left"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
+          {/* Left — the hook. Hidden at progress 0, slides in from the left. */}
+          <div
+            style={revealStyle(progress, isMobile, REVEAL_OFFSETS.leftBlock)}
+            className="lg:col-span-6 lg:max-w-lg text-center lg:text-left transition-[transform,opacity] duration-300 ease-out"
           >
-            <motion.p variants={itemVariants} className="text-xs sm:text-sm font-bold tracking-[0.25em] uppercase text-teal-300">
+            <p className="text-xs sm:text-sm font-bold tracking-[0.25em] uppercase text-teal-300">
               Vihana Dental Care · Kalapatti, Coimbatore
-            </motion.p>
+            </p>
 
-            <motion.h1
-              variants={itemVariants}
-              className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] text-white"
-            >
+            <h1 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] text-white">
               The first thing anyone notices about you is your
-            </motion.h1>
+            </h1>
 
-            <motion.div variants={itemVariants} className="relative inline-block mx-auto lg:mx-0 mt-1">
+            <div className="relative inline-block mx-auto lg:mx-0 mt-1">
               {/* Depth-layered duplicates behind the real headline — pure
-                  brand-color drop-shadow stack, no new colors/content. The
-                  visible span below is untouched. */}
+                  brand-color drop-shadow stack, no new colors/content. */}
               <span
                 aria-hidden="true"
                 className="absolute inset-0 text-6xl sm:text-7xl lg:text-8xl font-extrabold text-teal-700/30 tracking-tight leading-none pointer-events-none select-none"
@@ -253,45 +313,41 @@ export const Hero: React.FC<HeroProps> = ({
                   strokeWidth="7"
                   strokeLinecap="round"
                   initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 0.9, delay: 1.1, ease: [0.4, 0, 0.2, 1] }}
+                  animate={progress > 0.15 ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
+                  transition={{ duration: 0.9, ease: [0.4, 0, 0.2, 1] }}
                 />
                 <motion.path
                   d="M 288 8 L 291 12 L 295 14 L 291 16 L 288 20 L 285 16 L 281 14 L 285 12 Z"
                   fill="currentColor"
                   initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.4, delay: 2, type: 'spring', stiffness: 260 }}
+                  animate={progress > 0.15 ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.4, delay: 0.7, type: 'spring', stiffness: 260 }}
                   style={{ transformOrigin: '288px 14px' }}
                 />
               </svg>
-            </motion.div>
+            </div>
 
             {/* Punchline — the original ad's own line */}
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.3, duration: 0.5, ease: 'easeOut' }}
-              className="mt-5 text-base sm:text-lg text-white/60 font-medium italic"
-            >
+            <p className="mt-5 text-base sm:text-lg text-white/60 font-medium italic">
               Even a missing eyebrow only gets noticed second to that.
-            </motion.p>
+            </p>
 
-            <p
-              style={revealStyle(progress, isMobile, REVEAL_OFFSETS.closingParagraph)}
-              className="mt-5 text-sm sm:text-base text-white/70 max-w-md mx-auto lg:mx-0 leading-relaxed transition-[transform,opacity] duration-100 ease-out"
-            >
+            <p className="mt-5 text-sm sm:text-base text-white/70 max-w-md mx-auto lg:mx-0 leading-relaxed">
               Get the flawless, confident smile you deserve. Join hundreds of happy patients at Kalapatti's premier clinic for Invisalign, laser root canals, and completely pain-free treatments.
             </p>
-          </motion.div>
+          </div>
 
-          {/* Right — CTAs, sitting directly on the visible photo. Both
-              buttons carry their own solid/glass backing (not relying on
-              the scrim), so they stay legible regardless of what's behind
-              them at this point in the frame. */}
+          {/* Right — CTAs, mobile/tablet only (below lg, where the shared
+              right-10 column above doesn't apply). Hidden at progress 0,
+              slides in from the right along with the in-flow stat readout
+              above. Desktop uses the absolutely-positioned pair instead —
+              distinct ids since both exist in the DOM at once. */}
           <div
-            style={revealStyle(progress, isMobile, REVEAL_OFFSETS.ctaGroup)}
-            className="lg:col-span-5 flex flex-col items-center lg:items-end gap-3 transition-[transform,opacity] duration-100 ease-out"
+            style={{
+              ...revealStyle(progress, isMobile, REVEAL_OFFSETS.rightColumn),
+              pointerEvents: ctaInteractive ? 'auto' : 'none'
+            }}
+            className="lg:hidden flex flex-col items-center gap-3 transition-[transform,opacity] duration-300 ease-out"
           >
             <motion.button
               onClick={onOpenBooking}
@@ -299,7 +355,7 @@ export const Hero: React.FC<HeroProps> = ({
               whileTap={{ scale: 0.98 }}
               transition={springTransition}
               className="bg-white hover:bg-slate-100 text-slate-900 font-bold pl-6 pr-2 py-2 rounded-full shadow-xl flex items-center gap-3 text-base transition-colors w-full sm:w-auto justify-center"
-              id="hero-book-now-button"
+              id="hero-book-now-button-mobile"
             >
               <Calendar className="w-5 h-5" />
               <span>Book Appointment Online</span>
@@ -316,13 +372,33 @@ export const Hero: React.FC<HeroProps> = ({
               whileTap={{ scale: 0.98 }}
               transition={springTransition}
               className="bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/25 text-white font-semibold px-6 py-3.5 rounded-full flex items-center justify-center gap-2 text-sm transition-colors w-full sm:w-auto"
-              id="hero-whatsapp-bot-button"
+              id="hero-whatsapp-bot-button-mobile"
             >
               <MessageCircle className="w-4 h-4 text-teal-300" />
               <span>Book Appointment on WhatsApp</span>
             </motion.a>
           </div>
         </div>
+      </div>
+
+      {/* "Scroll to explore" hint — absolutely positioned, non-interactive,
+          takes no layout space, so it can never shift or block any other
+          element. Stays visible for the whole reveal scroll instead of
+          fading early; it naturally leaves the screen once the pinned
+          section itself scrolls away, so no manual fade-out is needed. */}
+      <div
+        className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-1.5 z-10 pointer-events-none select-none"
+        aria-hidden="true"
+      >
+        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
+          Scroll to Explore
+        </span>
+        <motion.div
+          animate={{ y: [0, 6, 0] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <ChevronDown className="w-5 h-5 text-white/70" />
+        </motion.div>
       </div>
     </div>
     </section>
