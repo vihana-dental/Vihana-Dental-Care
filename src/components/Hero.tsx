@@ -281,8 +281,8 @@ export const Hero: React.FC<HeroProps> = ({
               Vihana Dental Care · Kalapatti, Coimbatore
             </p>
 
-            <h1 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] text-white">
-              The first thing anyone notices about you is your
+            <h1 className="mt-4 text-3xl sm:text-4xl lg:text-4xl font-extrabold tracking-tight leading-[1.15] text-white">
+              The first thing anyone<br />notices about you is your
             </h1>
 
             <div className="relative inline-block mx-auto lg:mx-0 mt-1">
