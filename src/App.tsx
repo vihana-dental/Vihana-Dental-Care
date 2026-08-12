@@ -13,6 +13,7 @@ import { InquirySection } from './components/InquirySection';
 import { LocationMapSection } from './components/LocationMapSection';
 import { AppointmentBookingModal } from './components/AppointmentBookingModal';
 import { StickyCtaBar } from './components/StickyCtaBar';
+import { ScrollExploreHint } from './components/ScrollExploreHint';
 import { Footer } from './components/Footer';
 import { ChatBookingWidget } from './components/ChatBookingWidget';
 import { DoctorAdminPage } from './components/DoctorAdminPage';
@@ -141,6 +142,10 @@ export function App() {
 
       {/* Sticky High-Contrast Conversion CTAs */}
       <StickyCtaBar onOpenBooking={() => handleOpenBooking()} />
+
+      {/* Persistent "keep scrolling" hint — Home tab only, visible from the
+          first frame and across every stacked section, not just Hero. */}
+      {activeTab === 'home' && <ScrollExploreHint />}
 
       {/* Full in-chat AI Booking Assistant (Razorpay + Google Calendar, no redirects) */}
       <ChatBookingWidget />

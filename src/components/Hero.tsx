@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, Star, ArrowUpRight, MessageCircle, ChevronDown } from 'lucide-react';
+import { Calendar, Star, ArrowUpRight, MessageCircle } from 'lucide-react';
 import { CLINIC_INFO } from '../data/clinicData';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -25,8 +25,13 @@ function revealStyle(
   const magnitude = isMobile ? offsets.mobile : offsets.desktop;
   const settle = isMobile ? offsets.settleMobile : offsets.settleDesktop;
   return {
-    transform: `translateX(${(1 - progress) * magnitude + settle}px)`,
-    opacity: clamp(progress * 2.2, 0, 1)
+    // translateZ(0) forces GPU compositing for this layer — without it,
+    // frequent scroll-driven transform/opacity updates like these can
+    // visibly stutter on mobile browsers, especially alongside the fixed
+    // background layer above it.
+    transform: `translateX(${(1 - progress) * magnitude + settle}px) translateZ(0)`,
+    opacity: clamp(progress * 2.2, 0, 1),
+    willChange: 'transform, opacity'
   };
 }
 
@@ -157,7 +162,7 @@ export const Hero: React.FC<HeroProps> = ({
     {heroStillInView && (
       <div
         className="fixed inset-0 z-0 bg-slate-950 transition-opacity duration-100 ease-out"
-        style={{ opacity: bgOpacity }}
+        style={{ opacity: bgOpacity, willChange: 'opacity', transform: 'translateZ(0)' }}
       >
         {/* Two purpose-composed crops, swapped by viewport via <picture> —
             the wide desktop image's full-width text can't fit a tall phone
@@ -379,26 +384,6 @@ export const Hero: React.FC<HeroProps> = ({
             </motion.a>
           </div>
         </div>
-      </div>
-
-      {/* "Scroll to explore" hint — absolutely positioned, non-interactive,
-          takes no layout space, so it can never shift or block any other
-          element. Stays visible for the whole reveal scroll instead of
-          fading early; it naturally leaves the screen once the pinned
-          section itself scrolls away, so no manual fade-out is needed. */}
-      <div
-        className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-1.5 z-10 pointer-events-none select-none"
-        aria-hidden="true"
-      >
-        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
-          Scroll to Explore
-        </span>
-        <motion.div
-          animate={{ y: [0, 6, 0] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <ChevronDown className="w-5 h-5 text-white/70" />
-        </motion.div>
       </div>
     </div>
     </section>
