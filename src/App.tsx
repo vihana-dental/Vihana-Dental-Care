@@ -100,19 +100,23 @@ export function App() {
           >
             {activeTab === 'home' && (
               <div className="space-y-0">
-                <Hero
-                  onOpenBooking={() => handleOpenBooking()}
-                  setActiveTab={setActiveTab}
-                />
+                <div id="home">
+                  <Hero
+                    onOpenBooking={() => handleOpenBooking()}
+                    setActiveTab={setActiveTab}
+                  />
+                </div>
 
-                <ServicesView onSelectServiceToBook={handleOpenBooking} />
-                <AboutUs />
-                <TeamSection />
-                <GalleryView />
-                <BlogView />
-                <TestimonialsView />
-                <InquirySection />
-                <LocationMapSection />
+                <div id="services"><ServicesView onSelectServiceToBook={handleOpenBooking} /></div>
+                <div id="about"><AboutUs /></div>
+                <div id="team"><TeamSection /></div>
+                <div id="gallery"><GalleryView /></div>
+                <div id="blog"><BlogView /></div>
+                <div id="reviews"><TestimonialsView /></div>
+                <div id="location">
+                  <InquirySection />
+                  <LocationMapSection />
+                </div>
               </div>
             )}
 

@@ -1,12 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GALLERY_ITEMS } from '../data/clinicData';
+import { GALLERY_ITEMS as STATIC_GALLERY_ITEMS } from '../data/clinicData';
 import { GalleryItem } from '../types';
 import { Maximize2, X, Image as ImageIcon } from 'lucide-react';
 
 export const GalleryView: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [activeImage, setActiveImage] = useState<GalleryItem | null>(null);
+
+  // Starts from the static set so the page renders immediately, then swaps
+  // in the live, doctor-editable gallery from /api/gallery (Supabase-
+  // backed — see server/services/gallery.ts) once loaded. Falls back to
+  // the static set on any fetch error.
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(STATIC_GALLERY_ITEMS);
+
+  useEffect(() => {
+    fetch('/api/gallery')
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data.items)) setGalleryItems(data.items); })
+      .catch(() => {});
+  }, []);
 
   const springTransition = { type: 'spring', stiffness: 100, damping: 20 };
 
@@ -18,8 +31,8 @@ export const GalleryView: React.FC = () => {
   ];
 
   const filteredItems = activeCategory === 'all'
-    ? GALLERY_ITEMS
-    : GALLERY_ITEMS.filter(item => item.category === activeCategory);
+    ? galleryItems
+    : galleryItems.filter(item => item.category === activeCategory);
 
   return (
     <section className="py-20 bg-white text-slate-800">

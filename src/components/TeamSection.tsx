@@ -1,10 +1,66 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { DOCTORS, CONSULTANT_DOCTORS } from '../data/clinicData';
+import { DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS } from '../data/clinicData';
+import { Doctor, ConsultantDoctor } from '../types';
 import { UserCheck, Stethoscope, Sparkles } from 'lucide-react';
+
+// Uniform credentials block shared by the lead-doctor card and every
+// consultant card: Qualification -> Specialized Training -> UG -> PG ->
+// Year of Qualification & Experience. Each line only renders when the data
+// exists, so doctors with pending fields still get the same layout rather
+// than showing blank placeholders.
+const CredentialsBlock: React.FC<{
+  qualification: string;
+  externalTraining?: string[];
+  ugInstitution?: string;
+  pgInstitution?: string;
+  qualificationYear?: string;
+  experienceYears?: number;
+}> = ({ qualification, externalTraining, ugInstitution, pgInstitution, qualificationYear, experienceYears }) => {
+  const experienceLine = [
+    qualificationYear,
+    experienceYears ? `${experienceYears}+ Years Clinical Experience` : undefined
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-bold text-slate-800">{qualification}</p>
+      {externalTraining && externalTraining.length > 0 && (
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          <span className="font-semibold text-slate-600">Specialized Training: </span>
+          {externalTraining.join(', ')}
+        </p>
+      )}
+      {ugInstitution && (
+        <p className="text-[11px] text-slate-500"><span className="font-semibold text-slate-600">UG: </span>{ugInstitution}</p>
+      )}
+      {pgInstitution && (
+        <p className="text-[11px] text-slate-500"><span className="font-semibold text-slate-600">PG: </span>{pgInstitution}</p>
+      )}
+      {experienceLine && <p className="text-[11px] text-teal-700 font-semibold pt-0.5">{experienceLine}</p>}
+    </div>
+  );
+};
 
 export const TeamSection: React.FC = () => {
   const springTransition = { type: 'spring', stiffness: 100, damping: 20 };
+
+  // Starts from the static roster so the page renders immediately, then
+  // swaps in the live, doctor-editable team from /api/team (Supabase-
+  // backed — see server/services/team.ts) once loaded. Falls back to the
+  // static roster on any fetch error.
+  const [doctors, setDoctors] = useState<Doctor[]>(STATIC_DOCTORS);
+  const [consultants, setConsultants] = useState<ConsultantDoctor[]>(STATIC_CONSULTANTS);
+
+  useEffect(() => {
+    fetch('/api/team')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data.doctors)) setDoctors(data.doctors);
+        if (Array.isArray(data.consultants)) setConsultants(data.consultants);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <section className="py-20 bg-white text-slate-800">
@@ -46,7 +102,7 @@ export const TeamSection: React.FC = () => {
           </motion.div>
 
           <div className="max-w-4xl mx-auto">
-            {DOCTORS.map((doc) => (
+            {doctors.map((doc) => (
               <motion.div
                 key={doc.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -77,7 +133,14 @@ export const TeamSection: React.FC = () => {
                     </div>
                     <h4 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{doc.name}</h4>
                     <p className="text-sm font-bold text-teal-700">{doc.title}</p>
-                    <p className="text-xs text-slate-500 font-mono">{doc.qualification}</p>
+                    <CredentialsBlock
+                      qualification={doc.qualification}
+                      externalTraining={doc.externalTraining}
+                      ugInstitution={doc.ugInstitution}
+                      pgInstitution={doc.pgInstitution}
+                      qualificationYear={doc.qualificationYear}
+                      experienceYears={doc.experienceYears}
+                    />
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal pt-2">{doc.bio}</p>
                   </div>
 
@@ -122,7 +185,7 @@ export const TeamSection: React.FC = () => {
           </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {CONSULTANT_DOCTORS.map((doc, i) => (
+            {consultants.map((doc, i) => (
               <motion.div
                 key={doc.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -143,7 +206,14 @@ export const TeamSection: React.FC = () => {
                 <div className="p-5 sm:p-6 space-y-2 flex-1 flex flex-col">
                   <h4 className="text-lg font-extrabold text-slate-900 tracking-tight">{doc.name}</h4>
                   <p className="text-xs font-bold text-teal-700">{doc.specialty}</p>
-                  <p className="text-[11px] text-slate-500 font-mono leading-relaxed">{doc.qualification}</p>
+                  <CredentialsBlock
+                    qualification={doc.qualification}
+                    externalTraining={doc.externalTraining}
+                    ugInstitution={doc.ugInstitution}
+                    pgInstitution={doc.pgInstitution}
+                    qualificationYear={doc.qualificationYear}
+                    experienceYears={doc.experienceYears}
+                  />
                   <p className="text-xs text-slate-600 leading-relaxed font-normal pt-2">{doc.bio}</p>
                 </div>
               </motion.div>

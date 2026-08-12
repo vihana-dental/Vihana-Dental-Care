@@ -1,0 +1,647 @@
+<title>Vihana Dental Care — Website Handover</title>
+<style>
+  @media print {
+    @page { margin: 20mm 16mm; }
+    .no-print { display: none !important; }
+    .cover { break-after: page; }
+    section.chapter { break-inside: avoid-page; }
+    a { color: inherit !important; text-decoration: none !important; }
+  }
+
+  :root {
+    --paper: #F6F5F0;
+    --paper-raised: #FFFFFF;
+    --ink: #182620;
+    --ink-soft: #4B5C54;
+    --teal: #0F6B62;
+    --teal-deep: #0A423D;
+    --teal-pale: #E4EEEB;
+    --sage-line: #CFDBD4;
+    --brass: #A87C3F;
+    --brass-pale: #F2E7D6;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101613;
+      --paper-raised: #161F1B;
+      --ink: #E9EEE9;
+      --ink-soft: #A9BBB3;
+      --teal: #4FBFAF;
+      --teal-deep: #7DD4C6;
+      --teal-pale: #1B2B27;
+      --sage-line: #2B3A34;
+      --brass: #D8AE72;
+      --brass-pale: #2B2115;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101613;
+    --paper-raised: #161F1B;
+    --ink: #E9EEE9;
+    --ink-soft: #A9BBB3;
+    --teal: #4FBFAF;
+    --teal-deep: #7DD4C6;
+    --teal-pale: #1B2B27;
+    --sage-line: #2B3A34;
+    --brass: #D8AE72;
+    --brass-pale: #2B2115;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0;
+  }
+
+  .display {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    text-wrap: balance;
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+
+  a { color: var(--teal-deep); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  /* ---------- Cover ---------- */
+  .cover {
+    background: linear-gradient(175deg, var(--teal-deep) 0%, var(--teal) 78%);
+    color: #F4FAF8;
+    padding: 96px 24px 72px;
+    margin-bottom: 64px;
+  }
+  .cover-inner {
+    max-width: 780px;
+    margin: 0 auto;
+  }
+  .cover-eyebrow {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #BFE7DE;
+    margin: 0 0 28px;
+  }
+  .cover h1 {
+    font-size: clamp(2.4rem, 5vw, 3.4rem);
+    line-height: 1.08;
+    margin: 0 0 20px;
+    font-weight: 500;
+    color: #FFFFFF;
+  }
+  .cover p.lede {
+    font-size: 1.15rem;
+    max-width: 46ch;
+    color: #DCF1EC;
+    margin: 0 0 48px;
+  }
+  .cover-meta {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 28px;
+    border-top: 1px solid rgba(244,250,248,0.25);
+    padding-top: 24px;
+    font-size: 13px;
+  }
+  .cover-meta div span {
+    display: block;
+    color: #BFE7DE;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  /* ---------- Intro / index ---------- */
+  .intro {
+    margin-bottom: 56px;
+  }
+  .intro h2.display {
+    font-size: 1.5rem;
+    margin: 0 0 14px;
+    font-weight: 500;
+  }
+  .intro p {
+    color: var(--ink-soft);
+    max-width: 62ch;
+  }
+
+  nav.index {
+    background: var(--paper-raised);
+    border: 1px solid var(--sage-line);
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-top: 28px;
+  }
+  nav.index p {
+    margin: 0 0 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+  }
+  nav.index ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    columns: 2;
+    column-gap: 32px;
+    counter-reset: idx;
+  }
+  nav.index li {
+    counter-increment: idx;
+    font-size: 14.5px;
+    padding: 5px 0;
+    break-inside: avoid;
+  }
+  nav.index li a {
+    text-decoration: none;
+    color: var(--ink);
+  }
+  nav.index li a:hover { color: var(--teal-deep); }
+  nav.index li::before {
+    content: counter(idx, decimal-leading-zero) "  ";
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    color: var(--brass);
+    font-size: 12px;
+  }
+
+  /* ---------- Chapters ---------- */
+  section.chapter {
+    margin-top: 72px;
+    padding-top: 40px;
+    border-top: 1px solid var(--sage-line);
+  }
+  .chapter-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .chapter-num {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    color: var(--brass);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+  }
+  .chapter-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--teal-deep);
+    margin: 0 0 8px;
+  }
+  section.chapter h2 {
+    font-size: 1.7rem;
+    margin: 0 0 14px;
+    font-weight: 500;
+    line-height: 1.15;
+  }
+  section.chapter > p.dek {
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 32px;
+    font-size: 15.5px;
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 620px) {
+    .feature-grid { grid-template-columns: 1fr; }
+    nav.index ol { columns: 1; }
+  }
+
+  .feature {
+    background: var(--paper-raised);
+    border: 1px solid var(--sage-line);
+    border-radius: 4px;
+    padding: 16px 18px;
+  }
+  .feature h3 {
+    font-size: 14.5px;
+    margin: 0 0 6px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .feature p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+
+  .feature.full { grid-column: 1 / -1; }
+
+  .callout {
+    background: var(--teal-pale);
+    border-left: 3px solid var(--teal);
+    border-radius: 0 4px 4px 0;
+    padding: 16px 20px;
+    margin: 24px 0;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .callout strong { color: var(--teal-deep); }
+
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0 28px;
+    font-size: 13.5px;
+  }
+  .flow-step {
+    background: var(--paper-raised);
+    border: 1px solid var(--sage-line);
+    border-radius: 999px;
+    padding: 7px 14px;
+    white-space: nowrap;
+  }
+  .flow-arrow { color: var(--brass); }
+
+  .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 28px; }
+  .tag {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    background: var(--brass-pale);
+    color: var(--brass);
+    border-radius: 3px;
+    padding: 4px 9px;
+  }
+
+  table.spec {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 18px 0 28px;
+  }
+  table.spec th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--sage-line);
+    padding: 0 10px 8px 0;
+    font-weight: 600;
+  }
+  table.spec td {
+    padding: 10px 10px 10px 0;
+    border-bottom: 1px solid var(--sage-line);
+    vertical-align: top;
+  }
+  table.spec td:first-child { font-weight: 600; white-space: nowrap; }
+  table.spec tr:last-child td { border-bottom: none; }
+
+  .status-list { list-style: none; margin: 18px 0 28px; padding: 0; display: grid; gap: 10px; }
+  .status-list li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 14px;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    margin-top: 6px; flex-shrink: 0;
+  }
+  .dot.live { background: var(--teal); }
+  .dot.pending { background: var(--brass); }
+
+  /* ---------- Footer ---------- */
+  footer.doc-footer {
+    margin-top: 96px;
+    padding-top: 28px;
+    border-top: 1px solid var(--sage-line);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+
+  .print-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--teal-deep);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(10,66,61,0.35);
+  }
+  .print-btn:hover { background: var(--teal); }
+</style>
+
+<button class="print-btn no-print" onclick="window.print()">Save as PDF ↓</button>
+
+<div class="cover">
+  <div class="cover-inner">
+    <p class="cover-eyebrow">Website Handover Document</p>
+    <h1 class="display">Vihana Dental Care<br>— everything built, explained.</h1>
+    <p class="lede">A section-by-section walkthrough of the new website: every page, every booking channel, the admin console, and what runs quietly behind the scenes to keep it all working.</p>
+    <div class="cover-meta">
+      <div><span>Prepared for</span>Vihana Dental Care, Kalapatti</div>
+      <div><span>Prepared by</span>The Paper Plane</div>
+      <div><span>Document</span>v1 — Pre-launch handover</div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+  <div class="intro">
+    <h2 class="display">How to read this</h2>
+    <p>This document walks through the website exactly as a visitor, a patient, and you (the doctor) would each experience it — page by page, then channel by channel, then the admin tools only you can see. Nothing here requires technical knowledge to follow. Where a feature is still being finished before the public launch, it's marked clearly rather than left ambiguous.</p>
+    <nav class="index" aria-label="Table of contents">
+      <p>In this document</p>
+      <ol>
+        <li><a href="#pages">The public website pages</a></li>
+        <li><a href="#booking">The three ways patients can book</a></li>
+        <li><a href="#payments">Payments</a></li>
+        <li><a href="#calendar">Calendar &amp; video consultations</a></li>
+        <li><a href="#records">Patient records &amp; the appointment log</a></li>
+        <li><a href="#admin">Your admin console</a></li>
+        <li><a href="#visibility">Getting found on Google</a></li>
+        <li><a href="#experience">Look, feel &amp; devices</a></li>
+        <li><a href="#security">Security &amp; safeguards</a></li>
+        <li><a href="#next">What's left before go-live</a></li>
+      </ol>
+    </nav>
+  </div>
+
+  <!-- 1: PAGES -->
+  <section class="chapter" id="pages">
+    <p class="chapter-eyebrow">Section 01</p>
+    <h2 class="display">The public website pages</h2>
+    <p class="dek">Everything a visitor can browse without booking anything — organised as a single scrolling homepage, and also reachable individually from the navigation menu.</p>
+
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>Home</h3>
+        <p>The first impression: clinic name, live Google rating, a short "who we are" line, and two large buttons — Book Online and Book on WhatsApp — above a gentle animated backdrop.</p>
+      </div>
+      <div class="feature">
+        <h3>About Us</h3>
+        <p>Your story, what makes the clinic different (sterilisation standard, 3D scanning, pain-free approach), and the "why Kalapatti chooses Vihana" trust section.</p>
+      </div>
+      <div class="feature">
+        <h3>Our Team</h3>
+        <p>Dr. N. Sanchana's full profile (qualifications, focus areas, experience) plus all four visiting consultant specialists — periodontics, oral surgery, endodontics, and paediatric dentistry — each with photo and background. Consultants are shown for information only; there's no separate booking flow for them.</p>
+      </div>
+      <div class="feature">
+        <h3>Services</h3>
+        <p>All 13 treatments organised into six categories (General, Implants, Orthodontics, Cosmetic, Surgical, Pediatric), each with a photo, description, and price range. Includes a "Common Patient Questions" section written to answer exactly what people search for on Google.</p>
+      </div>
+      <div class="feature">
+        <h3>Gallery</h3>
+        <p>Filterable photo gallery of the clinic, equipment, and treatment outcomes, with a full-screen viewer on tap.</p>
+      </div>
+      <div class="feature">
+        <h3>Blog</h3>
+        <p>A public page where any post you publish (see the admin console) appears automatically — card grid with photo, title, author and date, expanding to the full article on click.</p>
+      </div>
+      <div class="feature">
+        <h3>Reviews</h3>
+        <p>Pulls your live Google rating and review count automatically, with curated reviews shown alongside. You can override the displayed number manually at any time from the admin console.</p>
+      </div>
+      <div class="feature">
+        <h3>Contact &amp; Map</h3>
+        <p>An enquiry form that lands as a lead in your system, plus an embedded map, directions button, and one-tap WhatsApp chat.</p>
+      </div>
+      <div class="feature full">
+        <h3>Footer &amp; navigation, on every page</h3>
+        <p>Address, phone, WhatsApp, and email are clickable everywhere they appear — tapping the phone number dials it, WhatsApp opens a chat, email opens a message. A sticky bar at the bottom of the screen on mobile keeps Call, WhatsApp, and Book Now always within thumb's reach. A dedicated page also handles any broken or mistyped link gracefully instead of showing a blank screen.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2: BOOKING -->
+  <section class="chapter" id="booking">
+    <p class="chapter-eyebrow">Section 02</p>
+    <h2 class="display">Three ways to book — one shared brain</h2>
+    <p class="dek">Patients can start a booking from the website, an on-site chat assistant, or WhatsApp directly. Whichever they choose, it checks the same live availability and lands in the same place for you.</p>
+
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>1 · Book Online (website form)</h3>
+        <p>A guided pop-up: in-clinic or online visit → treatment → doctor → live date &amp; time slots pulled straight from the clinic calendar → patient details → secure payment → confirmation screen.</p>
+      </div>
+      <div class="feature">
+        <h3>2 · The AI chat assistant</h3>
+        <p>A chat bubble in the corner of every page. Walks the same booking steps conversationally, answers general questions ("do you do Invisalign?") using AI without derailing an in-progress booking, and can look up or cancel an existing appointment by its code.</p>
+      </div>
+      <div class="feature full">
+        <h3>3 · WhatsApp booking bot</h3>
+        <p>Message the clinic's WhatsApp number and the same booking flow runs entirely inside WhatsApp using tap-to-choose menus (no typing required) — treatment category, then treatment, then date, then morning/evening, then an exact time slot. A payment link is sent directly in the chat. Every confirmed appointment gets two tappable buttons in WhatsApp: <strong>Reschedule</strong> and <strong>Cancel Appointment</strong> — no codes to remember or type back in.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Why this matters:</strong> a slot booked through WhatsApp is instantly unavailable on the website and vice versa — there's one live source of truth, so double-booking isn't possible regardless of which door the patient walked in through.
+    </div>
+
+    <div class="flow">
+      <span class="flow-step">Any channel</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Live slot check</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Payment</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Confirmed on Calendar</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Logged for you</span>
+    </div>
+  </section>
+
+  <!-- 3: PAYMENTS -->
+  <section class="chapter" id="payments">
+    <p class="chapter-eyebrow">Section 03</p>
+    <h2 class="display">Payments</h2>
+    <p class="dek">A small refundable advance secures every slot, collected securely through Razorpay — India's standard payment gateway for clinics and hospitals.</p>
+
+    <ul class="status-list">
+      <li><span class="dot live"></span><div><strong>Card, UPI, netbanking, wallets</strong> — all handled by Razorpay's own secure checkout screen; your website never sees or stores card details.</div></li>
+      <li><span class="dot live"></span><div><strong>Separate fee for in-clinic vs. online consultations</strong> — both amounts are yours to set and change any time from the admin console.</div></li>
+      <li><span class="dot live"></span><div><strong>Automatic confirmation</strong> — the moment a payment succeeds, the appointment is confirmed, added to the calendar, and logged, with no manual step for you.</div></li>
+      <li><span class="dot live"></span><div><strong>Failed payments let the patient retry</strong> instead of dead-ending — on the website, in the chat assistant, and on WhatsApp.</div></li>
+      <li><span class="dot live"></span><div><strong>Treatment price ranges shown on the site are informational only</strong> — the only amount ever actually charged, on any channel, is the advance booking fee you configure.</div></li>
+    </ul>
+  </section>
+
+  <!-- 4: CALENDAR -->
+  <section class="chapter" id="calendar">
+    <p class="chapter-eyebrow">Section 04</p>
+    <h2 class="display">Calendar &amp; video consultations</h2>
+    <p class="dek">Your Google Calendar is the single real record of every appointment — the website reads live availability from it and writes every confirmed booking back to it automatically.</p>
+
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>Live availability</h3>
+        <p>Time slots shown to patients reflect your actual calendar in real time — anything already booked or blocked off disappears from the options instantly.</p>
+      </div>
+      <div class="feature">
+        <h3>Automatic invites</h3>
+        <p>Confirmed appointments are added to your calendar with the patient's details, and an invite is emailed to them where available.</p>
+      </div>
+      <div class="feature full">
+        <h3>Video consultations wait for your OK</h3>
+        <p>A Google Meet link is <strong>never generated automatically</strong> the moment someone books an online consultation — you may not actually be free at the slot they picked. Instead it appears in your admin console as "awaiting approval." One tap either confirms it (which creates the Meet link and sends it to the patient on WhatsApp) or releases the slot so they can pick another time. No patient ever receives a video link for a slot you haven't actually agreed to.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5: RECORDS -->
+  <section class="chapter" id="records">
+    <p class="chapter-eyebrow">Section 05</p>
+    <h2 class="display">Patient records &amp; the appointment log</h2>
+    <p class="dek">Two quiet systems run behind every booking so nothing is ever lost, even if the website's server restarts.</p>
+
+    <table class="spec">
+      <tr><th>What</th><th>What it's for</th></tr>
+      <tr><td>Patient database</td><td>Every patient is recorded once and matched by phone or email across all three booking channels, so returning patients don't create duplicate records no matter how they book.</td></tr>
+      <tr><td>Appointment spreadsheet</td><td>A plain, human-readable log of every booking — patient, service, date, time, channel, and payment status — that you or your staff can open directly, no technical knowledge needed.</td></tr>
+      <tr><td>Appointment memory</td><td>The booking system remembers every appointment permanently, so restarting or updating the website never wipes today's or tomorrow's bookings.</td></tr>
+    </table>
+  </section>
+
+  <!-- 6: ADMIN -->
+  <section class="chapter" id="admin">
+    <p class="chapter-eyebrow">Section 06</p>
+    <h2 class="display">Your admin console</h2>
+    <p class="dek">A private, PIN-protected page only you have the link to — not listed anywhere on the public site — where you control the parts of the website that change over time.</p>
+
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>Booking advance fees</h3>
+        <p>Set the in-clinic and online consultation advance amounts, or switch the fee off entirely for free bookings.</p>
+      </div>
+      <div class="feature">
+        <h3>Treatment price ranges</h3>
+        <p>Edit the displayed price range for any of the 13 treatments — updates the website and the WhatsApp bot instantly.</p>
+      </div>
+      <div class="feature">
+        <h3>Pending online consults</h3>
+        <p>Approve or release video-consultation requests, as described in Section 04.</p>
+      </div>
+      <div class="feature">
+        <h3>Blog publishing</h3>
+        <p>Write, edit, or remove blog posts — an image, a title, the content, and an author is all that's needed. Goes live on the public Blog page immediately.</p>
+      </div>
+      <div class="feature">
+        <h3>Google review count</h3>
+        <p>Shown live from Google automatically, or set the number yourself at any time if you'd rather control it manually.</p>
+      </div>
+      <div class="feature">
+        <h3>Calendar connection</h3>
+        <p>A one-click way to (re)connect the website to a Google account — used once now, and again only if the clinic's Google account ever changes.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7: VISIBILITY -->
+  <section class="chapter" id="visibility">
+    <p class="chapter-eyebrow">Section 07</p>
+    <h2 class="display">Getting found on Google</h2>
+    <p class="dek">The site is written and structured to be found by people actually searching for a dentist nearby — not just to look good once they arrive.</p>
+
+    <div class="tag-row">
+      <span class="tag">Local search</span>
+      <span class="tag">Google rich results</span>
+      <span class="tag">Voice &amp; AI search</span>
+      <span class="tag">Social sharing</span>
+    </div>
+
+    <ul class="status-list">
+      <li><span class="dot live"></span><div><strong>Region-specific keywords</strong> throughout — Kalapatti, Coimbatore, and the surrounding neighbourhoods (Saravanampatti, Thudiyalur, Ganapathy, Vilankurichi), alongside every treatment name.</div></li>
+      <li><span class="dot live"></span><div><strong>Structured business data</strong> submitted to Google — clinic hours, address, doctors and their specialities, so Google can show accurate details directly in search results and Maps.</div></li>
+      <li><span class="dot live"></span><div><strong>FAQ rich-result eligibility</strong> — the "Common Patient Questions" on the Services page are marked up so Google can surface them directly in search, above the normal listing.</div></li>
+      <li><span class="dot live"></span><div><strong>Clean link previews</strong> — sharing the site on WhatsApp, Facebook, or Twitter shows a proper title, description, and photo instead of a bare link.</div></li>
+    </ul>
+  </section>
+
+  <!-- 8: EXPERIENCE -->
+  <section class="chapter" id="experience">
+    <p class="chapter-eyebrow">Section 08</p>
+    <h2 class="display">Look, feel &amp; devices</h2>
+    <p class="dek">Verified to look and work correctly on phones, tablets, and desktops — where most patients will actually be browsing from.</p>
+
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>Mobile-first</h3>
+        <p>Designed for the phone screen first, since that's how the majority of patients will find and book. Tablet and desktop layouts adapt from there.</p>
+      </div>
+      <div class="feature">
+        <h3>Smooth throughout</h3>
+        <p>Moving between pages, scrolling, and opening the booking flow all use gentle, quick transitions rather than hard jumps.</p>
+      </div>
+      <div class="feature">
+        <h3>One consistent visual language</h3>
+        <p>A single clean, bright theme across every page and every section, so nothing feels like it belongs to a different site.</p>
+      </div>
+      <div class="feature">
+        <h3>A homepage that grabs attention</h3>
+        <p>A subtle animated backdrop behind the opening headline — modern without being distracting, and legible on every screen size.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9: SECURITY -->
+  <section class="chapter" id="security">
+    <p class="chapter-eyebrow">Section 09</p>
+    <h2 class="display">Security &amp; safeguards</h2>
+    <p class="dek">The parts patients never see, working to keep payments, data, and admin access safe.</p>
+
+    <ul class="status-list">
+      <li><span class="dot live"></span><div><strong>Every payment is verified twice</strong> — once when the patient's browser reports success, and again independently when Razorpay itself confirms it, so a booking can never be falsely marked as paid.</div></li>
+      <li><span class="dot live"></span><div><strong>The admin console is PIN-locked</strong> and not linked from anywhere on the public site — only reachable by someone who already has the direct address.</div></li>
+      <li><span class="dot live"></span><div><strong>Repeated wrong PIN attempts are automatically slowed down</strong>, making guessing impractical.</div></li>
+      <li><span class="dot live"></span><div><strong>Incoming WhatsApp messages are verified as genuinely from Meta</strong> before the bot acts on them, preventing spoofed messages from reaching the booking system.</div></li>
+      <li><span class="dot live"></span><div><strong>Patient and payment data is stored with access restricted</strong> to the website's own secure backend only — never exposed to browsers directly.</div></li>
+    </ul>
+  </section>
+
+  <!-- 10: NEXT -->
+  <section class="chapter" id="next">
+    <p class="chapter-eyebrow">Section 10</p>
+    <h2 class="display">What's left before go-live</h2>
+    <p class="dek">A short, honest list of the remaining steps between where things stand today and the site running fully live on your own domain.</p>
+
+    <ul class="status-list">
+      <li><span class="dot pending"></span><div><strong>Pointing your domain</strong> to the live website and switching payments from test mode to real transactions.</div></li>
+      <li><span class="dot pending"></span><div><strong>Final WhatsApp Business verification</strong> with Meta, so messages send from the clinic's permanent number.</div></li>
+      <li><span class="dot pending"></span><div><strong>Reconnecting Google Calendar</strong> to the clinic's own Google account (currently connected to a development account for testing).</div></li>
+    </ul>
+    <p style="color: var(--ink-soft); font-size: 14px;">Everything described in Sections 01–09 above is already built and working end-to-end — these three items are account-level switches, not open development work.</p>
+  </section>
+
+  <footer class="doc-footer">
+    <span>Vihana Dental Care × The Paper Plane</span>
+    <span>Website Handover Document, v1</span>
+  </footer>
+
+</div>

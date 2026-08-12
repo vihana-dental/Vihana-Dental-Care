@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SERVICES as STATIC_SERVICES } from '../data/clinicData';
-import { DentalService } from '../types';
+import { DentalService, FAQ } from '../types';
 import {
   Sparkles,
   CheckCircle2,
@@ -10,6 +10,39 @@ import {
   X,
   MessageCircleQuestion
 } from 'lucide-react';
+
+// The site's original FAQ copy, used only as the initial render before
+// /api/faqs (Supabase-backed — see server/services/faqs.ts) loads, and as
+// the fallback if that fetch fails.
+const STATIC_FAQS: FAQ[] = [
+  {
+    id: 'static-1', order: 1,
+    question: 'Do you offer painless root canals in Kalapatti?',
+    answer: 'Yes, Vihana Dental Care provides 100% painless root canals in Kalapatti using computer-controlled local anesthesia and advanced microscopic laser technology to ensure complete patient comfort.'
+  },
+  {
+    id: 'static-2', order: 2,
+    question: 'What is the cost of dental implants in Coimbatore?',
+    answer: 'The cost of computer-guided dental implants at Vihana Dental Care ranges from ₹22,000 to ₹45,000 per implant, utilizing premium titanium posts for lifetime durability.'
+  },
+  {
+    id: 'static-3', order: 3,
+    question: 'How long does an Invisalign treatment take?',
+    answer: 'Invisalign clear aligner treatments typically take between 6 to 18 months depending on case complexity. We use 3D iTero scanners to provide exact timelines during your first consultation.'
+  },
+  {
+    id: 'static-4', order: 4,
+    question: 'Is teeth whitening safe for enamel?',
+    answer: 'Absolutely. Our advanced laser teeth whitening procedure is completely safe for enamel. It removes deep stains without causing structural damage or long-term sensitivity.'
+  },
+  {
+    id: 'static-5', order: 5,
+    question: 'Why do I need X-rays?',
+    answer: "Digital X-rays let us see what a visual exam alone can't — cavities forming between teeth, bone loss around the roots, or early-stage infections. Catching these early usually means simpler, less invasive treatment than waiting until they cause pain."
+  }
+];
+
+const FAQ_JSON_LD_SCRIPT_ID = 'faq-json-ld';
 
 interface ServicesViewProps {
   onSelectServiceToBook: (serviceId: string) => void;
@@ -20,17 +53,50 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
   const [selectedServiceModal, setSelectedServiceModal] = useState<DentalService | null>(null);
 
   // Starts from the static catalog so the page renders immediately, then
-  // swaps in live, doctor-editable price ranges from /api/clinic-info
-  // (Supabase-backed — see server/services/pricing.ts) once loaded. Falls
-  // back to the static prices on any fetch error.
+  // swaps in the full live, doctor-editable catalog from /api/clinic-info
+  // (Supabase-backed — see server/services/services.ts) once loaded. Falls
+  // back to the static catalog on any fetch error.
   const [services, setServices] = useState<DentalService[]>(STATIC_SERVICES);
+  const [faqs, setFaqs] = useState<FAQ[]>(STATIC_FAQS);
 
   useEffect(() => {
     fetch('/api/clinic-info')
       .then((res) => res.json())
       .then((data) => { if (Array.isArray(data.services)) setServices(data.services); })
       .catch(() => {});
+
+    fetch('/api/faqs')
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data.faqs) && data.faqs.length > 0) setFaqs(data.faqs); })
+      .catch(() => {});
   }, []);
+
+  // Keeps the FAQPage JSON-LD structured data in sync with whatever FAQs
+  // are actually rendered below, instead of the static block that used to
+  // live in index.html and could drift from admin edits — this is now the
+  // single source of truth for that markup.
+  useEffect(() => {
+    const existing = document.getElementById(FAQ_JSON_LD_SCRIPT_ID);
+    if (existing) existing.remove();
+
+    const script = document.createElement('script');
+    script.id = FAQ_JSON_LD_SCRIPT_ID;
+    script.type = 'application/ld+json';
+    script.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [...faqs]
+        .sort((a, b) => a.order - b.order)
+        .map((faq) => ({
+          '@type': 'Question',
+          name: faq.question,
+          acceptedAnswer: { '@type': 'Answer', text: faq.answer }
+        }))
+    });
+    document.head.appendChild(script);
+
+    return () => { document.getElementById(FAQ_JSON_LD_SCRIPT_ID)?.remove(); };
+  }, [faqs]);
 
   const categories = ['All', 'Implants', 'Orthodontics', 'General', 'Cosmetic', 'Surgical', 'Pediatric'];
 
@@ -174,36 +240,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <article>
-                <h3 className="text-base font-bold text-slate-900 mb-2">Do you offer painless root canals in Kalapatti?</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Yes, Vihana Dental Care provides 100% painless root canals in Kalapatti using computer-controlled local anesthesia and advanced microscopic laser technology to ensure complete patient comfort.
-                </p>
-              </article>
-              <article>
-                <h3 className="text-base font-bold text-slate-900 mb-2">What is the cost of dental implants in Coimbatore?</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  The cost of computer-guided dental implants at Vihana Dental Care ranges from ₹22,000 to ₹45,000 per implant, utilizing premium titanium posts for lifetime durability.
-                </p>
-              </article>
-              <article>
-                <h3 className="text-base font-bold text-slate-900 mb-2">How long does an Invisalign treatment take?</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Invisalign clear aligner treatments typically take between 6 to 18 months depending on case complexity. We use 3D iTero scanners to provide exact timelines during your first consultation.
-                </p>
-              </article>
-              <article>
-                <h3 className="text-base font-bold text-slate-900 mb-2">Is teeth whitening safe for enamel?</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Absolutely. Our advanced laser teeth whitening procedure is completely safe for enamel. It removes deep stains without causing structural damage or long-term sensitivity.
-                </p>
-              </article>
-              <article>
-                <h3 className="text-base font-bold text-slate-900 mb-2">Why do I need X-rays?</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Digital X-rays let us see what a visual exam alone can't — cavities forming between teeth, bone loss around the roots, or early-stage infections. Catching these early usually means simpler, less invasive treatment than waiting until they cause pain.
-                </p>
-              </article>
+              {[...faqs].sort((a, b) => a.order - b.order).map((faq) => (
+                <article key={faq.id}>
+                  <h3 className="text-base font-bold text-slate-900 mb-2">{faq.question}</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">{faq.answer}</p>
+                </article>
+              ))}
             </div>
           </div>
         </section>

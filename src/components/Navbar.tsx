@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Phone,
@@ -27,13 +27,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Matches the actual on-page section order in App.tsx's Home tab
+  // (Hero -> Services -> About -> Team -> Gallery -> Blog -> Reviews ->
+  // Contact), so the nav and scroll-spy agree with what the user actually
+  // scrolls past instead of listing sections out of sequence.
   const navItems = [
     { id: 'home', label: 'Home' },
-    { id: 'about', label: 'About Us' },
     { id: 'services', label: 'Services' },
+    { id: 'about', label: 'About Us' },
     { id: 'team', label: 'Our Team' },
-    { id: 'blog', label: 'Blog' },
     { id: 'gallery', label: 'Gallery' },
+    { id: 'blog', label: 'Blog' },
     { id: 'reviews', label: 'Reviews' },
     { id: 'location', label: 'Contact & Map' },
   ];
@@ -41,6 +45,48 @@ export const Navbar: React.FC<NavbarProps> = ({
   const whatsappHref = `https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
     "Hi, I'd like to book a dental appointment at Vihana Dental Care."
   )}`;
+
+  // Scroll-spy — only meaningful on the Home tab, where all sections are
+  // stacked on one scrollable page (every other tab is a standalone single-
+  // section view and is always correctly "active" by definition). Tracks
+  // which section id is crossing a thin band near the sticky header height
+  // and highlights that nav item instead of the literal activeTab.
+  const [visibleSectionId, setVisibleSectionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'home') return;
+    let observer: IntersectionObserver | undefined;
+    let cancelled = false;
+
+    // AnimatePresence's exit transition means the Home section divs may not
+    // exist in the DOM yet on the same tick activeTab flips to 'home' —
+    // retry briefly until they mount.
+    const attach = (attempt = 0) => {
+      if (cancelled) return;
+      const elements = navItems
+        .map((item) => document.getElementById(item.id))
+        .filter((el): el is HTMLElement => el !== null);
+      if (elements.length === 0 && attempt < 10) {
+        setTimeout(() => attach(attempt + 1), 60);
+        return;
+      }
+      observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible[0]) setVisibleSectionId(visible[0].target.id);
+        },
+        { rootMargin: '-45% 0px -50% 0px', threshold: 0 }
+      );
+      elements.forEach((el) => observer!.observe(el));
+    };
+    attach();
+
+    return () => { cancelled = true; observer?.disconnect(); };
+  }, [activeTab]);
+
+  const highlightedTab = activeTab === 'home' ? (visibleSectionId ?? 'home') : activeTab;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-xs border-b border-slate-200">
@@ -114,14 +160,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all relative ${
-                activeTab === item.id
+                highlightedTab === item.id
                   ? 'text-teal-800 font-bold'
                   : 'text-slate-600 hover:text-teal-700 hover:bg-slate-50'
               }`}
               id={`nav-link-${item.id}`}
             >
               {item.label}
-              {activeTab === item.id && (
+              {highlightedTab === item.id && (
                 <motion.div
                   layoutId="activeTabUnderline"
                   className="absolute bottom-0 left-2 right-2 h-0.5 bg-teal-600 rounded-full"
@@ -173,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium ${
-                  activeTab === item.id ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                  highlightedTab === item.id ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {item.label}

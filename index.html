@@ -116,57 +116,11 @@
     }
     </script>
 
-    <!-- JSON-LD Structured Data: FAQPage — mirrors the "Common Patient Questions"
-         section actually rendered on the Services page, required by Google for
-         FAQ rich-snippet eligibility (content must appear on-page, not only here). -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "Do you offer painless root canals in Kalapatti?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes, Vihana Dental Care provides 100% painless root canals in Kalapatti using computer-controlled local anesthesia and advanced microscopic laser technology to ensure complete patient comfort."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "What is the cost of dental implants in Coimbatore?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "The cost of computer-guided dental implants at Vihana Dental Care ranges from ₹22,000 to ₹45,000 per implant, utilizing premium titanium posts for lifetime durability."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How long does an Invisalign treatment take?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Invisalign clear aligner treatments typically take between 6 to 18 months depending on case complexity. We use 3D iTero scanners to provide exact timelines during your first consultation."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Is teeth whitening safe for enamel?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Absolutely. Our advanced laser teeth whitening procedure is completely safe for enamel. It removes deep stains without causing structural damage or long-term sensitivity."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Why do I need X-rays?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Digital X-rays let us see what a visual exam alone can't — cavities forming between teeth, bone loss around the roots, or early-stage infections. Catching these early usually means simpler, less invasive treatment than waiting until they cause pain."
-          }
-        }
-      ]
-    }
-    </script>
+    <!-- FAQPage JSON-LD is no longer static here — it's now injected
+         client-side by src/components/ServicesView.tsx from the same
+         live, doctor-editable FAQ data (/api/faqs) that renders the
+         on-page "Common Patient Questions" section, so the two can never
+         drift out of sync the way a hand-maintained duplicate here could. -->
   </head>
   <body>
     <div id="root"></div>

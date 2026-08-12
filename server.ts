@@ -4,8 +4,8 @@ import path from 'path';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { Appointment, Inquiry } from './src/types';
-import { SERVICES, DOCTORS, CLINIC_INFO } from './src/data/clinicData';
+import { Appointment, Inquiry, DentalService, Doctor, GalleryItem } from './src/types';
+import { SERVICES as STATIC_SERVICES, DOCTORS as STATIC_DOCTORS, CLINIC_INFO } from './src/data/clinicData';
 import {
   getPublicKeyId,
   createOrder,
@@ -38,6 +38,14 @@ import {
 import { appendAppointmentRow } from './server/services/googleSheets';
 import { persistAppointment, loadAllAppointments, isAppointmentsPersistenceConfigured } from './server/services/appointmentsStore';
 import { getServicePriceDisplay, getAllServicePriceDisplays, setServicePriceDisplay } from './server/services/pricing';
+import { listServices, getServiceById, createService, updateService, deleteService } from './server/services/services';
+import { listFAQs, createFAQ, updateFAQ, deleteFAQ } from './server/services/faqs';
+import {
+  listDoctors, createDoctor, updateDoctor, deleteDoctor,
+  listConsultants, createConsultant, updateConsultant, deleteConsultant
+} from './server/services/team';
+import { listGalleryItems, createGalleryItem, updateGalleryItem, deleteGalleryItem } from './server/services/gallery';
+import { listCuratedReviews, createCuratedReview, updateCuratedReview, deleteCuratedReview } from './server/services/reviews';
 import {
   getWebhookVerifyToken,
   sendTextMessage,
@@ -101,6 +109,17 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
   adminSessions.set(token, Date.now() + ADMIN_SESSION_TTL_MS); // sliding expiry
   next();
 }
+
+// Live, admin-editable catalogs — mirrors the appointmentsStorage pattern
+// below: loaded from Supabase (via server/services/services.ts + team.ts)
+// once at startup in startServer(), then kept in sync in-memory on every
+// admin write, so the many synchronous SERVICES_LIVE.find(...) /
+// DOCTORS_LIVE.find(...) call sites throughout the booking flow and
+// WhatsApp bot don't need to become async. Starts from the static
+// clinicData.ts catalog so the site works identically before Supabase is
+// configured and before the first live load completes.
+let SERVICES_LIVE: DentalService[] = STATIC_SERVICES;
+let DOCTORS_LIVE: Doctor[] = STATIC_DOCTORS;
 
 // In-memory data persistence for demo session
 let appointmentsStorage: Appointment[] = [
@@ -374,18 +393,14 @@ app.patch('/api/admin/review-override', requireAdminAuth, (req, res) => {
 
 // GET Clinic Data
 app.get('/api/clinic-info', async (req, res) => {
-  // Overlays live, doctor-editable price ranges (Supabase-backed, see
-  // server/services/pricing.ts) onto the static service catalog — display
-  // only, matches whatever clinicData.ts says until Supabase is configured
-  // and/or the doctor edits a price in /doctor-admin.
-  const livePrices = await getAllServicePriceDisplays();
-  const priceById = new Map(livePrices.map((p) => [p.serviceId, p.priceRangeDisplay]));
-  const services = SERVICES.map((s) => ({ ...s, priceRange: priceById.get(s.id) ?? s.priceRange }));
-
+  // SERVICES_LIVE/DOCTORS_LIVE are the doctor-editable catalogs (Supabase-
+  // backed, see server/services/services.ts + team.ts), refreshed on every
+  // admin write — this now returns the full live record, not just an
+  // overlaid price range.
   res.json({
     info: CLINIC_INFO,
-    services,
-    doctors: DOCTORS,
+    services: SERVICES_LIVE,
+    doctors: DOCTORS_LIVE,
     feeConfig: getPublicFeeConfig()
   });
 });
@@ -402,6 +417,27 @@ app.get('/api/blog/:slug', async (req, res) => {
     return res.status(404).json({ success: false, error: 'Post not found.' });
   }
   res.json({ success: true, post });
+});
+
+// ---------------- TEAM / GALLERY / FAQ / CURATED REVIEWS (public reads) ----------------
+app.get('/api/team', async (req, res) => {
+  const [doctors, consultants] = await Promise.all([listDoctors(), listConsultants()]);
+  res.json({ success: true, doctors, consultants });
+});
+
+app.get('/api/gallery', async (req, res) => {
+  const items = await listGalleryItems();
+  res.json({ success: true, items });
+});
+
+app.get('/api/faqs', async (req, res) => {
+  const faqs = await listFAQs();
+  res.json({ success: true, faqs });
+});
+
+app.get('/api/reviews/curated', async (req, res) => {
+  const reviews = await listCuratedReviews();
+  res.json({ success: true, reviews });
 });
 
 // GET Availability — live slot status for a date, synced against Google Calendar freebusy.
@@ -587,8 +623,8 @@ app.post('/api/payments/create-order', async (req, res) => {
     return res.status(400).json({ success: false, error: 'No advance fee is currently configured for this consultation type.' });
   }
 
-  const doctor = DOCTORS.find(d => d.id === doctorId) || DOCTORS[0];
-  const service = SERVICES.find(s => s.id === serviceId) || SERVICES[0];
+  const doctor = DOCTORS_LIVE.find(d => d.id === doctorId) || DOCTORS_LIVE[0];
+  const service = SERVICES_LIVE.find(s => s.id === serviceId) || SERVICES_LIVE[0];
   const appointmentId = generateDailyAppointmentId();
 
   const pendingAppointment: Appointment = {
@@ -832,8 +868,8 @@ app.post('/api/razorpay/create-payment-link', async (req, res) => {
     return res.status(400).json({ success: false, error: 'No advance fee is currently configured for this consultation type.' });
   }
 
-  const doctor = DOCTORS.find(d => d.id === doctorId) || DOCTORS[0];
-  const service = SERVICES.find(s => s.id === serviceId) || SERVICES[0];
+  const doctor = DOCTORS_LIVE.find(d => d.id === doctorId) || DOCTORS_LIVE[0];
+  const service = SERVICES_LIVE.find(s => s.id === serviceId) || SERVICES_LIVE[0];
   const appointmentId = generateDailyAppointmentId();
 
   const pendingAppointment: Appointment = {
@@ -963,7 +999,7 @@ interface WhatsAppConversationState {
 
 const whatsappConversations = new Map<string, WhatsAppConversationState>();
 
-const SERVICE_CATEGORIES = Array.from(new Set(SERVICES.map((s) => s.category)));
+const SERVICE_CATEGORIES = Array.from(new Set(SERVICES_LIVE.map((s) => s.category)));
 
 /**
  * Resolves a tapped list/button reply OR a typed fallback (numeric index or
@@ -1138,7 +1174,7 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
       return;
     }
     const category = picked.id.replace('cat:', '');
-    const servicesInCategory = SERVICES.filter((s) => s.category === category);
+    const servicesInCategory = SERVICES_LIVE.filter((s) => s.category === category);
 
     state.category = category;
     state.step = 'awaiting_service';
@@ -1152,7 +1188,7 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
   }
 
   if (state.step === 'awaiting_service') {
-    const servicesInCategory = SERVICES.filter((s) => s.category === state!.category);
+    const servicesInCategory = SERVICES_LIVE.filter((s) => s.category === state!.category);
     const options = servicesInCategory.map((s) => ({ id: `svc:${s.id}`, label: s.title }));
     const picked = resolveSelection(msg, options);
     if (!picked) {
@@ -1264,7 +1300,7 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
       return;
     }
 
-    const service = SERVICES.find((s) => s.id === state!.serviceId) || SERVICES[0];
+    const service = SERVICES_LIVE.find((s) => s.id === state!.serviceId) || SERVICES_LIVE[0];
     // Estimated treatment cost is pulled from the centralized pricing table
     // purely for display/transparency in the chat — matches the confirmed
     // product decision to charge the same small refundable slot-booking
@@ -1285,8 +1321,8 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
       patientName,
       patientPhone: from,
       patientEmail: '',
-      doctorId: DOCTORS[0].id,
-      doctorName: DOCTORS[0].name,
+      doctorId: DOCTORS_LIVE[0].id,
+      doctorName: DOCTORS_LIVE[0].name,
       serviceId: service.id,
       serviceName: service.title,
       date: state.date!,
@@ -1421,8 +1457,8 @@ app.post('/api/appointments', async (req, res) => {
     return res.status(409).json({ success: false, error: slotCheck.message || 'That time slot is no longer available. Please pick another.' });
   }
 
-  const doctor = DOCTORS.find(d => d.id === doctorId) || DOCTORS[0];
-  const service = SERVICES.find(s => s.id === serviceId) || SERVICES[0];
+  const doctor = DOCTORS_LIVE.find(d => d.id === doctorId) || DOCTORS_LIVE[0];
+  const service = SERVICES_LIVE.find(s => s.id === serviceId) || SERVICES_LIVE[0];
   const rescheduleToken = `RSC-${Math.floor(10000 + Math.random() * 90000)}`;
 
   const newAppointment: Appointment = {
@@ -1593,7 +1629,7 @@ app.patch('/api/admin/service-pricing', requireAdminAuth, async (req, res) => {
     return res.status(400).json({ success: false, error: 'priceRangeDisplay must be a non-empty string, e.g. "₹22,000 - ₹45,000 per implant".' });
   }
 
-  const service = SERVICES.find((s) => s.id === serviceId);
+  const service = SERVICES_LIVE.find((s) => s.id === serviceId);
   if (!service) {
     return res.status(404).json({ success: false, error: `Unknown serviceId: ${serviceId}` });
   }
@@ -1659,6 +1695,320 @@ app.delete('/api/admin/blog/:id', requireAdminAuth, async (req, res) => {
   if (!result.success) {
     return res.status(404).json({ success: false, error: result.error || 'Post not found.' });
   }
+  res.json({ success: true });
+});
+
+// ---------------- SERVICES (admin writes) ----------------
+// Full CRUD over the treatment catalog — supersedes the old price-only
+// /api/admin/service-pricing editing above (left in place, still used
+// internally by services.ts to keep the WhatsApp bot's cost line in sync).
+function parseServiceInput(body: any): { input?: any; error?: string } {
+  const { title, category, shortDescription, fullDescription, image, durationMinutes, priceRange, benefits, procedures, iconName } = body;
+  if (typeof title !== 'string' || !title.trim()) return { error: 'title is required.' };
+  const validCategories = ['General', 'Cosmetic', 'Orthodontics', 'Implants', 'Surgical', 'Pediatric'];
+  if (typeof category !== 'string' || !validCategories.includes(category)) {
+    return { error: `category must be one of: ${validCategories.join(', ')}.` };
+  }
+  if (typeof shortDescription !== 'string' || !shortDescription.trim()) return { error: 'shortDescription is required.' };
+  if (typeof fullDescription !== 'string' || !fullDescription.trim()) return { error: 'fullDescription is required.' };
+  if (typeof image !== 'string' || !image.trim()) return { error: 'image is required.' };
+  if (typeof durationMinutes !== 'number' || durationMinutes <= 0) return { error: 'durationMinutes must be a positive number.' };
+  if (typeof priceRange !== 'string' || !priceRange.trim()) return { error: 'priceRange is required.' };
+  if (!Array.isArray(benefits) || !benefits.every((b) => typeof b === 'string')) return { error: 'benefits must be an array of strings.' };
+  if (!Array.isArray(procedures) || !procedures.every((p) => typeof p === 'string')) return { error: 'procedures must be an array of strings.' };
+  if (typeof iconName !== 'string' || !iconName.trim()) return { error: 'iconName is required.' };
+
+  return {
+    input: {
+      title: title.trim(),
+      category,
+      shortDescription: shortDescription.trim(),
+      fullDescription: fullDescription.trim(),
+      image,
+      durationMinutes,
+      priceRange: priceRange.trim(),
+      benefits: benefits.map((b: string) => b.trim()).filter(Boolean),
+      procedures: procedures.map((p: string) => p.trim()).filter(Boolean),
+      iconName: iconName.trim()
+    }
+  };
+}
+
+app.get('/api/admin/services', requireAdminAuth, async (req, res) => {
+  res.json({ success: true, services: SERVICES_LIVE });
+});
+
+app.post('/api/admin/services', requireAdminAuth, async (req, res) => {
+  const { input, error } = parseServiceInput(req.body);
+  if (error) return res.status(400).json({ success: false, error });
+
+  const result = await createService(input);
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save this service.' });
+  SERVICES_LIVE = await listServices();
+  res.json({ success: true, service: result.service });
+});
+
+app.patch('/api/admin/services/:id', requireAdminAuth, async (req, res) => {
+  const { input, error } = parseServiceInput(req.body);
+  if (error) return res.status(400).json({ success: false, error });
+
+  const result = await updateService(req.params.id, input);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Service not found.' });
+  SERVICES_LIVE = await listServices();
+  res.json({ success: true, service: result.service });
+});
+
+app.delete('/api/admin/services/:id', requireAdminAuth, async (req, res) => {
+  const result = await deleteService(req.params.id);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Service not found.' });
+  SERVICES_LIVE = await listServices();
+  res.json({ success: true });
+});
+
+// ---------------- FAQS (admin writes) ----------------
+app.get('/api/admin/faqs', requireAdminAuth, async (req, res) => {
+  const faqs = await listFAQs();
+  res.json({ success: true, faqs });
+});
+
+app.post('/api/admin/faqs', requireAdminAuth, async (req, res) => {
+  const { question, answer, order } = req.body;
+  if (typeof question !== 'string' || !question.trim()) return res.status(400).json({ success: false, error: 'question is required.' });
+  if (typeof answer !== 'string' || !answer.trim()) return res.status(400).json({ success: false, error: 'answer is required.' });
+  if (typeof order !== 'number') return res.status(400).json({ success: false, error: 'order must be a number.' });
+
+  const result = await createFAQ({ question: question.trim(), answer: answer.trim(), order });
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save this FAQ.' });
+  res.json({ success: true, faq: result.faq });
+});
+
+app.patch('/api/admin/faqs/:id', requireAdminAuth, async (req, res) => {
+  const { question, answer, order } = req.body;
+  if (typeof question !== 'string' || !question.trim()) return res.status(400).json({ success: false, error: 'question is required.' });
+  if (typeof answer !== 'string' || !answer.trim()) return res.status(400).json({ success: false, error: 'answer is required.' });
+  if (typeof order !== 'number') return res.status(400).json({ success: false, error: 'order must be a number.' });
+
+  const result = await updateFAQ(req.params.id, { question: question.trim(), answer: answer.trim(), order });
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'FAQ not found.' });
+  res.json({ success: true, faq: result.faq });
+});
+
+app.delete('/api/admin/faqs/:id', requireAdminAuth, async (req, res) => {
+  const result = await deleteFAQ(req.params.id);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'FAQ not found.' });
+  res.json({ success: true });
+});
+
+// ---------------- TEAM: DOCTORS (admin writes) ----------------
+function parseDoctorInput(body: any): { input?: any; error?: string } {
+  const { name, title, qualification, specialization, experienceYears, photo, bio, availableDays, ugInstitution, pgInstitution, externalTraining, qualificationYear } = body;
+  if (typeof name !== 'string' || !name.trim()) return { error: 'name is required.' };
+  if (typeof title !== 'string' || !title.trim()) return { error: 'title is required.' };
+  if (typeof qualification !== 'string' || !qualification.trim()) return { error: 'qualification is required.' };
+  if (typeof specialization !== 'string' || !specialization.trim()) return { error: 'specialization is required.' };
+  if (typeof experienceYears !== 'number' || experienceYears < 0) return { error: 'experienceYears must be a non-negative number.' };
+  if (typeof photo !== 'string' || !photo.trim()) return { error: 'photo is required.' };
+  if (typeof bio !== 'string' || !bio.trim()) return { error: 'bio is required.' };
+  if (!Array.isArray(availableDays) || !availableDays.every((d) => typeof d === 'string')) return { error: 'availableDays must be an array of strings.' };
+
+  return {
+    input: {
+      name: name.trim(),
+      title: title.trim(),
+      qualification: qualification.trim(),
+      specialization: specialization.trim(),
+      experienceYears,
+      photo,
+      bio: bio.trim(),
+      availableDays,
+      ugInstitution: typeof ugInstitution === 'string' && ugInstitution.trim() ? ugInstitution.trim() : undefined,
+      pgInstitution: typeof pgInstitution === 'string' && pgInstitution.trim() ? pgInstitution.trim() : undefined,
+      externalTraining: Array.isArray(externalTraining) ? externalTraining.filter((t: any) => typeof t === 'string' && t.trim()) : undefined,
+      qualificationYear: typeof qualificationYear === 'string' && qualificationYear.trim() ? qualificationYear.trim() : undefined
+    }
+  };
+}
+
+app.get('/api/admin/team/doctors', requireAdminAuth, async (req, res) => {
+  res.json({ success: true, doctors: DOCTORS_LIVE });
+});
+
+app.post('/api/admin/team/doctors', requireAdminAuth, async (req, res) => {
+  const { input, error } = parseDoctorInput(req.body);
+  if (error) return res.status(400).json({ success: false, error });
+
+  const result = await createDoctor(input);
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save this doctor.' });
+  DOCTORS_LIVE = await listDoctors();
+  res.json({ success: true, doctor: result.doctor });
+});
+
+app.patch('/api/admin/team/doctors/:id', requireAdminAuth, async (req, res) => {
+  const { input, error } = parseDoctorInput(req.body);
+  if (error) return res.status(400).json({ success: false, error });
+
+  const result = await updateDoctor(req.params.id, input);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Doctor not found.' });
+  DOCTORS_LIVE = await listDoctors();
+  res.json({ success: true, doctor: result.doctor });
+});
+
+app.delete('/api/admin/team/doctors/:id', requireAdminAuth, async (req, res) => {
+  const result = await deleteDoctor(req.params.id);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Doctor not found.' });
+  DOCTORS_LIVE = await listDoctors();
+  res.json({ success: true });
+});
+
+// ---------------- TEAM: CONSULTANTS (admin writes) ----------------
+function parseConsultantInput(body: any): { input?: any; error?: string } {
+  const { name, specialty, qualification, bio, photo, ugInstitution, pgInstitution, externalTraining, qualificationYear, experienceYears } = body;
+  if (typeof name !== 'string' || !name.trim()) return { error: 'name is required.' };
+  if (typeof specialty !== 'string' || !specialty.trim()) return { error: 'specialty is required.' };
+  if (typeof qualification !== 'string' || !qualification.trim()) return { error: 'qualification is required.' };
+  if (typeof bio !== 'string' || !bio.trim()) return { error: 'bio is required.' };
+  if (typeof photo !== 'string' || !photo.trim()) return { error: 'photo is required.' };
+
+  return {
+    input: {
+      name: name.trim(),
+      specialty: specialty.trim(),
+      qualification: qualification.trim(),
+      bio: bio.trim(),
+      photo,
+      ugInstitution: typeof ugInstitution === 'string' && ugInstitution.trim() ? ugInstitution.trim() : undefined,
+      pgInstitution: typeof pgInstitution === 'string' && pgInstitution.trim() ? pgInstitution.trim() : undefined,
+      externalTraining: Array.isArray(externalTraining) ? externalTraining.filter((t: any) => typeof t === 'string' && t.trim()) : undefined,
+      qualificationYear: typeof qualificationYear === 'string' && qualificationYear.trim() ? qualificationYear.trim() : undefined,
+      experienceYears: typeof experienceYears === 'number' ? experienceYears : undefined
+    }
+  };
+}
+
+app.get('/api/admin/team/consultants', requireAdminAuth, async (req, res) => {
+  const consultants = await listConsultants();
+  res.json({ success: true, consultants });
+});
+
+app.post('/api/admin/team/consultants', requireAdminAuth, async (req, res) => {
+  const { input, error } = parseConsultantInput(req.body);
+  if (error) return res.status(400).json({ success: false, error });
+
+  const result = await createConsultant(input);
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save this consultant.' });
+  res.json({ success: true, consultant: result.consultant });
+});
+
+app.patch('/api/admin/team/consultants/:id', requireAdminAuth, async (req, res) => {
+  const { input, error } = parseConsultantInput(req.body);
+  if (error) return res.status(400).json({ success: false, error });
+
+  const result = await updateConsultant(req.params.id, input);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Consultant not found.' });
+  res.json({ success: true, consultant: result.consultant });
+});
+
+app.delete('/api/admin/team/consultants/:id', requireAdminAuth, async (req, res) => {
+  const result = await deleteConsultant(req.params.id);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Consultant not found.' });
+  res.json({ success: true });
+});
+
+// ---------------- GALLERY (admin writes) ----------------
+app.get('/api/admin/gallery', requireAdminAuth, async (req, res) => {
+  const items = await listGalleryItems();
+  res.json({ success: true, items });
+});
+
+app.post('/api/admin/gallery', requireAdminAuth, async (req, res) => {
+  const { title, category, imageUrl, caption } = req.body;
+  const validCategories = ['facilities', 'treatments', 'sterilization', 'smiles', 'posters'];
+  if (typeof title !== 'string' || !title.trim()) return res.status(400).json({ success: false, error: 'title is required.' });
+  if (typeof category !== 'string' || !validCategories.includes(category)) {
+    return res.status(400).json({ success: false, error: `category must be one of: ${validCategories.join(', ')}.` });
+  }
+  if (typeof imageUrl !== 'string' || !imageUrl.trim()) return res.status(400).json({ success: false, error: 'imageUrl is required.' });
+  if (typeof caption !== 'string' || !caption.trim()) return res.status(400).json({ success: false, error: 'caption is required.' });
+
+  const result = await createGalleryItem({ title: title.trim(), category: category as GalleryItem['category'], imageUrl, caption: caption.trim() });
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save this gallery item.' });
+  res.json({ success: true, item: result.item });
+});
+
+app.patch('/api/admin/gallery/:id', requireAdminAuth, async (req, res) => {
+  const { title, category, imageUrl, caption } = req.body;
+  const validCategories = ['facilities', 'treatments', 'sterilization', 'smiles', 'posters'];
+  if (typeof title !== 'string' || !title.trim()) return res.status(400).json({ success: false, error: 'title is required.' });
+  if (typeof category !== 'string' || !validCategories.includes(category)) {
+    return res.status(400).json({ success: false, error: `category must be one of: ${validCategories.join(', ')}.` });
+  }
+  if (typeof imageUrl !== 'string' || !imageUrl.trim()) return res.status(400).json({ success: false, error: 'imageUrl is required.' });
+  if (typeof caption !== 'string' || !caption.trim()) return res.status(400).json({ success: false, error: 'caption is required.' });
+
+  const result = await updateGalleryItem(req.params.id, { title: title.trim(), category: category as GalleryItem['category'], imageUrl, caption: caption.trim() });
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Gallery item not found.' });
+  res.json({ success: true, item: result.item });
+});
+
+app.delete('/api/admin/gallery/:id', requireAdminAuth, async (req, res) => {
+  const result = await deleteGalleryItem(req.params.id);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Gallery item not found.' });
+  res.json({ success: true });
+});
+
+// ---------------- CURATED REVIEWS (admin writes) ----------------
+app.get('/api/admin/reviews', requireAdminAuth, async (req, res) => {
+  const reviews = await listCuratedReviews();
+  res.json({ success: true, reviews });
+});
+
+app.post('/api/admin/reviews', requireAdminAuth, async (req, res) => {
+  const { authorName, authorPhoto, rating, relativeTimeDescription, text, date, verifiedGoogle, clinicReply } = req.body;
+  if (typeof authorName !== 'string' || !authorName.trim()) return res.status(400).json({ success: false, error: 'authorName is required.' });
+  if (typeof rating !== 'number' || rating < 1 || rating > 5) return res.status(400).json({ success: false, error: 'rating must be a number between 1 and 5.' });
+  if (typeof relativeTimeDescription !== 'string' || !relativeTimeDescription.trim()) return res.status(400).json({ success: false, error: 'relativeTimeDescription is required.' });
+  if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ success: false, error: 'text is required.' });
+  if (typeof date !== 'string' || !date.trim()) return res.status(400).json({ success: false, error: 'date is required.' });
+
+  const result = await createCuratedReview({
+    authorName: authorName.trim(),
+    authorPhoto: typeof authorPhoto === 'string' && authorPhoto.trim() ? authorPhoto.trim() : undefined,
+    rating,
+    relativeTimeDescription: relativeTimeDescription.trim(),
+    text: text.trim(),
+    date: date.trim(),
+    verifiedGoogle: typeof verifiedGoogle === 'boolean' ? verifiedGoogle : true,
+    clinicReply: typeof clinicReply === 'string' && clinicReply.trim() ? clinicReply.trim() : undefined
+  });
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save this review.' });
+  res.json({ success: true, review: result.review });
+});
+
+app.patch('/api/admin/reviews/:id', requireAdminAuth, async (req, res) => {
+  const { authorName, authorPhoto, rating, relativeTimeDescription, text, date, verifiedGoogle, clinicReply } = req.body;
+  if (typeof authorName !== 'string' || !authorName.trim()) return res.status(400).json({ success: false, error: 'authorName is required.' });
+  if (typeof rating !== 'number' || rating < 1 || rating > 5) return res.status(400).json({ success: false, error: 'rating must be a number between 1 and 5.' });
+  if (typeof relativeTimeDescription !== 'string' || !relativeTimeDescription.trim()) return res.status(400).json({ success: false, error: 'relativeTimeDescription is required.' });
+  if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ success: false, error: 'text is required.' });
+  if (typeof date !== 'string' || !date.trim()) return res.status(400).json({ success: false, error: 'date is required.' });
+
+  const result = await updateCuratedReview(req.params.id, {
+    authorName: authorName.trim(),
+    authorPhoto: typeof authorPhoto === 'string' && authorPhoto.trim() ? authorPhoto.trim() : undefined,
+    rating,
+    relativeTimeDescription: relativeTimeDescription.trim(),
+    text: text.trim(),
+    date: date.trim(),
+    verifiedGoogle: typeof verifiedGoogle === 'boolean' ? verifiedGoogle : true,
+    clinicReply: typeof clinicReply === 'string' && clinicReply.trim() ? clinicReply.trim() : undefined
+  });
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Review not found.' });
+  res.json({ success: true, review: result.review });
+});
+
+app.delete('/api/admin/reviews/:id', requireAdminAuth, async (req, res) => {
+  const result = await deleteCuratedReview(req.params.id);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Review not found.' });
   res.json({ success: true });
 });
 
@@ -1951,6 +2301,14 @@ async function startServer() {
     appointmentsStorage = await loadAllAppointments();
     console.log(`Loaded ${appointmentsStorage.length} persisted appointment(s) from Supabase.`);
   }
+
+  // Rehydrate the live, admin-editable catalogs the same way — falls back
+  // to the static clinicData.ts arrays already assigned above when
+  // Supabase isn't configured, so this is a no-op harmless overwrite in
+  // that case.
+  SERVICES_LIVE = await listServices();
+  DOCTORS_LIVE = await listDoctors();
+  console.log(`Loaded ${SERVICES_LIVE.length} service(s) and ${DOCTORS_LIVE.length} doctor(s) from Supabase.`);
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

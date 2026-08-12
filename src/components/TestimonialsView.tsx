@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { REVIEWS, CLINIC_INFO } from '../data/clinicData';
+import { REVIEWS as STATIC_REVIEWS, CLINIC_INFO } from '../data/clinicData';
 import { Review } from '../types';
 import { Star, CheckCircle, MessageSquarePlus, ExternalLink, Sparkles, Loader2 } from 'lucide-react';
 
 const GOOGLE_REVIEW_CTA_URL = 'https://share.google/eyQfANWUHPdxfLIqt';
 
 export const TestimonialsView: React.FC = () => {
-  const [reviewsList, setReviewsList] = useState<Review[]>(REVIEWS);
+  const [reviewsList, setReviewsList] = useState<Review[]>(STATIC_REVIEWS);
   const [rating, setRating] = useState<number>(CLINIC_INFO.rating);
   const [totalReviews, setTotalReviews] = useState<number>(CLINIC_INFO.totalReviews);
   const [isLive, setIsLive] = useState(false);
@@ -15,6 +15,16 @@ export const TestimonialsView: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Doctor-editable curated reviews (Supabase-backed — see
+    // server/services/reviews.ts) load first, replacing the static
+    // fallback immediately. Live Google reviews load right after and take
+    // over if they succeed — same behavior as before, just with an
+    // admin-editable starting point instead of a hardcoded one.
+    fetch('/api/reviews/curated')
+      .then((res) => res.json())
+      .then((data) => { if (!cancelled && Array.isArray(data.reviews) && data.reviews.length > 0) setReviewsList(data.reviews); })
+      .catch(() => {});
 
     const fetchLiveReviews = async () => {
       try {

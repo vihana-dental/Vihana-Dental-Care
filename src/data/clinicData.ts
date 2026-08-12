@@ -42,7 +42,7 @@ export const CLINIC_INFO: ClinicInfo = {
   alternatePhone: "098943 17823",
   whatsapp: "+91 86680 82140",
   email: "care@vihanadental.com",
-  googleBusinessUrl: "https://www.google.com/maps/search/?api=1&query=32HP%2B7V+Kalapatti%2C+Tamil+Nadu",
+  googleBusinessUrl: "https://share.google/DM4pZO0cneU667nxJ",
   rating: 4.9,
   totalReviews: 185,
   workingHours: {
@@ -421,12 +421,15 @@ export const DOCTORS: Doctor[] = [
     id: "doc-1",
     name: "Dr. N. Sanchana, M.D.S.",
     title: "Chief Consultant Orthodontist & Aligner Specialist",
-    qualification: "MDS (Orthodontics & Dentofacial Orthopedics)",
+    qualification: "MDS — Orthodontics & Dentofacial Orthopedics",
     specialization: "Invisalign & Clear Aligners, Jaw Bite Correction, Pediatric Braces & Smile Design",
     experienceYears: 5,
     photo: vihanaDoctor,
     bio: "Dr. N. Sanchana, MDS is the Lead Orthodontist and Founder at Vihana Dental Care, Kalapatti, Coimbatore. Specializing in advanced clear aligners, adult & pediatric braces, microscopic root canals, and gentle jaw alignment treatments. Received Special Training at Coimbatore Medical College, Coimbatore.",
-    availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
+    pgInstitution: "JKK Nattraja Dental College, Namakkal",
+    externalTraining: ["Brava Lingual Braces Certified", "Invisalign Qualified", "RCT Certified"]
   }
 ];
 
@@ -438,33 +441,43 @@ export const CONSULTANT_DOCTORS: ConsultantDoctor[] = [
     id: "consultant-saraaj-bhuvan",
     name: "Dr. R. Saraaj Bhuvan, M.D.S.",
     specialty: "Consultant Periodontist & Oral Implantologist",
-    qualification: "BDS — Sri Ramakrishna Dental College & Hospital, Coimbatore (2012–2017) · MDS — Periodontics & Oral Implantology, Sri Ramachandra",
+    qualification: "BDS, MDS — Periodontics & Oral Implantology",
     bio: "An MDS specialist in Periodontics and Oral Implantology, focused on gum health and dental implants. Completed his BDS at Sri Ramakrishna Dental College and Hospital, Coimbatore, and later served there as a Lecturer in the Department of Periodontics.",
-    photo: "/images/Dr.Saraaj%20Bhuvan.jpeg"
+    photo: "/images/Dr.Saraaj%20Bhuvan.jpeg",
+    ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
+    pgInstitution: "Sri Ramachandra Institute of Higher Education & Research",
+    qualificationYear: "2012–2017"
   },
   {
     id: "consultant-santhosh-babu",
     name: "Dr. Santhosh Babu, M.D.S.",
     specialty: "Consultant Oral & Maxillofacial Surgeon",
-    qualification: "MDS — Oral & Maxillofacial Surgery",
+    qualification: "BDS, MDS — Oral & Maxillofacial Surgery",
     bio: "Consultant surgeon specializing in Oral & Maxillofacial Surgery, providing expert surgical care for complex extractions, impactions, and other oral surgical procedures at Vihana Dental Care.",
-    photo: "/images/Dr.%20Santhosh%20Babu%20MDS.jpeg"
+    photo: "/images/Dr.%20Santhosh%20Babu%20MDS.jpeg",
+    ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
+    pgInstitution: "CSI College of Dental Sciences and Research"
   },
   {
     id: "consultant-kavimalar",
     name: "Dr. Kavimalar, M.D.S.",
     specialty: "Consultant Endodontist & Root Canal Specialist",
-    qualification: "BDS — Sri Ramakrishna Dental College & Hospital · MDS — Faculty of Dental Sciences, Ramaiah University of Applied Sciences",
+    qualification: "BDS, MDS — Endodontics",
     bio: "Consultant Endodontist and root canal specialist. Previously served as Senior Lecturer at Sri Ramakrishna Dental College & Hospital, Coimbatore.",
-    photo: "/images/Dr.Kavimalar.jpeg"
+    photo: "/images/Dr.Kavimalar.jpeg",
+    ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
+    pgInstitution: "M.S. Ramaiah Dental College and Hospital"
   },
   {
     id: "consultant-sandhiya",
     name: "Dr. Sandhiya V, M.D.S.",
     specialty: "Consultant Pedodontist & Preventive Dentist",
-    qualification: "BDS, MDS — Paedodontics & Preventive Dentistry · 5-8 years clinical experience",
-    bio: "A Paediatric and Preventive Dentist with 5 to 8 years of clinical experience in Coimbatore, specializing in children's dentistry — including child dental care, tongue-tie release, pulp treatments, and preventive oral care.",
-    photo: "/images/Dr.Sandhiya.jpeg"
+    qualification: "BDS, MDS — Paedodontics & Preventive Dentistry",
+    bio: "A Paediatric and Preventive Dentist with 8+ years of clinical experience in Coimbatore, specializing in children's dentistry — including child dental care, tongue-tie release, pulp treatments, and preventive oral care.",
+    photo: "/images/Dr.Sandhiya.jpeg",
+    ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
+    pgInstitution: "Annamalai Dental College",
+    experienceYears: 8
   }
 ];
 

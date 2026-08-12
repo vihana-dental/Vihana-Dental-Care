@@ -136,6 +136,118 @@ create table if not exists appointments (
 
 create index if not exists appointments_created_at_idx on appointments (created_at desc);
 
+-- ---------------- services ----------------
+-- Full treatment catalog, doctor-editable via /doctor-admin. Supersedes
+-- service_pricing as the single source of truth for the whole service
+-- record (title, description, image, duration, benefits, procedures) —
+-- service_pricing is left in place untouched (still used internally to
+-- keep the WhatsApp bot's cost-estimate line in sync) but the admin no
+-- longer edits it directly once this table exists. id is a human-readable
+-- slug (e.g. "dental-implants"), matching what's already used as the
+-- lookup key throughout the booking flow. Seeded once at server startup
+-- from the static catalog in src/data/clinicData.ts when found empty, so
+-- turning Supabase on doesn't blank the site (see server/services/services.ts).
+create table if not exists services (
+  id text primary key,
+  title text not null,
+  category text not null,
+  short_description text not null,
+  full_description text not null,
+  image text not null,
+  duration_minutes integer not null,
+  price_range text not null,
+  benefits text[] not null default '{}',
+  procedures text[] not null default '{}',
+  icon_name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ---------------- faqs ----------------
+-- Shown on the Services page and mirrored into that page's FAQPage
+-- JSON-LD. display_order controls display order (lower first).
+create table if not exists faqs (
+  id uuid primary key default gen_random_uuid(),
+  question text not null,
+  answer text not null,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ---------------- team_doctors / team_consultants ----------------
+-- Mirrors the Doctor / ConsultantDoctor shapes in src/types.ts field for
+-- field. Kept as two tables (not one with a discriminator) because their
+-- shapes genuinely differ (doctors have availableDays and a required
+-- experience_years; consultants don't) and because DOCTORS vs
+-- CONSULTANT_DOCTORS already drives real behavior — only team_doctors
+-- entries are selectable in the booking flow, consultants are
+-- informational-only by design.
+create table if not exists team_doctors (
+  id text primary key,
+  name text not null,
+  title text not null,
+  qualification text not null,
+  specialization text not null,
+  experience_years integer not null,
+  photo text not null,
+  bio text not null,
+  available_days text[] not null default '{}',
+  ug_institution text,
+  pg_institution text,
+  external_training text[],
+  qualification_year text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists team_consultants (
+  id text primary key,
+  name text not null,
+  specialty text not null,
+  qualification text not null,
+  bio text not null,
+  photo text not null,
+  ug_institution text,
+  pg_institution text,
+  external_training text[],
+  qualification_year text,
+  experience_years integer,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ---------------- gallery_items ----------------
+create table if not exists gallery_items (
+  id text primary key,
+  title text not null,
+  category text not null,
+  image_url text not null,
+  caption text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ---------------- reviews (curated) ----------------
+-- Hand-curated testimonials shown immediately in TestimonialsView while
+-- the live Google Places fetch (/api/google-reviews) loads, and kept as
+-- the fallback if that fetch fails — distinct from reviewOverrideConfig
+-- in server.ts, which controls the live rating/count display, not this
+-- curated list.
+create table if not exists reviews (
+  id uuid primary key default gen_random_uuid(),
+  author_name text not null,
+  author_photo text,
+  rating integer not null,
+  relative_time_description text not null,
+  review_text text not null,
+  review_date text not null,
+  verified_google boolean not null default true,
+  clinic_reply text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 -- ---------------- Row Level Security ----------------
 -- The backend talks to Supabase using the service_role key (server-side
 -- only, bypasses RLS entirely), so RLS isn't required for the app to
@@ -147,3 +259,9 @@ alter table patients enable row level security;
 alter table service_pricing enable row level security;
 alter table blog_posts enable row level security;
 alter table appointments enable row level security;
+alter table services enable row level security;
+alter table faqs enable row level security;
+alter table team_doctors enable row level security;
+alter table team_consultants enable row level security;
+alter table gallery_items enable row level security;
+alter table reviews enable row level security;

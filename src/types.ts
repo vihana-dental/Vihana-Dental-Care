@@ -66,6 +66,10 @@ export interface Doctor {
   photo: string;
   bio: string;
   availableDays: string[];
+  ugInstitution?: string;
+  pgInstitution?: string;
+  externalTraining?: string[];
+  qualificationYear?: string;
 }
 
 // Visiting specialists shown for informational purposes only — deliberately
@@ -79,6 +83,11 @@ export interface ConsultantDoctor {
   qualification: string;
   bio: string;
   photo: string;
+  ugInstitution?: string;
+  pgInstitution?: string;
+  externalTraining?: string[];
+  qualificationYear?: string;
+  experienceYears?: number;
 }
 
 export interface GalleryItem {
@@ -87,6 +96,16 @@ export interface GalleryItem {
   category: 'facilities' | 'treatments' | 'sterilization' | 'smiles' | 'posters';
   imageUrl: string;
   caption: string;
+}
+
+// Doctor-editable FAQ entries — shown on the Services page and mirrored
+// into that page's FAQPage JSON-LD structured data. `order` controls
+// display order (lower first); admin-assigned on create, editable.
+export interface FAQ {
+  id: string;
+  question: string;
+  answer: string;
+  order: number;
 }
 
 export interface Review {
