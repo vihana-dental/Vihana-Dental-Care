@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Phone, MapPin, Send, CheckCircle2, Clock, Sparkles, MessageCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, CheckCircle2, Clock, Sparkles, MessageCircle, AlertTriangle } from 'lucide-react';
 import { CLINIC_INFO, SERVICES } from '../data/clinicData';
 
 export const InquirySection: React.FC = () => {
@@ -10,10 +10,12 @@ export const InquirySection: React.FC = () => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
     try {
       const res = await fetch('/api/inquiries', {
@@ -29,10 +31,16 @@ export const InquirySection: React.FC = () => {
         setEmail('');
         setPhone('');
         setMessage('');
+        setService(SERVICES[0].title);
+      } else {
+        // The server rejects with { error } and no success flag — without this
+        // branch the form silently did nothing at all on a validation failure,
+        // leaving the patient staring at an unchanged form with no feedback.
+        setError(data.error || 'Could not send your enquiry. Please try again.');
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to submit inquiry. Please try again.");
+      setError('Could not reach the clinic right now. Please check your connection, or call us directly.');
     } finally {
       setLoading(false);
     }
@@ -214,10 +222,17 @@ export const InquirySection: React.FC = () => {
                   />
                 </div>
 
+                {error && (
+                  <p role="alert" className="flex items-start gap-2 bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </p>
+                )}
+
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-brand-900 hover:bg-brand-950 text-white font-bold text-sm py-3.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
+                  className="w-full bg-brand-900 hover:bg-brand-950 disabled:opacity-60 text-white font-bold text-sm py-3.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
                   <span>{loading ? "Submitting Inquiry..." : "Submit Inquiry to Clinic"}</span>

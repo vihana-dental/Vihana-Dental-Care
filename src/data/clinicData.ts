@@ -42,7 +42,7 @@ export const CLINIC_INFO: ClinicInfo = {
   phone: "+91 98943 17823",
   alternatePhone: "098943 17823",
   whatsapp: "+1 555 427 7090",
-  email: "care@vihanadental.com",
+  email: "sanchunags@gmail.com",
   googleBusinessUrl: "https://share.google/DM4pZO0cneU667nxJ",
   rating: 4.9,
   totalReviews: 185,

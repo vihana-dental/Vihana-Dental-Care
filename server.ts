@@ -1668,7 +1668,7 @@ app.post('/api/appointments', publicApiLimiter, async (req, res) => {
     typeof date !== 'string' || !date.trim() ||
     typeof timeSlot !== 'string' || !timeSlot.trim()
   ) {
-    return res.status(400).json({ error: "Missing or invalid required fields: patientName, patientPhone, date, timeSlot" });
+    return res.status(400).json({ success: false, error: "Missing or invalid required fields: patientName, patientPhone, date, timeSlot" });
   }
 
   const isOnline = consultationType === 'online-video';
@@ -2132,7 +2132,7 @@ app.delete('/api/appointments/:id', async (req, res) => {
   const result = await cancelAppointmentById(req.params.id);
 
   if (!result) {
-    return res.status(404).json({ error: "Appointment not found" });
+    return res.status(404).json({ success: false, error: "Appointment not found" });
   }
 
   res.json({
@@ -2772,7 +2772,7 @@ app.post('/api/inquiries', (req, res) => {
     typeof phone !== 'string' || !phone.trim() ||
     typeof message !== 'string' || !message.trim()
   ) {
-    return res.status(400).json({ error: "Name, phone and message are required" });
+    return res.status(400).json({ success: false, error: "Name, phone and message are required" });
   }
 
   const newInquiry: Inquiry = {
@@ -2853,7 +2853,7 @@ app.post('/api/gemini/booking-bot', async (req, res) => {
   const { userMessage } = req.body;
 
   if (typeof userMessage !== 'string' || !userMessage.trim()) {
-    return res.status(400).json({ error: "userMessage is required" });
+    return res.status(400).json({ success: false, error: "userMessage is required" });
   }
 
   const fallback = {
@@ -2946,8 +2946,17 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
+
+    // Mirrors KNOWN_PATHS in src/App.tsx — the only paths this SPA actually
+    // renders a real page for. Everything else falls through to the client's
+    // NotFoundPage, so the response must carry a real 404 status rather than
+    // 200: serving "not found" content under a 200 is a soft 404, which
+    // Google treats as a quality problem and can index as a duplicate of the
+    // homepage. The SPA shell is still sent so the branded 404 page renders.
+    const SPA_PATHS = new Set(['/', '/doctor-admin']);
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const status = SPA_PATHS.has(req.path) ? 200 : 404;
+      res.status(status).sendFile(path.join(distPath, 'index.html'));
     });
   }
 

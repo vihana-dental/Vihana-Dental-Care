@@ -323,6 +323,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
             onClick={onClose}
             className="absolute top-5 right-5 text-slate-300 hover:text-white p-1.5 rounded-full bg-slate-800/80 transition-colors z-10"
             id="close-booking-modal"
+            aria-label="Close booking form"
           >
             <X className="w-5 h-5" />
           </button>

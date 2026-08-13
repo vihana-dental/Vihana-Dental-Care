@@ -2,5 +2,9 @@
 User-agent: *
 Allow: /
 
+# Keep the private doctor admin console and internal API out of search results
+Disallow: /doctor-admin
+Disallow: /api/
+
 # Sitemap
 Sitemap: https://vihanadental.in/sitemap.xml
