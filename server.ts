@@ -84,7 +84,17 @@ declare global {
 // correctly-scoped CSP allowlisting every one of those origins needs to be
 // built and tested deliberately, not turned on blind — shipping a wrong CSP
 // would silently break login/payment instead of protecting anything.
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+// Cross-Origin-Opener-Policy is relaxed to same-origin-allow-popups (rather
+// than helmet's default same-origin) because strict COOP severs the popup's
+// window.opener reference back to /doctor-admin — Google Identity Services'
+// sign-in popup relies on that reference to postMessage the ID token back,
+// so the default setting broke every login attempt with "Cannot read
+// properties of null (reading 'postMessage')".
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
+}));
 
 // Rate limiting for public-facing booking/payment endpoints — previously
 // only /api/admin/login had any throttling. Applied narrowly to the routes
