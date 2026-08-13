@@ -41,7 +41,7 @@ export const CLINIC_INFO: ClinicInfo = {
   pincode: "641048",
   phone: "+91 98943 17823",
   alternatePhone: "098943 17823",
-  whatsapp: "+91 86680 82140",
+  whatsapp: "+1 555 427 7090",
   email: "care@vihanadental.com",
   googleBusinessUrl: "https://share.google/DM4pZO0cneU667nxJ",
   rating: 4.9,
