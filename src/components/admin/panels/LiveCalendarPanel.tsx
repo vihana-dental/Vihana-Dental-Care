@@ -1,8 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarRange, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, X, Clock } from 'lucide-react';
 import { Appointment } from '../../../types';
 import { PanelCard, PanelHeader, LoadingRow, ErrorBanner } from '../shared';
 import { STATUS_BADGE, AppointmentDetailPanel } from './AppointmentsPanel';
+
+// "10:30 AM" -> 630 (minutes since midnight), for sorting a day's
+// appointments chronologically in the day view.
+const timeToMinutes = (timeSlot: string): number => {
+  const match = timeSlot.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return 0;
+  let hours = parseInt(match[1], 10) % 12;
+  if (match[3].toUpperCase() === 'PM') hours += 12;
+  return hours * 60 + parseInt(match[2], 10);
+};
 
 interface Props {
   authedFetch: (url: string, options?: RequestInit) => Promise<Response>;
@@ -23,6 +33,16 @@ const pad = (n: number) => n.toString().padStart(2, '0');
 // that exactly to group correctly.
 const dateKey = (year: number, month: number, day: number) => `${year}-${pad(month + 1)}-${pad(day)}`;
 
+const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// "2026-01-15" -> "Wednesday, 15 January 2026" — parsed from the parts
+// rather than `new Date("2026-01-15")` for the same local-timezone-shift
+// reason as dateKey above.
+const formatDayViewHeading = (key: string): string => {
+  const [y, m, d] = key.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${WEEKDAY_FULL[date.getDay()]}, ${d} ${MONTH_LABELS[m - 1]} ${y}`;
+};
+
 // A second view over exactly the same data and actions AppointmentsPanel.tsx
 // already built (Phase 5) — a calendar grid instead of a filterable table.
 // Deliberately a separate sidebar entry from CalendarPanel.tsx, which is
@@ -34,6 +54,7 @@ export const LiveCalendarPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dayViewDate, setDayViewDate] = useState<string | null>(null);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -122,27 +143,32 @@ export const LiveCalendarPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
                   const dayAppointments = byDate[key] || [];
                   const isToday = key === todayKey;
                   return (
-                    <div
+                    <button
                       key={key}
-                      className={`min-h-[92px] rounded-lg border p-1.5 ${isToday ? 'border-brand-500 bg-brand-200/40' : 'border-slate-100 bg-white'}`}
+                      type="button"
+                      onClick={() => setDayViewDate(key)}
+                      className={`min-h-[92px] rounded-lg border p-1.5 text-left transition-colors hover:border-brand-500 hover:bg-brand-50 ${isToday ? 'border-brand-500 bg-brand-200/40' : 'border-slate-100 bg-white'}`}
                     >
                       <p className={`text-[11px] font-bold ${isToday ? 'text-brand-900' : 'text-slate-500'}`}>{day}</p>
                       <div className="space-y-1 mt-1">
                         {dayAppointments.slice(0, 3).map((a) => (
-                          <button
+                          <span
                             key={a.id}
-                            onClick={() => setSelectedId(a.id)}
-                            className={`w-full text-left px-1.5 py-1 rounded text-[10px] font-semibold truncate ${STATUS_BADGE[a.status] || 'bg-slate-100 text-slate-600'} ${selectedId === a.id ? 'ring-2 ring-brand-700' : ''}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); setSelectedId(a.id); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setSelectedId(a.id); } }}
+                            className={`block w-full text-left px-1.5 py-1 rounded text-[10px] font-semibold truncate ${STATUS_BADGE[a.status] || 'bg-slate-100 text-slate-600'} ${selectedId === a.id ? 'ring-2 ring-brand-700' : ''}`}
                             title={`${a.patientName} — ${a.timeSlot}`}
                           >
                             {a.timeSlot.replace(' ', '')} {a.patientName}
-                          </button>
+                          </span>
                         ))}
                         {dayAppointments.length > 3 && (
                           <p className="text-[9px] text-slate-400 pl-1">+{dayAppointments.length - 3} more</p>
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -171,6 +197,56 @@ export const LiveCalendarPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
             />
           </div>
         </PanelCard>
+      )}
+
+      {dayViewDate && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+          onClick={() => setDayViewDate(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <div>
+                <p className="text-sm font-bold text-slate-900">{formatDayViewHeading(dayViewDate)}</p>
+                <p className="text-xs text-slate-500">
+                  {(byDate[dayViewDate] || []).length} appointment{(byDate[dayViewDate] || []).length === 1 ? '' : 's'}
+                </p>
+              </div>
+              <button onClick={() => setDayViewDate(null)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100" aria-label="Close day view">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 overflow-y-auto scroll-thin space-y-2">
+              {(byDate[dayViewDate] || []).length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-8">No appointments booked for this day.</p>
+              )}
+              {[...(byDate[dayViewDate] || [])]
+                .sort((a, b) => timeToMinutes(a.timeSlot) - timeToMinutes(b.timeSlot))
+                .map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => { setSelectedId(a.id); setDayViewDate(null); }}
+                    className="w-full flex items-center gap-3 text-left px-3.5 py-3 rounded-xl border border-slate-100 hover:border-brand-300 hover:bg-brand-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-brand-800 shrink-0 w-16">
+                      <Clock className="w-3.5 h-3.5" />
+                      {a.timeSlot}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-900 truncate">{a.patientName}</p>
+                      <p className="text-xs text-slate-500 truncate">{a.serviceName}</p>
+                    </div>
+                    <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${STATUS_BADGE[a.status] || 'bg-slate-100 text-slate-600'}`}>
+                      {a.status}
+                    </span>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

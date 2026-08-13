@@ -3,6 +3,11 @@ import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps
 import { CLINIC_INFO } from '../data/clinicData';
 import { MapPin, Phone, Clock, ExternalLink, Navigation, Sparkles, MessageCircle, Mail } from 'lucide-react';
 
+// This Contact & Map section is the one place that keeps showing the
+// original clinic WhatsApp number — every other CTA site-wide now points at
+// CLINIC_INFO.whatsapp (the new appointments-booking bot number) by design.
+const CONTACT_PAGE_WHATSAPP = "+91 86680 82140";
+
 export const LocationMapSection: React.FC = () => {
   const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY || process.env.GOOGLE_MAPS_PLATFORM_KEY || "";
 
@@ -53,7 +58,7 @@ export const LocationMapSection: React.FC = () => {
                 </a>
 
                 <a
-                  href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+                  href={`https://wa.me/${CONTACT_PAGE_WHATSAPP.replace(/[^0-9]/g, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start gap-3 group"
@@ -61,7 +66,7 @@ export const LocationMapSection: React.FC = () => {
                   <MessageCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">WhatsApp Us</p>
-                    <p className="mt-0.5 group-hover:text-emerald-300 transition-colors">{CLINIC_INFO.whatsapp}</p>
+                    <p className="mt-0.5 group-hover:text-emerald-300 transition-colors">{CONTACT_PAGE_WHATSAPP}</p>
                   </div>
                 </a>
 
@@ -96,7 +101,7 @@ export const LocationMapSection: React.FC = () => {
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
               <a
-                href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+                href={`https://wa.me/${CONTACT_PAGE_WHATSAPP.replace(/[^0-9]/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"

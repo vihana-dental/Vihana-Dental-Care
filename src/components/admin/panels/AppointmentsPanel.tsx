@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Loader2, Plus, Search, X, ChevronDown, MessageCircleMore, BellRing, Video, PhoneForwarded, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Loader2, Plus, Search, X, ChevronDown, MessageCircleMore, BellRing, Video, PhoneForwarded, CheckCircle2, Send, ExternalLink } from 'lucide-react';
 import { Appointment, Doctor, DentalService } from '../../../types';
 import { PanelCard, PanelHeader, LoadingRow, ErrorBanner, SuccessBanner, inputClass, labelClass, primaryButtonClass, ghostButtonClass, ToggleSwitch } from '../shared';
 
@@ -240,6 +240,8 @@ export const AppointmentDetailPanel: React.FC<{
 }> = ({ appointment: a, authedFetch, onSessionExpired, onUpdated }) => {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [customMessage, setCustomMessage] = useState('');
+  const [customResult, setCustomResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const patchField = async (field: 'status' | 'paymentStatus' | 'patientVisited', value: unknown) => {
     setBusyKey(field);
@@ -276,6 +278,30 @@ export const AppointmentDetailPanel: React.FC<{
       setBusyKey(null);
     }
   };
+
+  const sendCustomMessage = async () => {
+    if (!customMessage.trim()) return;
+    setBusyKey('custom-message');
+    setCustomResult(null);
+    try {
+      const res = await authedFetch(`/api/admin/appointments/${encodeURIComponent(a.id)}/send-custom-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: customMessage.trim() })
+      });
+      if (res.status === 401) return onSessionExpired();
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Could not send message.');
+      setCustomResult({ ok: true, text: data.mock ? 'Logged (WhatsApp not configured yet — no real message sent).' : 'Sent.' });
+      setCustomMessage('');
+    } catch (err: any) {
+      setCustomResult({ ok: false, text: err?.message || 'Could not send message.' });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const whatsappFallbackHref = `https://wa.me/${a.patientPhone.replace(/[^0-9]/g, '')}`;
 
   const actionButtonClass = ghostButtonClass + ' text-[11px] py-2 px-3';
 
@@ -337,6 +363,51 @@ export const AppointmentDetailPanel: React.FC<{
         </p>
       )}
       {a.notes && <p className="text-[11px] text-slate-500">Notes: {a.notes}</p>}
+
+      {/* Direct WhatsApp send from the console — WhatsApp's rules mean free-
+          text only reaches the patient if they've messaged the bot number in
+          the last 24h (Meta blocks business-initiated free text otherwise;
+          only pre-approved templates, used by the buttons above, work
+          outside that window). "Open in WhatsApp" is the always-available
+          fallback — it hands off to the doctor's own WhatsApp/WhatsApp Web
+          to message the patient manually when the API can't. */}
+      <div className="border-t border-slate-100 pt-4 space-y-2">
+        <p className="text-xs font-bold text-slate-700">Send a WhatsApp message directly</p>
+        <p className="text-[11px] text-slate-400">
+          Only delivers if the patient has messaged this number within the last 24 hours — otherwise use the buttons above, or open WhatsApp and message them yourself.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <textarea
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            placeholder="Type a message to send to the patient's WhatsApp..."
+            rows={2}
+            className={inputClass + ' resize-none flex-1'}
+          />
+          <div className="flex sm:flex-col gap-2 shrink-0">
+            <button
+              onClick={sendCustomMessage}
+              disabled={busyKey === 'custom-message' || !customMessage.trim()}
+              className={ghostButtonClass + ' text-[11px] py-2 px-3 whitespace-nowrap'}
+            >
+              {busyKey === 'custom-message' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+              <span>Send</span>
+            </button>
+            <a
+              href={whatsappFallbackHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={ghostButtonClass + ' text-[11px] py-2 px-3 whitespace-nowrap'}
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Open in WhatsApp</span>
+            </a>
+          </div>
+        </div>
+        {customResult && (
+          <p className={`text-[11px] ${customResult.ok ? 'text-emerald-600' : 'text-rose-600'}`}>{customResult.text}</p>
+        )}
+      </div>
     </div>
   );
 };

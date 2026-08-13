@@ -57,6 +57,9 @@ import {
   sendTextMessage,
   sendListMessage,
   sendReplyButtons,
+  sendConfirmationMessage,
+  sendReminderMessage,
+  sendMeetLinkMessage,
   buildAppointmentWhatsAppLink,
   verifyWebhookSignature as verifyWhatsAppWebhookSignature,
   parseIncomingMessages
@@ -1833,11 +1836,17 @@ app.post('/api/admin/appointments/:id/send-confirmation', requireAdminAuth, asyn
   const appointment = findAppointmentById(req.params.id);
   if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
 
-  // sendTextMessage never throws — it always resolves { success, mock, error? }.
+  // sendConfirmationMessage never throws — it always resolves { success, mock, error? }.
   // mock:true (WhatsApp not configured yet) is treated as a soft success, same
   // as every automatic send-on-booking elsewhere in this file; only a real,
-  // configured send failure is reported back as an error.
-  const result = await sendTextMessage(appointment.patientPhone, buildConfirmationMessage(appointment));
+  // configured send failure is reported back as an error. Uses the approved
+  // META_WHATSAPP_TEMPLATE_CONFIRMATION template when set — required for this
+  // business-initiated send to work outside an open 24h patient session.
+  const result = await sendConfirmationMessage(
+    appointment.patientPhone,
+    buildConfirmationMessage(appointment),
+    [appointment.serviceName, appointment.date, appointment.timeSlot, appointment.rescheduleToken]
+  );
   if (!result.success && !result.mock) {
     return res.status(502).json({ success: false, error: result.error || 'Could not send confirmation message.' });
   }
@@ -1850,7 +1859,11 @@ app.post('/api/admin/appointments/:id/send-reminder', requireAdminAuth, async (r
   const appointment = findAppointmentById(req.params.id);
   if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
 
-  const result = await sendTextMessage(appointment.patientPhone, buildReminderMessage(appointment));
+  const result = await sendReminderMessage(
+    appointment.patientPhone,
+    buildReminderMessage(appointment),
+    [appointment.serviceName, appointment.date, appointment.timeSlot, appointment.rescheduleToken]
+  );
   if (!result.success && !result.mock) {
     return res.status(502).json({ success: false, error: result.error || 'Could not send reminder message.' });
   }
@@ -1879,7 +1892,11 @@ app.post('/api/admin/appointments/:id/generate-meet-link', requireAdminAuth, asy
   appointment.videoRoomUrl = result.meetLink;
   await persistAppointment(appointment);
 
-  const sendResult = await sendTextMessage(appointment.patientPhone, `🎥 Your Google Meet link for the ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot}: ${result.meetLink}`);
+  const sendResult = await sendMeetLinkMessage(
+    appointment.patientPhone,
+    `🎥 Your Google Meet link for the ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot}: ${result.meetLink}`,
+    [appointment.serviceName, appointment.date, appointment.timeSlot, result.meetLink]
+  );
   if (!sendResult.success && !sendResult.mock) {
     console.error('Meet link generated but WhatsApp send failed:', sendResult.error);
   }
@@ -1894,12 +1911,36 @@ app.post('/api/admin/appointments/:id/send-meet-reminder', requireAdminAuth, asy
     return res.status(400).json({ success: false, error: 'No Meet link exists for this appointment yet.' });
   }
 
-  const result = await sendTextMessage(
+  // Reuses the Meet-link template (same 4 params) rather than the plain
+  // reminder template — its approved wording is "here's your meet link",
+  // which fits a join-reminder just as well as the original share, and
+  // avoids needing a 5th template approved in Meta for this one case.
+  const result = await sendMeetLinkMessage(
     appointment.patientPhone,
-    `⏰ Reminder: your online consult is on ${appointment.date} at ${appointment.timeSlot}. Join here: ${appointment.videoRoomUrl}`
+    `⏰ Reminder: your online consult is on ${appointment.date} at ${appointment.timeSlot}. Join here: ${appointment.videoRoomUrl}`,
+    [appointment.serviceName, appointment.date, appointment.timeSlot, appointment.videoRoomUrl]
   );
   if (!result.success && !result.mock) {
     return res.status(502).json({ success: false, error: result.error || 'Could not send Meet reminder.' });
+  }
+  res.json({ success: true, mock: result.mock });
+});
+
+// Free-form ad-hoc send from the admin console's message composer — always
+// sendTextMessage (never a template, since the content is arbitrary), so
+// this only reaches the patient while a 24h session is open (they messaged
+// the bot number recently). Outside that window Meta rejects it; the error
+// is returned as-is so the admin UI can show it.
+app.post('/api/admin/appointments/:id/send-custom-message', requireAdminAuth, async (req, res) => {
+  const appointment = findAppointmentById(req.params.id);
+  if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  if (!message) return res.status(400).json({ success: false, error: 'Message cannot be empty.' });
+
+  const result = await sendTextMessage(appointment.patientPhone, message);
+  if (!result.success && !result.mock) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not send message.' });
   }
   res.json({ success: true, mock: result.mock });
 });

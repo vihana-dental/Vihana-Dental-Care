@@ -23,6 +23,19 @@ const META_WHATSAPP_APP_SECRET = process.env.META_WHATSAPP_APP_SECRET || '';
 // still work (opening a normal chat, not the bot) before that's configured.
 const META_WHATSAPP_DISPLAY_NUMBER = process.env.META_WHATSAPP_DISPLAY_NUMBER || '';
 
+// Meta only allows free-form text messages (sendTextMessage) inside the 24h
+// customer-service session window opened by the PATIENT messaging first.
+// The admin console's manual Send Confirmation/Reminder/Meet Link buttons
+// are business-initiated — the doctor can click them at any time, almost
+// always outside that window — so those sends need a pre-approved Message
+// Template instead. Falls back to sendTextMessage when no template name is
+// configured (works only while a live session happens to be open) so the
+// buttons keep functioning during setup rather than hard-failing.
+const META_WHATSAPP_TEMPLATE_LANGUAGE = process.env.META_WHATSAPP_TEMPLATE_LANGUAGE || 'en_US';
+const META_WHATSAPP_TEMPLATE_CONFIRMATION = process.env.META_WHATSAPP_TEMPLATE_CONFIRMATION || '';
+const META_WHATSAPP_TEMPLATE_REMINDER = process.env.META_WHATSAPP_TEMPLATE_REMINDER || '';
+const META_WHATSAPP_TEMPLATE_MEET_LINK = process.env.META_WHATSAPP_TEMPLATE_MEET_LINK || '';
+
 const GRAPH_API_VERSION = 'v20.0';
 
 export function isWhatsAppConfigured(): boolean {
@@ -66,6 +79,50 @@ export function sendTextMessage(to: string, body: string) {
 
 export function sendImageMessage(to: string, imageUrl: string, caption?: string) {
   return graphApiSend({ to, type: 'image', image: { link: imageUrl, caption } });
+}
+
+/**
+ * Sends an approved Message Template — the only message type Meta allows
+ * for business-initiated sends outside the 24h session window. `bodyParams`
+ * fill the template's {{1}}, {{2}}, ... placeholders in order, as plain text.
+ * The template itself must already exist and be Approved in Meta's WhatsApp
+ * Manager > Message Templates before this will succeed (Graph API rejects
+ * unknown/pending template names).
+ */
+export function sendTemplateMessage(to: string, templateName: string, bodyParams: string[] = []) {
+  return graphApiSend({
+    to,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: META_WHATSAPP_TEMPLATE_LANGUAGE },
+      ...(bodyParams.length > 0
+        ? { components: [{ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) }] }
+        : {})
+    }
+  });
+}
+
+/**
+ * Business-initiated confirmation/reminder/Meet-link sends — used by the
+ * admin console's manual action buttons, which can fire at any time (not
+ * just while a patient session is open). Uses the matching approved template
+ * when configured; falls back to free-form text otherwise, which only
+ * succeeds if the patient has messaged the bot number in the last 24h.
+ */
+export function sendConfirmationMessage(to: string, body: string, params: string[]) {
+  if (META_WHATSAPP_TEMPLATE_CONFIRMATION) return sendTemplateMessage(to, META_WHATSAPP_TEMPLATE_CONFIRMATION, params);
+  return sendTextMessage(to, body);
+}
+
+export function sendReminderMessage(to: string, body: string, params: string[]) {
+  if (META_WHATSAPP_TEMPLATE_REMINDER) return sendTemplateMessage(to, META_WHATSAPP_TEMPLATE_REMINDER, params);
+  return sendTextMessage(to, body);
+}
+
+export function sendMeetLinkMessage(to: string, body: string, params: string[]) {
+  if (META_WHATSAPP_TEMPLATE_MEET_LINK) return sendTemplateMessage(to, META_WHATSAPP_TEMPLATE_MEET_LINK, params);
+  return sendTextMessage(to, body);
 }
 
 /**
