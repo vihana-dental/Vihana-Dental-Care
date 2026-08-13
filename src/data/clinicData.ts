@@ -21,7 +21,8 @@ const zirconiaBridgeServiceImg = '/images/zirconia_bridge_img_1784928230230.jpg'
 // Braces service images
 const metalBracesServiceImg = '/images/Metal%20Braces.jpeg';
 const ceramicBracesServiceImg = '/images/Ceramic%20Braces.jpeg';
-const damonBracesServiceImg = '/images/DAMON%20Q2%20and%20Ultima.png';
+// WebP re-encode of the original PNG — 4.3MB down to ~65KB.
+const damonBracesServiceImg = '/images/damon-q2-ultima.webp';
 const normalBracesServiceImg = '/images/Normal%20Braces.jpeg';
 
 // Gallery poster custom images
@@ -112,6 +113,24 @@ export function getTimeSlotsForDate(dateISO: string): string[] {
   }
 
   return slots;
+}
+
+/**
+ * True once a slot's start time has already passed. Uses the same local
+ * Date-construction convention as parseSlotToISO in googleCalendar.ts (no
+ * timezone library) so "now" and "slot time" are compared consistently with
+ * how the rest of the booking system already reasons about clinic time.
+ */
+export function isSlotInPast(dateISO: string, timeSlot: string): boolean {
+  const [time, meridiem] = timeSlot.split(' ');
+  let [hours, minutes] = time.split(':').map(Number);
+  if (meridiem === 'PM' && hours !== 12) hours += 12;
+  if (meridiem === 'AM' && hours === 12) hours = 0;
+
+  const slotStart = new Date(`${dateISO}T00:00:00`);
+  slotStart.setHours(hours, minutes, 0, 0);
+
+  return slotStart.getTime() <= Date.now();
 }
 
 export const SERVICES: DentalService[] = [
@@ -458,7 +477,7 @@ export const CONSULTANT_DOCTORS: ConsultantDoctor[] = [
     specialty: "Consultant Oral & Maxillofacial Surgeon",
     qualification: "BDS, MDS — Oral & Maxillofacial Surgery",
     bio: "Consultant surgeon specializing in Oral & Maxillofacial Surgery, providing expert surgical care for complex extractions, impactions, and other oral surgical procedures at Vihana Dental Care.",
-    photo: "/images/Dr.%20Santhosh%20Babu%20MDS.jpeg",
+    photo: "/images/dr-santhosh-babu.webp", // WebP re-encode — 3.8MB down to ~45KB
     ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
     pgInstitution: "CSI College of Dental Sciences and Research",
     bookable: false

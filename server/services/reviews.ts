@@ -57,23 +57,27 @@ function reviewToRow(input: ReviewInput) {
 }
 
 let mockReviews: Review[] = STATIC_REVIEWS.map((r) => ({ ...r }));
+// Only latches permanently true once seeding is CONFIRMED unnecessary or
+// complete — see gallery.ts's ensureSeeded for the full rationale (a
+// transient failure like the table not existing yet must not permanently
+// give up on seeding for the life of the process).
 let seedAttempted = false;
 
 async function ensureSeeded(): Promise<void> {
   if (seedAttempted || !isSupabaseConfigured()) return;
-  seedAttempted = true;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/reviews?select=id&limit=1`, { headers: supabaseHeaders() });
     if (!res.ok) return;
     const rows: any[] = await res.json();
-    if (rows.length > 0) return;
-    await fetch(`${SUPABASE_URL}/rest/v1/reviews`, {
+    if (rows.length > 0) { seedAttempted = true; return; }
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/reviews`, {
       method: 'POST',
       headers: supabaseHeaders({ Prefer: 'return=minimal' }),
       body: JSON.stringify(STATIC_REVIEWS.map(reviewToRow))
     });
+    if (insertRes.ok) seedAttempted = true;
   } catch (error: any) {
-    console.error('Supabase reviews seed failed:', error?.message || error);
+    console.error('Supabase reviews seed failed (will retry on next request):', error?.message || error);
   }
 }
 

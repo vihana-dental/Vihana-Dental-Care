@@ -48,23 +48,31 @@ function slugify(title: string): string {
 }
 
 let mockGallery: GalleryItem[] = STATIC_GALLERY.map((g) => ({ ...g }));
+// Only latches permanently true once seeding is CONFIRMED unnecessary or
+// complete — a transient failure (e.g. the table not existing yet) resets
+// it back to false so the next call retries, instead of the process
+// concluding once and for all that seeding is done when it never actually
+// happened. Table-not-created-yet is exactly the failure mode that hit
+// this in production: the first request 404'd before the schema was ever
+// applied, latched true, and no gallery data ever got seeded afterward
+// even once the table existed — only a process restart cleared it.
 let seedAttempted = false;
 
 async function ensureSeeded(): Promise<void> {
   if (seedAttempted || !isSupabaseConfigured()) return;
-  seedAttempted = true;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?select=id&limit=1`, { headers: supabaseHeaders() });
     if (!res.ok) return;
     const rows: any[] = await res.json();
-    if (rows.length > 0) return;
-    await fetch(`${SUPABASE_URL}/rest/v1/gallery_items`, {
+    if (rows.length > 0) { seedAttempted = true; return; }
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items`, {
       method: 'POST',
       headers: supabaseHeaders({ Prefer: 'return=minimal' }),
       body: JSON.stringify(STATIC_GALLERY.map((g) => itemToRow(g.id, g)))
     });
+    if (insertRes.ok) seedAttempted = true;
   } catch (error: any) {
-    console.error('Supabase gallery_items seed failed:', error?.message || error);
+    console.error('Supabase gallery_items seed failed (will retry on next request):', error?.message || error);
   }
 }
 

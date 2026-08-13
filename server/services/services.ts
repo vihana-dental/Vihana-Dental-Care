@@ -82,22 +82,26 @@ function slugify(title: string): string {
 // local dev without Supabase credentials still shows/edits real content.
 let mockServices: DentalService[] = STATIC_SERVICES.map((s) => ({ ...s }));
 
+// Only latches permanently true once seeding is CONFIRMED unnecessary or
+// complete — see gallery.ts's ensureSeeded for the full rationale (a
+// transient failure like the table not existing yet must not permanently
+// give up on seeding for the life of the process).
 let seedAttempted = false;
 async function ensureSeeded(): Promise<void> {
   if (seedAttempted || !isSupabaseConfigured()) return;
-  seedAttempted = true;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/services?select=id&limit=1`, { headers: supabaseHeaders() });
     if (!res.ok) return;
     const rows: any[] = await res.json();
-    if (rows.length > 0) return;
-    await fetch(`${SUPABASE_URL}/rest/v1/services`, {
+    if (rows.length > 0) { seedAttempted = true; return; }
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/services`, {
       method: 'POST',
       headers: supabaseHeaders({ Prefer: 'return=minimal' }),
       body: JSON.stringify(STATIC_SERVICES.map((s) => serviceToRow(s.id, s)))
     });
+    if (insertRes.ok) seedAttempted = true;
   } catch (error: any) {
-    console.error('Supabase services seed failed (site still works from the static catalog):', error?.message || error);
+    console.error('Supabase services seed failed (will retry on next request):', error?.message || error);
   }
 }
 

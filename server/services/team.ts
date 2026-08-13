@@ -80,23 +80,27 @@ function doctorToRow(id: string, input: DoctorInput) {
 }
 
 let mockDoctors: Doctor[] = STATIC_DOCTORS.map((d) => ({ ...d }));
+// Only latches permanently true once seeding is CONFIRMED unnecessary or
+// complete — see gallery.ts's ensureSeeded for the full rationale (a
+// transient failure like the table not existing yet must not permanently
+// give up on seeding for the life of the process).
 let doctorsSeedAttempted = false;
 
 async function ensureDoctorsSeeded(): Promise<void> {
   if (doctorsSeedAttempted || !isSupabaseConfigured()) return;
-  doctorsSeedAttempted = true;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/team_doctors?select=id&limit=1`, { headers: supabaseHeaders() });
     if (!res.ok) return;
     const rows: any[] = await res.json();
-    if (rows.length > 0) return;
-    await fetch(`${SUPABASE_URL}/rest/v1/team_doctors`, {
+    if (rows.length > 0) { doctorsSeedAttempted = true; return; }
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/team_doctors`, {
       method: 'POST',
       headers: supabaseHeaders({ Prefer: 'return=minimal' }),
       body: JSON.stringify(STATIC_DOCTORS.map((d) => doctorToRow(d.id, d)))
     });
+    if (insertRes.ok) doctorsSeedAttempted = true;
   } catch (error: any) {
-    console.error('Supabase team_doctors seed failed:', error?.message || error);
+    console.error('Supabase team_doctors seed failed (will retry on next request):', error?.message || error);
   }
 }
 
@@ -235,23 +239,27 @@ function consultantToRow(id: string, input: ConsultantInput) {
 }
 
 let mockConsultants: ConsultantDoctor[] = STATIC_CONSULTANTS.map((c) => ({ ...c }));
+// Only latches permanently true once seeding is CONFIRMED unnecessary or
+// complete — see gallery.ts's ensureSeeded for the full rationale (a
+// transient failure like the table not existing yet must not permanently
+// give up on seeding for the life of the process).
 let consultantsSeedAttempted = false;
 
 async function ensureConsultantsSeeded(): Promise<void> {
   if (consultantsSeedAttempted || !isSupabaseConfigured()) return;
-  consultantsSeedAttempted = true;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/team_consultants?select=id&limit=1`, { headers: supabaseHeaders() });
     if (!res.ok) return;
     const rows: any[] = await res.json();
-    if (rows.length > 0) return;
-    await fetch(`${SUPABASE_URL}/rest/v1/team_consultants`, {
+    if (rows.length > 0) { consultantsSeedAttempted = true; return; }
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/team_consultants`, {
       method: 'POST',
       headers: supabaseHeaders({ Prefer: 'return=minimal' }),
       body: JSON.stringify(STATIC_CONSULTANTS.map((c) => consultantToRow(c.id, c)))
     });
+    if (insertRes.ok) consultantsSeedAttempted = true;
   } catch (error: any) {
-    console.error('Supabase team_consultants seed failed:', error?.message || error);
+    console.error('Supabase team_consultants seed failed (will retry on next request):', error?.message || error);
   }
 }
 

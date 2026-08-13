@@ -35,8 +35,12 @@ function revealStyle(
   };
 }
 
-const heroPhotoDesktop = '/images/Hero%20Image.png';
-const heroPhotoMobile = '/images/Hero%20Image%20Mobile.png';
+// WebP re-encodes of the original PNG exports — same photos, ~98% smaller
+// (2.6MB/2.7MB PNGs down to ~60-130KB) since PNG is lossless and wildly
+// inefficient for photographic content. This is the largest chunk of the
+// homepage's total payload, so it matters most.
+const heroPhotoDesktop = '/images/hero-desktop.webp';
+const heroPhotoMobile = '/images/hero-mobile.webp';
 
 interface HeroProps {
   onOpenBooking: () => void;
