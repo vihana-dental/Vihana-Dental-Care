@@ -89,7 +89,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     setAvailabilityError('');
     setDegradedMessage('');
     try {
-      const res = await fetch(`/api/availability?date=${date}`);
+      const res = await fetch(`/api/availability?date=${date}&doctorId=${encodeURIComponent(selectedDoctorId)}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Could not load availability for this date.');
 
@@ -211,7 +211,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
       const confirmRes = await fetch('/api/availability/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: selectedDate, timeSlot: selectedTimeSlot })
+        body: JSON.stringify({ date: selectedDate, timeSlot: selectedTimeSlot, doctorId: selectedDoctorId })
       });
       const confirmData = await confirmRes.json();
       if (!confirmData.valid) {

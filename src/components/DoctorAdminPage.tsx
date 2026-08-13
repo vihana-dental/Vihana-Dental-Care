@@ -4,6 +4,7 @@ import { AdminSidebar, AdminSection } from './admin/AdminSidebar';
 import { OverviewPanel } from './admin/panels/OverviewPanel';
 import { AppointmentsPanel } from './admin/panels/AppointmentsPanel';
 import { LiveCalendarPanel } from './admin/panels/LiveCalendarPanel';
+import { SchedulePanel } from './admin/panels/SchedulePanel';
 import { PatientsPanel } from './admin/panels/PatientsPanel';
 import { FeesPanel } from './admin/panels/FeesPanel';
 import { ConsultsPanel } from './admin/panels/ConsultsPanel';
@@ -39,6 +40,7 @@ const SECTION_TITLES: Record<AdminSection, string> = {
   overview: 'Dashboard',
   appointments: 'Appointments',
   'live-calendar': 'Live Calendar',
+  schedule: 'Doctor Schedule',
   patients: 'Patient Database',
   fees: 'Booking Fees',
   consults: 'Online Consults',
@@ -180,6 +182,7 @@ export const DoctorAdminPage: React.FC = () => {
           {activeSection === 'overview' && <OverviewPanel onNavigate={setActiveSection} />}
           {activeSection === 'appointments' && <AppointmentsPanel {...panelProps} />}
           {activeSection === 'live-calendar' && <LiveCalendarPanel {...panelProps} />}
+          {activeSection === 'schedule' && <SchedulePanel {...panelProps} />}
           {activeSection === 'patients' && <PatientsPanel {...panelProps} />}
           {activeSection === 'fees' && <FeesPanel {...panelProps} />}
           {activeSection === 'consults' && <ConsultsPanel {...panelProps} />}

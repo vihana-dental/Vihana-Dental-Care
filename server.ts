@@ -8,7 +8,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { OAuth2Client } from 'google-auth-library';
 import { Appointment, Inquiry, DentalService, Doctor, ConsultantDoctor, GalleryItem } from './src/types';
-import { SERVICES as STATIC_SERVICES, DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS, CLINIC_INFO } from './src/data/clinicData';
+import { SERVICES as STATIC_SERVICES, DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS, CLINIC_INFO, getTimeSlotsForDate } from './src/data/clinicData';
 import {
   getPublicKeyId,
   createOrder,
@@ -32,6 +32,7 @@ import {
   updateCalendarEventNote
 } from './server/services/googleCalendar';
 import { upsertPatient, listPatients, deletePatient } from './server/services/supabase';
+import { loadScheduleOverrides, getBlockedSlots, setSlotBlocked, setDayBlocked } from './server/services/scheduleOverrides';
 import {
   listBlogPosts,
   getBlogPostBySlug,
@@ -545,14 +546,14 @@ app.get('/api/reviews/curated', async (req, res) => {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 app.get('/api/availability', async (req, res) => {
-  const { date } = req.query;
+  const { date, doctorId } = req.query;
 
   if (typeof date !== 'string' || !DATE_RE.test(date)) {
     return res.status(400).json({ success: false, error: 'A valid date (YYYY-MM-DD) query param is required.' });
   }
 
   try {
-    const result = await computeAvailability(date);
+    const result = await computeAvailability(date, typeof doctorId === 'string' ? doctorId : undefined);
     res.json({
       success: true,
       date,
@@ -576,14 +577,14 @@ app.get('/api/availability', async (req, res) => {
 
 // POST Availability Confirm — re-check one slot immediately before payment/Meet generation.
 app.post('/api/availability/confirm', async (req, res) => {
-  const { date, timeSlot } = req.body;
+  const { date, timeSlot, doctorId } = req.body;
 
   if (typeof date !== 'string' || !DATE_RE.test(date) || typeof timeSlot !== 'string' || !timeSlot.trim()) {
     return res.status(400).json({ success: false, valid: false, message: 'date and timeSlot are required.' });
   }
 
   try {
-    const result = await isSlotStillAvailable(date, timeSlot);
+    const result = await isSlotStillAvailable(date, timeSlot, typeof doctorId === 'string' ? doctorId : undefined);
     res.json({ success: true, valid: result.valid, message: result.message });
   } catch (error) {
     console.error('Availability confirm failed:', error);
@@ -713,7 +714,7 @@ app.post('/api/payments/create-order', publicApiLimiter, async (req, res) => {
     return res.status(400).json({ success: false, error: 'Missing or invalid required fields: patientName, patientPhone, date, timeSlot' });
   }
 
-  const slotCheck = await isSlotStillAvailable(date, timeSlot);
+  const slotCheck = await isSlotStillAvailable(date, timeSlot, doctorId);
   if (!slotCheck.valid && !slotCheck.degraded) {
     return res.status(409).json({ success: false, error: slotCheck.message || 'That time slot is no longer available. Please pick another.' });
   }
@@ -959,7 +960,7 @@ app.post('/api/razorpay/create-payment-link', publicApiLimiter, async (req, res)
     return res.status(400).json({ success: false, error: 'Missing or invalid required fields: patientName, patientPhone, date, timeSlot' });
   }
 
-  const slotCheck = await isSlotStillAvailable(date, timeSlot);
+  const slotCheck = await isSlotStillAvailable(date, timeSlot, doctorId);
   if (!slotCheck.valid && !slotCheck.degraded) {
     return res.status(409).json({ success: false, error: slotCheck.message || 'That time slot is no longer available. Please pick another.' });
   }
@@ -1374,7 +1375,7 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
       return;
     }
 
-    const availability = await computeAvailability(dateStr);
+    const availability = await computeAvailability(dateStr, state.doctorId);
     const availableSlots = availability.slots.filter((s) => s.available);
     if (availableSlots.length === 0) {
       await sendTextMessage(from, "We're fully booked that day. Please try a different date (reply YYYY-MM-DD).");
@@ -1416,7 +1417,7 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
       return;
     }
 
-    const availability = await computeAvailability(state.date!);
+    const availability = await computeAvailability(state.date!, state.doctorId);
     const availableSlots = availability.slots.filter((s) => s.available);
     const filtered = period === 'Morning'
       ? availableSlots.filter((s) => s.time.includes('AM') || s.time.startsWith('12:00 PM'))
@@ -1440,7 +1441,7 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
 
   if (state.step === 'awaiting_time') {
     const timeSlot = interactiveReplyId?.startsWith('time:') ? interactiveReplyId.slice('time:'.length) : text.trim();
-    const slotCheck = await isSlotStillAvailable(state.date!, timeSlot);
+    const slotCheck = await isSlotStillAvailable(state.date!, timeSlot, state.doctorId);
     if (!slotCheck.valid && !slotCheck.degraded) {
       await sendTextMessage(from, 'Sorry, that slot was just taken. Please pick another time from the list above.');
       return;
@@ -1685,7 +1686,7 @@ app.post('/api/appointments', publicApiLimiter, async (req, res) => {
   // calls /api/availability/confirm before payment, but that's a UX nicety —
   // this is the actual gate). Fails open on a degraded/unreachable Calendar so
   // a transient outage never blocks a booking outright.
-  const slotCheck = await isSlotStillAvailable(date, timeSlot);
+  const slotCheck = await isSlotStillAvailable(date, timeSlot, doctorId);
   if (!slotCheck.valid && !slotCheck.degraded) {
     return res.status(409).json({ success: false, error: slotCheck.message || 'That time slot is no longer available. Please pick another.' });
   }
@@ -1724,7 +1725,7 @@ app.post('/api/admin/appointments/direct-book', requireAdminAuth, async (req, re
     return res.status(400).json({ success: false, error: 'Missing or invalid required fields: patientName, patientPhone, date, timeSlot' });
   }
 
-  const slotCheck = await isSlotStillAvailable(date, timeSlot);
+  const slotCheck = await isSlotStillAvailable(date, timeSlot, doctorId);
   if (!slotCheck.valid && !slotCheck.degraded) {
     return res.status(409).json({ success: false, error: slotCheck.message || 'That time slot is no longer available. Please pick another.' });
   }
@@ -1901,6 +1902,132 @@ app.post('/api/admin/appointments/:id/send-meet-reminder', requireAdminAuth, asy
     return res.status(502).json({ success: false, error: result.error || 'Could not send Meet reminder.' });
   }
   res.json({ success: true, mock: result.mock });
+});
+
+const ACTIVE_APPOINTMENT_STATUSES = new Set(['pending', 'pending_approval', 'confirmed', 'rescheduled']);
+
+function findActiveAppointment(doctorId: string, date: string, timeSlot: string): Appointment | undefined {
+  return appointmentsStorage.find(
+    (a) => a.doctorId === doctorId && a.date === date && a.timeSlot === timeSlot && ACTIVE_APPOINTMENT_STATUSES.has(a.status)
+  );
+}
+
+// Live Calendar's schedule editor — per-doctor day-off/slot-off toggles.
+// Every slot for the requested date is returned with whether it's blocked
+// and whether an active appointment already sits on it, so the admin UI
+// can warn before a doctor blocks a slot out from under a real booking.
+app.get('/api/admin/doctor-schedule', requireAdminAuth, (req, res) => {
+  const { doctorId, date } = req.query;
+  if (typeof doctorId !== 'string' || !doctorId || typeof date !== 'string' || !DATE_RE.test(date)) {
+    return res.status(400).json({ success: false, error: 'doctorId and a valid date (YYYY-MM-DD) are required.' });
+  }
+
+  const blocked = getBlockedSlots(doctorId, date);
+  const slots = getTimeSlotsForDate(date).map((time) => {
+    const appointment = findActiveAppointment(doctorId, date, time);
+    return {
+      time,
+      blocked: blocked.has(time),
+      appointmentId: appointment?.id,
+      patientName: appointment?.patientName
+    };
+  });
+
+  res.json({ success: true, date, slots });
+});
+
+app.post('/api/admin/doctor-schedule/toggle', requireAdminAuth, async (req, res) => {
+  const { doctorId, date, timeSlot, blocked } = req.body;
+  if (typeof doctorId !== 'string' || !doctorId || typeof date !== 'string' || !DATE_RE.test(date) || typeof timeSlot !== 'string' || !timeSlot || typeof blocked !== 'boolean') {
+    return res.status(400).json({ success: false, error: 'doctorId, date, timeSlot, and blocked (boolean) are required.' });
+  }
+
+  const result = await setSlotBlocked(doctorId, date, timeSlot, blocked);
+  if (!result.success && !result.mock) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not update the schedule.' });
+  }
+
+  const conflict = blocked ? findActiveAppointment(doctorId, date, timeSlot) : undefined;
+  res.json({
+    success: true,
+    conflict: conflict ? { appointmentId: conflict.id, patientName: conflict.patientName } : undefined
+  });
+});
+
+app.post('/api/admin/doctor-schedule/day', requireAdminAuth, async (req, res) => {
+  const { doctorId, date, blocked } = req.body;
+  if (typeof doctorId !== 'string' || !doctorId || typeof date !== 'string' || !DATE_RE.test(date) || typeof blocked !== 'boolean') {
+    return res.status(400).json({ success: false, error: 'doctorId, date, and blocked (boolean) are required.' });
+  }
+
+  const timeSlots = getTimeSlotsForDate(date);
+  const result = await setDayBlocked(doctorId, date, timeSlots, blocked);
+  if (!result.success && !result.mock) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not update the schedule.' });
+  }
+
+  const conflicts = blocked
+    ? timeSlots
+        .map((time) => findActiveAppointment(doctorId, date, time))
+        .filter((a): a is Appointment => Boolean(a))
+        .map((a) => ({ appointmentId: a.id, patientName: a.patientName, timeSlot: a.timeSlot }))
+    : [];
+
+  res.json({ success: true, conflicts });
+});
+
+// Doctor manually picks a new date/time for an existing appointment — the
+// slot-block conflict flow's resolution path. Re-syncs Calendar by
+// cancelling the old event and creating a fresh one (simpler and more
+// robust than PATCHing start/end times, and reuses the exact same
+// creation path every other booking already goes through) and notifies
+// the patient over WhatsApp so they're not caught out by the change.
+app.post('/api/admin/appointments/:id/reschedule', requireAdminAuth, async (req, res) => {
+  const appointment = findAppointmentById(req.params.id);
+  if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+
+  const { date, timeSlot } = req.body;
+  if (typeof date !== 'string' || !DATE_RE.test(date) || typeof timeSlot !== 'string' || !timeSlot.trim()) {
+    return res.status(400).json({ success: false, error: 'A valid date (YYYY-MM-DD) and timeSlot are required.' });
+  }
+
+  const slotCheck = await isSlotStillAvailable(date, timeSlot, appointment.doctorId);
+  if (!slotCheck.valid && !slotCheck.degraded) {
+    return res.status(409).json({ success: false, error: slotCheck.message || 'That time slot is not available.' });
+  }
+
+  const previousDate = appointment.date;
+  const previousTimeSlot = appointment.timeSlot;
+
+  if (appointment.googleCalendarEventId) {
+    await cancelCalendarEvent(appointment.googleCalendarEventId);
+  }
+
+  appointment.date = date;
+  appointment.timeSlot = timeSlot;
+  appointment.status = 'rescheduled';
+
+  const calendarSync = await syncAppointmentToCalendar(appointment);
+  if (calendarSync.synced) {
+    appointment.googleCalendarEventId = calendarSync.eventId;
+    appointment.googleCalendarSynced = true;
+  } else {
+    appointment.googleCalendarSynced = false;
+  }
+
+  appointment.updatedAt = new Date().toISOString();
+  await persistAppointment(appointment);
+  await updateAppointmentRowById(appointment.id, { status: appointment.status });
+
+  const result = await sendTextMessage(
+    appointment.patientPhone,
+    `📅 Your ${appointment.serviceName} appointment has been rescheduled from ${previousDate} ${previousTimeSlot} to ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care. Reply if this doesn't work for you (code: ${appointment.rescheduleToken}).`
+  );
+  if (!result.success && !result.mock) {
+    console.error('Appointment rescheduled but WhatsApp notice failed:', result.error);
+  }
+
+  res.json({ success: true, appointment, calendarSync });
 });
 
 // Patient Database panel — a view over the `patients` table that's already
@@ -2760,6 +2887,8 @@ async function startServer() {
   DOCTORS_LIVE = await listDoctors();
   CONSULTANTS_LIVE = await listConsultants();
   console.log(`Loaded ${SERVICES_LIVE.length} service(s), ${DOCTORS_LIVE.length} doctor(s), and ${CONSULTANTS_LIVE.length} consultant(s) from Supabase.`);
+
+  await loadScheduleOverrides();
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

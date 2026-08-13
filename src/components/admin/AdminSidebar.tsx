@@ -1,17 +1,18 @@
 import React from 'react';
 import {
   LayoutGrid, IndianRupee, Video, Stethoscope, Users, Image as ImageIcon,
-  Newspaper, HelpCircle, Star, CalendarCheck2, LogOut, ShieldCheck, CalendarDays, CalendarRange, UserCog
+  Newspaper, HelpCircle, Star, CalendarCheck2, LogOut, ShieldCheck, CalendarDays, CalendarRange, UserCog, CalendarOff
 } from 'lucide-react';
 
 export type AdminSection =
-  | 'overview' | 'appointments' | 'live-calendar' | 'patients' | 'fees' | 'consults' | 'services' | 'team'
+  | 'overview' | 'appointments' | 'live-calendar' | 'schedule' | 'patients' | 'fees' | 'consults' | 'services' | 'team'
   | 'gallery' | 'blog' | 'faqs' | 'reviews' | 'calendar';
 
 const NAV_ITEMS: { id: AdminSection; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
   { id: 'appointments', label: 'Appointments', icon: <CalendarDays className="w-4 h-4" /> },
   { id: 'live-calendar', label: 'Live Calendar', icon: <CalendarRange className="w-4 h-4" /> },
+  { id: 'schedule', label: 'Doctor Schedule', icon: <CalendarOff className="w-4 h-4" /> },
   { id: 'patients', label: 'Patient Database', icon: <UserCog className="w-4 h-4" /> },
   { id: 'fees', label: 'Booking Fees', icon: <IndianRupee className="w-4 h-4" /> },
   { id: 'consults', label: 'Online Consults', icon: <Video className="w-4 h-4" /> },

@@ -24,7 +24,8 @@
 
 import { OAuth2Client } from 'google-auth-library';
 import { Appointment } from '../../src/types';
-import { getTimeSlotsForDate } from '../../src/data/clinicData';
+import { getTimeSlotsForDate, isSlotInPast } from '../../src/data/clinicData';
+import { isSlotBlockedForDoctor } from './scheduleOverrides';
 
 const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || '';
 const GOOGLE_OAUTH_CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET || '';
@@ -220,9 +221,16 @@ export interface AvailabilityResult {
   message?: string;
 }
 
-/** All bookable slots for a date, each flagged available/unavailable against live Calendar data. */
-export async function computeAvailability(dateISO: string): Promise<AvailabilityResult> {
-  const allSlots = getTimeSlotsForDate(dateISO);
+/**
+ * All bookable slots for a date, each flagged available/unavailable against
+ * live Calendar data, already-passed time (for today), and — when a
+ * doctorId is given — that doctor's own day-off/slot-off overrides.
+ * doctorId is optional so callers that haven't collected a doctor yet
+ * (or the general clinic-wide view) still get a sensible result; it's
+ * threaded through everywhere a doctor is actually known at the call site.
+ */
+export async function computeAvailability(dateISO: string, doctorId?: string): Promise<AvailabilityResult> {
+  const allSlots = getTimeSlotsForDate(dateISO).filter((time) => !isSlotInPast(dateISO, time));
 
   if (allSlots.length === 0) {
     return { success: true, slots: [], dayFullyBooked: true, degraded: false, message: 'Clinic is closed on this day.' };
@@ -233,27 +241,33 @@ export async function computeAvailability(dateISO: string): Promise<Availability
   if (!freeBusy.success) {
     // Degrade gracefully: show every slot as tentatively available rather than
     // blocking booking entirely because Calendar was briefly unreachable.
+    // Doctor-specific day-off overrides still apply even in degraded mode —
+    // those come from our own database, not Calendar, so there's no reason
+    // to ignore them just because Calendar itself is unreachable.
     return {
       success: true,
-      slots: allSlots.map((time) => ({ time, available: true })),
+      slots: allSlots.map((time) => ({ time, available: !isSlotBlockedForDoctor(doctorId, dateISO, time) })),
       dayFullyBooked: false,
       degraded: true,
       message: 'Live availability is temporarily unavailable — showing standard hours. We will confirm your exact slot manually if needed.'
     };
   }
 
-  const slots = allSlots.map((time) => ({ time, available: !slotOverlapsBusy(dateISO, time, freeBusy.busy) }));
+  const slots = allSlots.map((time) => ({
+    time,
+    available: !slotOverlapsBusy(dateISO, time, freeBusy.busy) && !isSlotBlockedForDoctor(doctorId, dateISO, time)
+  }));
   const dayFullyBooked = slots.every((s) => !s.available);
 
   return { success: true, slots, dayFullyBooked, degraded: false };
 }
 
 /** Re-check a single slot immediately before payment/Meet generation. */
-export async function isSlotStillAvailable(dateISO: string, timeSlot: string): Promise<{ valid: boolean; degraded: boolean; message?: string }> {
-  const availability = await computeAvailability(dateISO);
+export async function isSlotStillAvailable(dateISO: string, timeSlot: string, doctorId?: string): Promise<{ valid: boolean; degraded: boolean; message?: string }> {
+  const availability = await computeAvailability(dateISO, doctorId);
   const slot = availability.slots.find((s) => s.time === timeSlot);
 
-  if (!slot) return { valid: false, degraded: availability.degraded, message: 'That time slot is outside clinic hours for this date.' };
+  if (!slot) return { valid: false, degraded: availability.degraded, message: 'That time slot is outside clinic hours for this date, or has already passed.' };
   if (availability.degraded) return { valid: true, degraded: true, message: availability.message };
 
   return { valid: slot.available, degraded: false, message: slot.available ? undefined : 'That slot was just booked by someone else. Please pick another time.' };

@@ -147,6 +147,26 @@ create table if not exists appointments (
 
 create index if not exists appointments_created_at_idx on appointments (created_at desc);
 
+-- ---------------- doctor_schedule_overrides ----------------
+-- Per-doctor day-off / slot-off tracking for the Live Calendar's schedule
+-- editor. A slot is available by DEFAULT — a row here means that specific
+-- (doctor, date, time_slot) is BLOCKED (doctor unavailable), so storage
+-- stays sparse: no row needs to exist for every open slot on every future
+-- date, only the ones a doctor has explicitly turned off. Blocking an
+-- entire day is just blocking every slot on that date, no separate concept.
+create table if not exists doctor_schedule_overrides (
+  id uuid primary key default gen_random_uuid(),
+  doctor_id text not null,
+  date text not null,
+  time_slot text not null,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists doctor_schedule_overrides_unique_idx
+  on doctor_schedule_overrides (doctor_id, date, time_slot);
+create index if not exists doctor_schedule_overrides_lookup_idx
+  on doctor_schedule_overrides (doctor_id, date);
+
 -- ---------------- services ----------------
 -- Full treatment catalog, doctor-editable via /doctor-admin. Supersedes
 -- service_pricing as the single source of truth for the whole service
@@ -277,6 +297,7 @@ alter table patients enable row level security;
 alter table service_pricing enable row level security;
 alter table blog_posts enable row level security;
 alter table appointments enable row level security;
+alter table doctor_schedule_overrides enable row level security;
 alter table services enable row level security;
 alter table faqs enable row level security;
 alter table team_doctors enable row level security;

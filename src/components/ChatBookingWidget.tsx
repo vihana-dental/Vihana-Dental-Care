@@ -196,7 +196,7 @@ export const ChatBookingWidget: React.FC = () => {
       const res = await fetch('/api/availability/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: draft.date, timeSlot: draft.timeSlot })
+        body: JSON.stringify({ date: draft.date, timeSlot: draft.timeSlot, doctorId: draft.doctorId })
       });
       const data = await res.json();
       if (!data.valid) {
@@ -585,7 +585,7 @@ export const ChatBookingWidget: React.FC = () => {
                 </div>
               )}
 
-              {step === 'datetime' && <DateTimePanel onSubmit={handleDateTimeSubmit} />}
+              {step === 'datetime' && <DateTimePanel onSubmit={handleDateTimeSubmit} doctorId={draft.doctorId} />}
 
               {step === 'patient_details' && <PatientDetailsPanel onSubmit={handlePatientDetailsSubmit} loading={checkingSlot} />}
 
@@ -783,7 +783,7 @@ export const ChatBookingWidget: React.FC = () => {
   );
 };
 
-const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => void }> = ({ onSubmit }) => {
+const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => void; doctorId?: string }> = ({ onSubmit, doctorId }) => {
   const [date, setDate] = useState(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
   const [timeSlot, setTimeSlot] = useState('');
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
@@ -797,7 +797,7 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
     setError('');
     setDegradedMessage('');
     try {
-      const res = await fetch(`/api/availability?date=${targetDate}`);
+      const res = await fetch(`/api/availability?date=${targetDate}${doctorId ? `&doctorId=${encodeURIComponent(doctorId)}` : ''}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Could not load availability for this date.');
 
