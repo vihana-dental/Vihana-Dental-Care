@@ -153,7 +153,7 @@ export const FAQPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) => 
                   renderForm(editDraft, setEditDraft, () => handleSaveEdit(faq.id), () => setEditingId(null), saving, 'Save Changes', saveError)
                 ) : (
                   <div className="flex items-start gap-3">
-                    <span className="shrink-0 w-6 h-6 rounded-full bg-teal-50 text-teal-700 text-[11px] font-bold flex items-center justify-center mt-0.5">{faq.order}</span>
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-brand-200 text-brand-900 text-[11px] font-bold flex items-center justify-center mt-0.5">{faq.order}</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-900">{faq.question}</p>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">{faq.answer}</p>

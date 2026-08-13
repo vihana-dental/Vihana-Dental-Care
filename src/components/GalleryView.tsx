@@ -45,8 +45,8 @@ export const GalleryView: React.FC = () => {
           viewport={{ once: true, margin: "-50px" }}
           transition={springTransition}
         >
-          <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20">
-            <ImageIcon className="w-3.5 h-3.5 text-teal-600" />
+          <div className="inline-flex items-center gap-1.5 bg-brand-700/10 text-brand-950 text-xs font-bold px-4 py-1.5 rounded-full border border-brand-700/20">
+            <ImageIcon className="w-3.5 h-3.5 text-brand-800" />
             <span>Verified Clinic Gallery & Visual Guides</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
@@ -67,7 +67,7 @@ export const GalleryView: React.FC = () => {
               transition={{ type: "spring", stiffness: 120, damping: 15 }}
               className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all ${
                 activeCategory === cat.id
-                  ? 'bg-teal-600 text-white font-extrabold shadow-lg shadow-teal-600/20'
+                  ? 'bg-brand-800 text-white font-extrabold shadow-lg shadow-brand-800/20'
                   : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 hover:text-slate-900'
               }`}
             >
@@ -88,7 +88,7 @@ export const GalleryView: React.FC = () => {
               transition={{ ...springTransition, delay: (index % 3) * 0.08 }}
               whileHover={{ y: -6 }}
               onClick={() => setActiveImage(item)}
-              className="group relative h-72 rounded-[28px] overflow-hidden bg-slate-100 border border-slate-200/80 cursor-pointer shadow-lg hover:border-teal-500/40 transition-all duration-300"
+              className="group relative h-72 rounded-[28px] overflow-hidden bg-slate-100 border border-slate-200/80 cursor-pointer shadow-lg hover:border-brand-700/40 transition-all duration-300"
             >
               <img
                 src={item.imageUrl}
@@ -103,7 +103,7 @@ export const GalleryView: React.FC = () => {
                   <h3 className="text-lg font-bold text-white leading-snug">{item.title}</h3>
                   <p className="text-xs text-slate-300 line-clamp-1 mt-0.5 font-normal">{item.caption}</p>
                 </div>
-                <div className="p-3 rounded-2xl bg-teal-500/20 text-teal-300 border border-teal-500/30 group-hover:scale-110 transition-transform shadow-lg">
+                <div className="p-3 rounded-2xl bg-brand-700/20 text-brand-500 border border-brand-700/30 group-hover:scale-110 transition-transform shadow-lg">
                   <Maximize2 className="w-4 h-4" />
                 </div>
               </div>

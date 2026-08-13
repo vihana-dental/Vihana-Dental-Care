@@ -50,7 +50,7 @@ const ItemForm: React.FC<{
       <div>
         <label className={labelClass}>Image *</label>
         <input type="file" accept="image/*" onChange={handleImageChange}
-          className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-teal-600 file:text-white file:text-xs file:font-bold hover:file:bg-teal-700 file:cursor-pointer cursor-pointer" />
+          className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-800 file:text-white file:text-xs file:font-bold hover:file:bg-brand-900 file:cursor-pointer cursor-pointer" />
         {imageError && <p className="text-xs text-rose-600 mt-1">{imageError}</p>}
         {draft.imageUrl && <img src={draft.imageUrl} alt="Preview" className="w-full h-32 object-cover rounded-xl border border-slate-200 mt-2" />}
       </div>
@@ -196,7 +196,7 @@ export const GalleryPanel: React.FC<Props> = ({ authedFetch, onSessionExpired })
                     <img src={item.imageUrl} alt="" className="w-full h-32 object-cover rounded-lg border border-slate-200" />
                     <div className="pt-2.5">
                       <p className="text-xs font-bold text-slate-900 line-clamp-1">{item.title}</p>
-                      <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full inline-block mt-1">{item.category}</span>
+                      <span className="text-[10px] font-bold text-brand-900 bg-brand-200 border border-brand-300 px-2 py-0.5 rounded-full inline-block mt-1">{item.category}</span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-2.5">
                       <button onClick={() => startEditing(item)} className={ghostButtonClass + ' flex-1 text-xs py-2'}><Pencil className="w-3.5 h-3.5" /><span>Edit</span></button>

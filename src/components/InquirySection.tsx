@@ -42,8 +42,8 @@ export const InquirySection: React.FC = () => {
     <section className="py-16 bg-white text-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
         <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 bg-teal-100 text-teal-800 text-xs font-semibold px-3 py-1 rounded-full">
-            <Mail className="w-3.5 h-3.5 text-teal-600" />
+          <div className="inline-flex items-center gap-1.5 bg-brand-300 text-brand-950 text-xs font-semibold px-3 py-1 rounded-full">
+            <Mail className="w-3.5 h-3.5 text-brand-800" />
             <span>Get in Touch with Vihana Specialists</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
@@ -56,7 +56,7 @@ export const InquirySection: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Contact Details Card */}
-          <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950 text-white p-8 rounded-3xl space-y-8 shadow-xl border border-slate-800">
+          <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-slate-900 to-brand-950 text-white p-8 rounded-3xl space-y-8 shadow-xl border border-slate-800">
             <div className="space-y-2">
               <h3 className="text-2xl font-bold text-white">Vihana Dental Care</h3>
               <p className="text-slate-300 text-xs sm:text-sm">
@@ -66,7 +66,7 @@ export const InquirySection: React.FC = () => {
 
             <div className="space-y-5 text-sm">
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-500/30">
+                <div className="p-3 bg-brand-700/20 text-brand-500 rounded-xl border border-brand-700/30">
                   <MapPin className="w-5 h-5" />
                 </div>
                 <div>
@@ -76,12 +76,12 @@ export const InquirySection: React.FC = () => {
               </div>
 
               <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-start gap-4 group">
-                <div className="p-3 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-500/30">
+                <div className="p-3 bg-brand-700/20 text-brand-500 rounded-xl border border-brand-700/30">
                   <Phone className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="font-semibold text-slate-200">Call Us</p>
-                  <p className="text-xs text-slate-300 mt-0.5 group-hover:text-teal-300 transition-colors">{CLINIC_INFO.phone}</p>
+                  <p className="text-xs text-slate-300 mt-0.5 group-hover:text-brand-500 transition-colors">{CLINIC_INFO.phone}</p>
                 </div>
               </a>
 
@@ -101,17 +101,17 @@ export const InquirySection: React.FC = () => {
               </a>
 
               <a href={`mailto:${CLINIC_INFO.email}`} className="flex items-start gap-4 group">
-                <div className="p-3 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-500/30">
+                <div className="p-3 bg-brand-700/20 text-brand-500 rounded-xl border border-brand-700/30">
                   <Mail className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="font-semibold text-slate-200">Email Us</p>
-                  <p className="text-xs text-slate-300 mt-0.5 group-hover:text-teal-300 transition-colors">{CLINIC_INFO.email}</p>
+                  <p className="text-xs text-slate-300 mt-0.5 group-hover:text-brand-500 transition-colors">{CLINIC_INFO.email}</p>
                 </div>
               </a>
 
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-teal-500/20 text-teal-300 rounded-xl border border-teal-500/30">
+                <div className="p-3 bg-brand-700/20 text-brand-500 rounded-xl border border-brand-700/30">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
@@ -123,12 +123,12 @@ export const InquirySection: React.FC = () => {
             </div>
 
             <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700/80 text-xs text-slate-300 space-y-1">
-              <p className="font-bold text-teal-300 flex items-center gap-1">
+              <p className="font-bold text-brand-500 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" /> Emergency Care Helpline
               </p>
               <p>
                 For urgent dental trauma or toothache emergencies, call{' '}
-                <a href={`tel:${CLINIC_INFO.phone}`} className="underline hover:text-teal-300 transition-colors">{CLINIC_INFO.phone}</a> immediately.
+                <a href={`tel:${CLINIC_INFO.phone}`} className="underline hover:text-brand-500 transition-colors">{CLINIC_INFO.phone}</a> immediately.
               </p>
             </div>
           </div>
@@ -146,7 +146,7 @@ export const InquirySection: React.FC = () => {
                 </p>
                 <button
                   onClick={() => setSubmitted(false)}
-                  className="bg-teal-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow"
+                  className="bg-brand-900 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow"
                 >
                   Send Another Message
                 </button>
@@ -161,7 +161,7 @@ export const InquirySection: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Viswanathan M."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-700 outline-none bg-white"
                   />
                 </div>
 
@@ -174,7 +174,7 @@ export const InquirySection: React.FC = () => {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="+91 98765 43210"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-700 outline-none bg-white"
                     />
                   </div>
                   <div>
@@ -184,7 +184,7 @@ export const InquirySection: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@example.com"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-700 outline-none bg-white"
                     />
                   </div>
                 </div>
@@ -194,7 +194,7 @@ export const InquirySection: React.FC = () => {
                   <select
                     value={service}
                     onChange={(e) => setService(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-700 outline-none bg-white"
                   >
                     {SERVICES.map((s) => (
                       <option key={s.id} value={s.title}>{s.title}</option>
@@ -210,14 +210,14 @@ export const InquirySection: React.FC = () => {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Tell us about your dental concern, preferred consultation timing..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-700 outline-none bg-white"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-teal-700 hover:bg-teal-800 text-white font-bold text-sm py-3.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
+                  className="w-full bg-brand-900 hover:bg-brand-950 text-white font-bold text-sm py-3.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
                   <span>{loading ? "Submitting Inquiry..." : "Submit Inquiry to Clinic"}</span>

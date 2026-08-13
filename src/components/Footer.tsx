@@ -28,7 +28,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               </div>
               <div>
                 <h3 className="text-lg font-extrabold text-white tracking-tight">VIHANA DENTAL CARE</h3>
-                <p className="text-[10px] text-teal-400 font-mono font-semibold">COIMBATORE • TAMIL NADU</p>
+                <p className="text-[10px] text-brand-600 font-mono font-semibold">COIMBATORE • TAMIL NADU</p>
               </div>
             </div>
 
@@ -37,14 +37,14 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-2">
-              <span className="bg-slate-900 text-teal-300 text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-teal-400" /> HIPAA Encrypted Practice
+              <span className="bg-slate-900 text-brand-500 text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-brand-600" /> HIPAA Encrypted Practice
               </span>
               <button
                 onClick={() => setCertsOpen(true)}
-                className="bg-slate-900 hover:bg-slate-800 text-teal-300 text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1 transition-colors"
+                className="bg-slate-900 hover:bg-slate-800 text-brand-500 text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1 transition-colors"
               >
-                <Award className="w-3.5 h-3.5 text-teal-400" /> Certifications
+                <Award className="w-3.5 h-3.5 text-brand-600" /> Certifications
               </button>
             </div>
           </div>
@@ -54,27 +54,27 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Navigation</h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <button onClick={() => setActiveTab('home')} className="hover:text-teal-400 transition-colors">
+                <button onClick={() => setActiveTab('home')} className="hover:text-brand-600 transition-colors">
                   Home Page
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('about')} className="hover:text-teal-400 transition-colors">
+                <button onClick={() => setActiveTab('about')} className="hover:text-brand-600 transition-colors">
                   About Specialist Doctors
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('services')} className="hover:text-teal-400 transition-colors">
+                <button onClick={() => setActiveTab('services')} className="hover:text-brand-600 transition-colors">
                   Dental Services & Pricing
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('gallery')} className="hover:text-teal-400 transition-colors">
+                <button onClick={() => setActiveTab('gallery')} className="hover:text-brand-600 transition-colors">
                   Clinic Photo Gallery
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('reviews')} className="hover:text-teal-400 transition-colors">
+                <button onClick={() => setActiveTab('reviews')} className="hover:text-brand-600 transition-colors">
                   Google Patient Reviews (4.9★)
                 </button>
               </li>
@@ -87,7 +87,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
             <ul className="space-y-2 text-xs text-slate-400">
               {SERVICES.slice(0, 5).map((s) => (
                 <li key={s.id}>
-                  <button onClick={() => setActiveTab('services')} className="hover:text-teal-300 transition-colors text-left">
+                  <button onClick={() => setActiveTab('services')} className="hover:text-brand-500 transition-colors text-left">
                     {s.title}
                   </button>
                 </li>
@@ -99,11 +99,11 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           <div className="space-y-3 text-xs">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Contact & Location</h4>
             <p className="flex items-start gap-2 text-slate-300">
-              <MapPin className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+              <MapPin className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
               <span>{CLINIC_INFO.address}, Coimbatore - {CLINIC_INFO.pincode}</span>
             </p>
-            <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-center gap-2 text-slate-300 hover:text-teal-300 transition-colors">
-              <Phone className="w-4 h-4 text-teal-400 shrink-0" />
+            <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-center gap-2 text-slate-300 hover:text-brand-500 transition-colors">
+              <Phone className="w-4 h-4 text-brand-600 shrink-0" />
               <span>{CLINIC_INFO.phone}</span>
             </a>
             <a
@@ -115,12 +115,12 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{CLINIC_INFO.whatsapp} (WhatsApp)</span>
             </a>
-            <a href={`mailto:${CLINIC_INFO.email}`} className="flex items-center gap-2 text-slate-300 hover:text-teal-300 transition-colors">
-              <Mail className="w-4 h-4 text-teal-400 shrink-0" />
+            <a href={`mailto:${CLINIC_INFO.email}`} className="flex items-center gap-2 text-slate-300 hover:text-brand-500 transition-colors">
+              <Mail className="w-4 h-4 text-brand-600 shrink-0" />
               <span>{CLINIC_INFO.email}</span>
             </a>
             <p className="flex items-start gap-2 text-slate-300">
-              <Clock className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+              <Clock className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
               <span>{CLINIC_INFO.workingHours.weekdays}</span>
             </p>
 
@@ -128,7 +128,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               href={CLINIC_INFO.googleBusinessUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-teal-400 hover:underline pt-1 text-xs"
+              className="inline-flex items-center gap-1.5 text-brand-600 hover:underline pt-1 text-xs"
             >
               <span>View Google My Business Profile</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -139,10 +139,10 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col gap-4 text-xs text-slate-500">
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-2">
-            <a href="/privacy-policy.html" className="hover:text-teal-400 transition-colors">Privacy Policy</a>
-            <a href="/terms-of-service.html" className="hover:text-teal-400 transition-colors">Terms of Service</a>
-            <a href="/refund-cancellation-policy.html" className="hover:text-teal-400 transition-colors">Refund &amp; Cancellation</a>
-            <a href="/data-deletion.html" className="hover:text-teal-400 transition-colors">Data Deletion</a>
+            <a href="/privacy-policy.html" className="hover:text-brand-600 transition-colors">Privacy Policy</a>
+            <a href="/terms-of-service.html" className="hover:text-brand-600 transition-colors">Terms of Service</a>
+            <a href="/refund-cancellation-policy.html" className="hover:text-brand-600 transition-colors">Refund &amp; Cancellation</a>
+            <a href="/data-deletion.html" className="hover:text-brand-600 transition-colors">Data Deletion</a>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p>© {new Date().getFullYear()} Vihana Dental Care, Coimbatore. All Rights Reserved.</p>
@@ -150,7 +150,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               href="https://www.thepaperplane.co.in"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-400 hover:text-teal-400 transition-colors"
+              className="text-slate-400 hover:text-brand-600 transition-colors"
             >
               Designed &amp; Developed by <span className="font-semibold">The Paper Plane</span>
             </a>

@@ -115,8 +115,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
           viewport={{ once: true, margin: "-50px" }}
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
         >
-          <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20 shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+          <div className="inline-flex items-center gap-1.5 bg-brand-700/10 text-brand-950 text-xs font-bold px-4 py-1.5 rounded-full border border-brand-700/20 shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-brand-800" />
             <span>Multispecialty Clinical Portfolio</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
@@ -171,14 +171,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-teal-300 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-700">
+                  <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-brand-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-700">
                     {service.category}
                   </div>
                 </div>
 
                 {/* Content */}
                 <div className="p-6 space-y-4">
-                  <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-teal-700 transition-colors">
+                  <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-brand-900 transition-colors">
                     {service.title}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
@@ -219,7 +219,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                 <motion.button
                   onClick={() => onSelectServiceToBook(service.id)}
                   whileTap={{ scale: 0.97 }}
-                  className="flex-1 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold py-3 rounded-2xl shadow-md shadow-teal-600/20 flex items-center justify-center gap-1.5 transition-all"
+                  className="flex-1 bg-brand-800 hover:bg-brand-700 text-white text-xs font-bold py-3 rounded-2xl shadow-md shadow-brand-800/20 flex items-center justify-center gap-1.5 transition-all"
                 >
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Book Now</span>
@@ -233,8 +233,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
         <section className="mt-20 pt-16 border-t border-slate-200">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center">
-                <MessageCircleQuestion className="w-6 h-6 text-teal-700" />
+              <div className="w-12 h-12 rounded-xl bg-brand-300 flex items-center justify-center">
+                <MessageCircleQuestion className="w-6 h-6 text-brand-900" />
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Common Patient Questions</h2>
             </div>
@@ -280,7 +280,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                   <X className="w-5 h-5" />
                 </button>
                 <div className="absolute bottom-4 left-6 right-6 text-white">
-                  <span className="bg-teal-500 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-full">
+                  <span className="bg-brand-700 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-full">
                     {selectedServiceModal.category}
                   </span>
                   <h3 className="text-2xl font-bold mt-2">{selectedServiceModal.title}</h3>
@@ -300,7 +300,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 font-medium">Estimated Cost Range</p>
-                    <p className="text-sm font-bold text-teal-700">{selectedServiceModal.priceRange}</p>
+                    <p className="text-sm font-bold text-brand-900">{selectedServiceModal.priceRange}</p>
                   </div>
                 </div>
 
@@ -321,7 +321,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                   <div className="space-y-2">
                     {selectedServiceModal.procedures.map((p, i) => (
                       <div key={i} className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-xs text-slate-700">
-                        <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 font-bold flex items-center justify-center shrink-0 text-[11px]">
+                        <span className="w-5 h-5 rounded-full bg-brand-300 text-brand-950 font-bold flex items-center justify-center shrink-0 text-[11px]">
                           {i + 1}
                         </span>
                         <span>{p}</span>
@@ -343,7 +343,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                       setSelectedServiceModal(null);
                       onSelectServiceToBook(sid);
                     }}
-                    className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow-xs"
+                    className="bg-brand-900 hover:bg-brand-950 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow-xs"
                   >
                     Book This Procedure Now
                   </button>

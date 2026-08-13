@@ -98,7 +98,7 @@ export const LiveCalendarPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
           action={
             <div className="flex items-center gap-1.5">
               <button onClick={() => goToMonth(-1)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100" aria-label="Previous month"><ChevronLeft className="w-4 h-4" /></button>
-              <button onClick={goToToday} className="px-3 py-1.5 rounded-lg text-xs font-bold text-teal-700 hover:bg-teal-50">Today</button>
+              <button onClick={goToToday} className="px-3 py-1.5 rounded-lg text-xs font-bold text-brand-900 hover:bg-brand-200">Today</button>
               <button onClick={() => goToMonth(1)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100" aria-label="Next month"><ChevronRight className="w-4 h-4" /></button>
             </div>
           }
@@ -124,15 +124,15 @@ export const LiveCalendarPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
                   return (
                     <div
                       key={key}
-                      className={`min-h-[92px] rounded-lg border p-1.5 ${isToday ? 'border-teal-300 bg-teal-50/40' : 'border-slate-100 bg-white'}`}
+                      className={`min-h-[92px] rounded-lg border p-1.5 ${isToday ? 'border-brand-500 bg-brand-200/40' : 'border-slate-100 bg-white'}`}
                     >
-                      <p className={`text-[11px] font-bold ${isToday ? 'text-teal-700' : 'text-slate-500'}`}>{day}</p>
+                      <p className={`text-[11px] font-bold ${isToday ? 'text-brand-900' : 'text-slate-500'}`}>{day}</p>
                       <div className="space-y-1 mt-1">
                         {dayAppointments.slice(0, 3).map((a) => (
                           <button
                             key={a.id}
                             onClick={() => setSelectedId(a.id)}
-                            className={`w-full text-left px-1.5 py-1 rounded text-[10px] font-semibold truncate ${STATUS_BADGE[a.status] || 'bg-slate-100 text-slate-600'} ${selectedId === a.id ? 'ring-2 ring-teal-500' : ''}`}
+                            className={`w-full text-left px-1.5 py-1 rounded text-[10px] font-semibold truncate ${STATUS_BADGE[a.status] || 'bg-slate-100 text-slate-600'} ${selectedId === a.id ? 'ring-2 ring-brand-700' : ''}`}
                             title={`${a.patientName} — ${a.timeSlot}`}
                           >
                             {a.timeSlot.replace(' ', '')} {a.patientName}

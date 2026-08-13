@@ -37,7 +37,7 @@ const CredentialsBlock: React.FC<{
       {pgInstitution && (
         <p className="text-[11px] text-slate-500"><span className="font-semibold text-slate-600">PG: </span>{pgInstitution}</p>
       )}
-      {experienceLine && <p className="text-[11px] text-teal-700 font-semibold pt-0.5">{experienceLine}</p>}
+      {experienceLine && <p className="text-[11px] text-brand-900 font-semibold pt-0.5">{experienceLine}</p>}
     </div>
   );
 };
@@ -72,8 +72,8 @@ export const TeamSection: React.FC = () => {
           viewport={{ once: true, margin: "-50px" }}
           transition={springTransition}
         >
-          <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20">
-            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+          <div className="inline-flex items-center gap-1.5 bg-brand-700/10 text-brand-950 text-xs font-bold px-4 py-1.5 rounded-full border border-brand-700/20">
+            <Sparkles className="w-3.5 h-3.5 text-brand-800" />
             <span>Meet Our Team</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
@@ -119,7 +119,7 @@ export const TeamSection: React.FC = () => {
                     className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-4 left-4 bg-slate-900/90 text-teal-300 text-xs font-bold px-3.5 py-1.5 rounded-full border border-slate-700 shadow-lg backdrop-blur-md">
+                  <div className="absolute top-4 left-4 bg-slate-900/90 text-brand-500 text-xs font-bold px-3.5 py-1.5 rounded-full border border-slate-700 shadow-lg backdrop-blur-md">
                     {doc.experienceYears}+ Years Clinical Excellence
                   </div>
                 </div>
@@ -127,12 +127,12 @@ export const TeamSection: React.FC = () => {
                 {/* Details Column */}
                 <div className="md:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-6">
                   <div className="space-y-3">
-                    <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-3 py-1 rounded-full border border-teal-500/20">
-                      <UserCheck className="w-3.5 h-3.5 text-teal-600" />
+                    <div className="inline-flex items-center gap-1.5 bg-brand-700/10 text-brand-950 text-xs font-bold px-3 py-1 rounded-full border border-brand-700/20">
+                      <UserCheck className="w-3.5 h-3.5 text-brand-800" />
                       <span>Lead Orthodontist & Founder</span>
                     </div>
                     <h4 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{doc.name}</h4>
-                    <p className="text-sm font-bold text-teal-700">{doc.title}</p>
+                    <p className="text-sm font-bold text-brand-900">{doc.title}</p>
                     <CredentialsBlock
                       qualification={doc.qualification}
                       externalTraining={doc.externalTraining}
@@ -146,7 +146,7 @@ export const TeamSection: React.FC = () => {
 
                   <div className="pt-4 border-t border-slate-200 space-y-3">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                      <Stethoscope className="w-4 h-4 text-teal-600" />
+                      <Stethoscope className="w-4 h-4 text-brand-800" />
                       <span>Clinical Focus & Specializations:</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -172,8 +172,8 @@ export const TeamSection: React.FC = () => {
             viewport={{ once: true }}
             transition={springTransition}
           >
-            <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20 mb-2">
-              <UserCheck className="w-3.5 h-3.5 text-teal-600" />
+            <div className="inline-flex items-center gap-1.5 bg-brand-700/10 text-brand-950 text-xs font-bold px-4 py-1.5 rounded-full border border-brand-700/20 mb-2">
+              <UserCheck className="w-3.5 h-3.5 text-brand-800" />
               <span>Visiting Specialists</span>
             </div>
             <h3 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
@@ -205,7 +205,7 @@ export const TeamSection: React.FC = () => {
                 </div>
                 <div className="p-5 sm:p-6 space-y-2 flex-1 flex flex-col">
                   <h4 className="text-lg font-extrabold text-slate-900 tracking-tight">{doc.name}</h4>
-                  <p className="text-xs font-bold text-teal-700">{doc.specialty}</p>
+                  <p className="text-xs font-bold text-brand-900">{doc.specialty}</p>
                   <CredentialsBlock
                     qualification={doc.qualification}
                     externalTraining={doc.externalTraining}

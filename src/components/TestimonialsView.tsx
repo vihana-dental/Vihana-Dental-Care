@@ -121,7 +121,7 @@ export const TestimonialsView: React.FC = () => {
               rel="noopener noreferrer"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xs transition-all"
+              className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-950 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xs transition-all"
               id="add-google-review-cta"
             >
               <MessageSquarePlus className="w-4 h-4" />
@@ -162,7 +162,7 @@ export const TestimonialsView: React.FC = () => {
                       <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-1">
                         <span>{review.authorName}</span>
                         {review.verifiedGoogle && (
-                          <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold border border-blue-200">
+                          <span className="text-[10px] bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded font-bold border border-brand-300">
                             Google Verified
                           </span>
                         )}
@@ -185,9 +185,9 @@ export const TestimonialsView: React.FC = () => {
 
               {/* Clinic Response */}
               {review.clinicReply && (
-                <div className="bg-teal-50/80 p-3.5 rounded-xl border border-teal-100 text-xs space-y-1 mt-2">
-                  <p className="font-bold text-teal-900 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                <div className="bg-brand-200/80 p-3.5 rounded-xl border border-brand-300 text-xs space-y-1 mt-2">
+                  <p className="font-bold text-brand-950 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-brand-800" />
                     <span>Response from Vihana Dental Care:</span>
                   </p>
                   <p className="text-slate-700 leading-relaxed">{review.clinicReply}</p>

@@ -28,8 +28,8 @@ export const CertificationsModal: React.FC<CertificationsModalProps> = ({ isOpen
       >
         <div className="bg-slate-950 text-white px-6 py-5 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center shrink-0">
-              <Award className="w-5 h-5 text-teal-300" />
+            <div className="w-10 h-10 rounded-xl bg-brand-700/20 border border-brand-700/30 flex items-center justify-center shrink-0">
+              <Award className="w-5 h-5 text-brand-500" />
             </div>
             <div>
               <p className="text-sm font-bold">Certifications & Registrations</p>
@@ -48,7 +48,7 @@ export const CertificationsModal: React.FC<CertificationsModalProps> = ({ isOpen
               href={`/certifications/${encodeURIComponent(cert.filename)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-teal-300 hover:bg-teal-50/60 transition-colors"
+              className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-brand-200/60 transition-colors"
             >
               <div className="w-9 h-9 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
                 <FileText className="w-4 h-4" />

@@ -49,7 +49,7 @@ export const CalendarPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
       <div className="p-6 space-y-3 max-w-md">
         {statusLoading && (
           <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
-            <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+            <Loader2 className="w-4 h-4 animate-spin text-brand-800" />
             <span>Checking connection...</span>
           </div>
         )}

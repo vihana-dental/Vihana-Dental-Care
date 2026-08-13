@@ -78,7 +78,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] font-sans text-slate-800 flex flex-col justify-between selection:bg-teal-500 selection:text-white pb-20 lg:pb-0">
+    <div className="min-h-screen bg-[#F5F5F7] font-sans text-slate-800 flex flex-col justify-between selection:bg-brand-700 selection:text-white pb-20 lg:pb-0">
       {/* Premium Initial Loader Sequence */}
       <InitialLoader />
 

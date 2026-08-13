@@ -382,7 +382,7 @@ export const ChatBookingWidget: React.FC = () => {
     }
   };
 
-  const chipButtonClass = 'shrink-0 bg-white hover:bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold px-3.5 py-2 rounded-full transition-colors shadow-xs';
+  const chipButtonClass = 'shrink-0 bg-white hover:bg-brand-200 border border-brand-400 text-brand-950 text-xs font-semibold px-3.5 py-2 rounded-full transition-colors shadow-xs';
 
   return (
     <>
@@ -396,7 +396,7 @@ export const ChatBookingWidget: React.FC = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed z-50 bottom-24 right-4 lg:bottom-6 lg:right-24 flex items-center gap-2 bg-teal-700 hover:bg-teal-800 text-white pl-4 pr-5 py-3.5 rounded-full shadow-2xl shadow-teal-900/30"
+            className="fixed z-50 bottom-24 right-4 lg:bottom-6 lg:right-6 flex items-center gap-2 bg-brand-900 hover:bg-brand-950 text-white pl-4 pr-5 py-3.5 rounded-full shadow-2xl shadow-brand-950/30"
             id="chat-booking-launcher"
             aria-label="Open booking assistant"
           >
@@ -418,14 +418,14 @@ export const ChatBookingWidget: React.FC = () => {
             id="chat-booking-panel"
           >
             {/* Header */}
-            <div className="shrink-0 bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 text-white p-4 flex items-center justify-between">
+            <div className="shrink-0 bg-gradient-to-r from-slate-900 via-brand-900 to-brand-accent-dark text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center">
-                  <Bot className="w-6 h-6 text-teal-300" />
+                <div className="w-10 h-10 rounded-xl bg-brand-700/20 border border-brand-700/30 flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-brand-500" />
                 </div>
                 <div>
                   <p className="text-sm font-bold leading-tight">Vihana Booking Assistant</p>
-                  <p className="text-[10px] text-teal-300 flex items-center gap-1">
+                  <p className="text-[10px] text-brand-500 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                     Online • Books in this chat
                   </p>
@@ -457,7 +457,7 @@ export const ChatBookingWidget: React.FC = () => {
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-teal-600 rounded-full transition-all duration-300"
+                    className="h-full bg-brand-800 rounded-full transition-all duration-300"
                     style={{ width: `${((BOOKING_STEPS.indexOf(step) + 1) / BOOKING_STEPS.length) * 100}%` }}
                   />
                 </div>
@@ -470,11 +470,11 @@ export const ChatBookingWidget: React.FC = () => {
                 <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs shadow-sm ${
-                      m.sender === 'user' ? 'bg-teal-700 text-white rounded-br-sm' : 'bg-white text-slate-800 border border-slate-200 rounded-bl-sm'
+                      m.sender === 'user' ? 'bg-brand-900 text-white rounded-br-sm' : 'bg-white text-slate-800 border border-slate-200 rounded-bl-sm'
                     }`}
                   >
                     <p className="whitespace-pre-wrap leading-relaxed"><LinkifiedText text={m.text || ''} /></p>
-                    <p className={`text-[9px] mt-1 ${m.sender === 'user' ? 'text-teal-200' : 'text-slate-400'}`}>{m.timestamp}</p>
+                    <p className={`text-[9px] mt-1 ${m.sender === 'user' ? 'text-brand-400' : 'text-slate-400'}`}>{m.timestamp}</p>
                   </div>
                 </div>
               ))}
@@ -482,7 +482,7 @@ export const ChatBookingWidget: React.FC = () => {
               {nlLoading && (
                 <div className="flex justify-start">
                   <div className="bg-white border border-slate-200 text-slate-500 px-3.5 py-2.5 rounded-2xl text-xs flex items-center gap-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-800" />
                     <span>Thinking...</span>
                   </div>
                 </div>
@@ -503,9 +503,9 @@ export const ChatBookingWidget: React.FC = () => {
                 <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
                   <button
                     onClick={() => handleConsultationType('in-clinic')}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-teal-400 hover:bg-teal-50/60 transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-brand-600 hover:bg-brand-200/60 transition-colors text-left"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-brand-800 text-white flex items-center justify-center shrink-0">
                       <MapPin className="w-4.5 h-4.5" />
                     </div>
                     <div>
@@ -515,9 +515,9 @@ export const ChatBookingWidget: React.FC = () => {
                   </button>
                   <button
                     onClick={() => handleConsultationType('online-video')}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-teal-400 hover:bg-teal-50/60 transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-brand-600 hover:bg-brand-200/60 transition-colors text-left"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-brand-800 text-white flex items-center justify-center shrink-0">
                       <Video className="w-4.5 h-4.5" />
                     </div>
                     <div>
@@ -542,7 +542,7 @@ export const ChatBookingWidget: React.FC = () => {
                 <div className="space-y-2">
                   <button
                     onClick={() => setStep('category')}
-                    className="text-[10px] text-teal-700 font-semibold hover:underline"
+                    className="text-[10px] text-brand-900 font-semibold hover:underline"
                   >
                     ← Back to categories
                   </button>
@@ -560,7 +560,7 @@ export const ChatBookingWidget: React.FC = () => {
                 <div className="space-y-2">
                   <button
                     onClick={() => setStep('service')}
-                    className="text-[10px] text-teal-700 font-semibold hover:underline"
+                    className="text-[10px] text-brand-900 font-semibold hover:underline"
                   >
                     ← Back to treatments
                   </button>
@@ -569,7 +569,7 @@ export const ChatBookingWidget: React.FC = () => {
                       <button
                         key={doc.id}
                         onClick={() => handleDoctorSelect(doc.id)}
-                        className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 hover:border-teal-400 hover:bg-teal-50/60 transition-colors text-left"
+                        className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 hover:border-brand-600 hover:bg-brand-200/60 transition-colors text-left"
                       >
                         <img src={doc.photo} alt={doc.name} className="w-9 h-9 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
                         <div className="min-w-0">
@@ -594,7 +594,7 @@ export const ChatBookingWidget: React.FC = () => {
                   {!paymentLink && !paymentGenLoading && (
                     <button
                       onClick={generatePaymentLink}
-                      className="w-full flex items-center justify-center gap-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold py-3 rounded-xl shadow"
+                      className="w-full flex items-center justify-center gap-2 bg-brand-900 hover:bg-brand-950 text-white text-xs font-bold py-3 rounded-xl shadow"
                     >
                       <QrCode className="w-4 h-4" />
                       <span>Generate Secure Payment Link</span>
@@ -602,7 +602,7 @@ export const ChatBookingWidget: React.FC = () => {
                   )}
                   {paymentGenLoading && (
                     <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-3">
-                      <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                      <Loader2 className="w-4 h-4 animate-spin text-brand-800" />
                       <span>Generating secure payment link...</span>
                     </div>
                   )}
@@ -624,7 +624,7 @@ export const ChatBookingWidget: React.FC = () => {
                         href={paymentLink.shortUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full flex items-center justify-center gap-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold py-3 rounded-xl shadow"
+                        className="w-full flex items-center justify-center gap-2 bg-brand-900 hover:bg-brand-950 text-white text-xs font-bold py-3 rounded-xl shadow"
                       >
                         <QrCode className="w-4 h-4" />
                         <span>Pay ₹{paymentLink.amount} Now</span>
@@ -632,7 +632,7 @@ export const ChatBookingWidget: React.FC = () => {
                       <p className="text-[10px] text-slate-400 text-center break-all">{paymentLink.shortUrl}</p>
                       {/* No manual "I've paid" button — this polls automatically in the background and moves to the confirmation screen the instant Razorpay confirms it. */}
                       <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-2 border-t border-slate-100">
-                        <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                        <Loader2 className="w-4 h-4 animate-spin text-brand-800" />
                         <span>Waiting for payment confirmation...</span>
                       </div>
                     </div>
@@ -645,7 +645,7 @@ export const ChatBookingWidget: React.FC = () => {
                       </div>
                       <button
                         onClick={generatePaymentLink}
-                        className="w-full flex items-center justify-center gap-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold py-3 rounded-xl shadow"
+                        className="w-full flex items-center justify-center gap-2 bg-brand-900 hover:bg-brand-950 text-white text-xs font-bold py-3 rounded-xl shadow"
                       >
                         <span>Try Payment Again</span>
                       </button>
@@ -668,20 +668,20 @@ export const ChatBookingWidget: React.FC = () => {
                     onChange={(e) => setCancelToken(e.target.value)}
                     placeholder="e.g. RSC-88120"
                     disabled={cancelDone}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-slate-50"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-brand-700 outline-none disabled:bg-slate-50"
                   />
                   {cancelError && <p className="text-[11px] text-rose-600">{cancelError}</p>}
                   {!cancelDone ? (
                     <button
                       onClick={handleCancelSubmit}
                       disabled={cancelLoading || !cancelToken.trim()}
-                      className="w-full flex items-center justify-center gap-2 bg-teal-700 hover:bg-teal-800 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl"
+                      className="w-full flex items-center justify-center gap-2 bg-brand-900 hover:bg-brand-950 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl"
                     >
                       {cancelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       <span>{cancelLoading ? 'Cancelling...' : 'Cancel This Appointment'}</span>
                     </button>
                   ) : (
-                    <button onClick={resetFlow} className="w-full bg-teal-50 text-teal-800 text-xs font-bold py-2.5 rounded-xl">
+                    <button onClick={resetFlow} className="w-full bg-brand-200 text-brand-950 text-xs font-bold py-2.5 rounded-xl">
                       Book a New Appointment
                     </button>
                   )}
@@ -706,13 +706,13 @@ export const ChatBookingWidget: React.FC = () => {
                       href={bookingResult.appointment.videoRoomUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center justify-between gap-2 bg-white border border-teal-200 rounded-xl p-3 text-[11px] hover:border-teal-400 transition-colors"
+                      className="flex items-center justify-between gap-2 bg-white border border-brand-400 rounded-xl p-3 text-[11px] hover:border-brand-600 transition-colors"
                     >
-                      <span className="flex items-center gap-2 text-teal-800 font-semibold">
+                      <span className="flex items-center gap-2 text-brand-950 font-semibold">
                         <Video className="w-4 h-4 shrink-0" />
                         Google Meet Link
                       </span>
-                      <span className="text-teal-700 underline truncate max-w-[140px]">{bookingResult.appointment.videoRoomUrl}</span>
+                      <span className="text-brand-900 underline truncate max-w-[140px]">{bookingResult.appointment.videoRoomUrl}</span>
                     </a>
                   )}
 
@@ -723,7 +723,7 @@ export const ChatBookingWidget: React.FC = () => {
                     </div>
                   )}
 
-                  <div className={`flex items-center gap-2 text-[11px] rounded-xl p-2.5 border ${bookingResult.calendarSync?.synced ? 'bg-teal-50 border-teal-200 text-teal-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                  <div className={`flex items-center gap-2 text-[11px] rounded-xl p-2.5 border ${bookingResult.calendarSync?.synced ? 'bg-brand-200 border-brand-400 text-brand-950' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
                     <CalendarCheck2 className="w-4 h-4 shrink-0" />
                     <span>
                       {bookingResult.calendarSync?.synced
@@ -744,7 +744,7 @@ export const ChatBookingWidget: React.FC = () => {
                     </a>
                   )}
 
-                  <button onClick={resetFlow} className="w-full bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold py-2.5 rounded-xl">
+                  <button onClick={resetFlow} className="w-full bg-brand-900 hover:bg-brand-950 text-white text-xs font-bold py-2.5 rounded-xl">
                     Done
                   </button>
                 </div>
@@ -765,12 +765,12 @@ export const ChatBookingWidget: React.FC = () => {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Type a question, e.g. 'do you do Invisalign?'"
-                className="flex-1 bg-slate-100 text-slate-800 text-xs px-3.5 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-teal-400 focus:bg-white"
+                className="flex-1 bg-slate-100 text-slate-800 text-xs px-3.5 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-brand-600 focus:bg-white"
               />
               <button
                 type="submit"
                 disabled={nlLoading || !inputText.trim()}
-                className="bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white p-2.5 rounded-xl transition-all"
+                className="bg-brand-900 hover:bg-brand-950 disabled:opacity-50 text-white p-2.5 rounded-xl transition-all"
                 aria-label="Send message"
               >
                 <Send className="w-4 h-4" />
@@ -830,7 +830,7 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
           min={new Date().toISOString().split('T')[0]}
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-teal-500 outline-none"
+          className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-brand-700 outline-none"
         />
       </div>
 
@@ -880,8 +880,8 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
                   !s.available
                     ? 'bg-slate-50 border-slate-100 text-slate-300 line-through cursor-not-allowed'
                     : timeSlot === s.time
-                    ? 'bg-teal-700 border-teal-700 text-white'
-                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-teal-300'
+                    ? 'bg-brand-900 border-brand-900 text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-brand-500'
                 }`}
               >
                 {s.time}
@@ -894,7 +894,7 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
       <button
         onClick={() => timeSlot && onSubmit(date, timeSlot)}
         disabled={!timeSlot || loading || dayFullyBooked}
-        className="w-full bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1"
+        className="w-full bg-brand-900 hover:bg-brand-950 disabled:opacity-50 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1"
       >
         Continue <ChevronRight className="w-3.5 h-3.5" />
       </button>
@@ -915,31 +915,31 @@ const PatientDetailsPanel: React.FC<{ onSubmit: (name: string, phone: string, em
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Full name *"
-        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-teal-500 outline-none"
+        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-brand-700 outline-none"
       />
       <input
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
         placeholder="WhatsApp mobile number *"
-        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-teal-500 outline-none"
+        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-brand-700 outline-none"
       />
       <input
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email (optional)"
-        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-teal-500 outline-none"
+        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-brand-700 outline-none"
       />
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         placeholder="Any concerns or notes (optional)"
         rows={2}
-        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-teal-500 outline-none"
+        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-brand-700 outline-none"
       />
       <button
         onClick={() => canSubmit && onSubmit(name.trim(), phone.trim(), email.trim(), notes.trim())}
         disabled={!canSubmit}
-        className="w-full bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1"
+        className="w-full bg-brand-900 hover:bg-brand-950 disabled:opacity-50 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1"
       >
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ChevronRight className="w-3.5 h-3.5" />}
         <span>{loading ? 'Checking availability...' : 'Continue'}</span>

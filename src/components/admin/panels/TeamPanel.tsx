@@ -35,7 +35,7 @@ const PhotoField: React.FC<{ photo: string; onChange: (dataUri: string) => void 
     <div>
       <label className={labelClass}>Photo *</label>
       <input type="file" accept="image/*" onChange={handleChange}
-        className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-teal-600 file:text-white file:text-xs file:font-bold hover:file:bg-teal-700 file:cursor-pointer cursor-pointer" />
+        className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-800 file:text-white file:text-xs file:font-bold hover:file:bg-brand-900 file:cursor-pointer cursor-pointer" />
       {error && <p className="text-xs text-rose-600 mt-1">{error}</p>}
       {photo && <img src={photo} alt="Preview" className="w-24 h-24 object-cover rounded-xl border border-slate-200 mt-2" />}
     </div>
@@ -91,7 +91,7 @@ const DoctorForm: React.FC<{
           return (
             <button key={day} type="button"
               onClick={() => onChange({ ...draft, availableDays: active ? draft.availableDays.filter((d) => d !== day) : [...draft.availableDays, day] })}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${active ? 'bg-teal-600 border-teal-600 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${active ? 'bg-brand-800 border-brand-800 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
             >
               {day.slice(0, 3)}
             </button>
@@ -358,8 +358,8 @@ export const TeamPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
       />
       <div className="p-6 space-y-5">
         <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1 w-fit">
-          <button onClick={() => { setTab('doctors'); setShowNewForm(false); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${tab === 'doctors' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>Lead Doctors</button>
-          <button onClick={() => { setTab('consultants'); setShowNewForm(false); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${tab === 'consultants' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>Consultants</button>
+          <button onClick={() => { setTab('doctors'); setShowNewForm(false); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${tab === 'doctors' ? 'bg-white text-brand-900 shadow-sm' : 'text-slate-500'}`}>Lead Doctors</button>
+          <button onClick={() => { setTab('consultants'); setShowNewForm(false); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${tab === 'consultants' ? 'bg-white text-brand-900 shadow-sm' : 'text-slate-500'}`}>Consultants</button>
         </div>
 
         {showNewForm && (

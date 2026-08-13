@@ -90,7 +90,7 @@ export const PatientsPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 bg-teal-50 border border-teal-200 text-teal-800 text-xs p-3 rounded-xl">
+      <div className="flex items-start gap-2 bg-brand-200 border border-brand-400 text-brand-950 text-xs p-3 rounded-xl">
         <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
         <p>Every view and deletion here is logged server-side with your admin email. Deleting a patient removes their contact record only — their appointment history is kept as a clinical/financial record. This panel is a technical safeguard aligned with DPDP Act principles, not a substitute for legal review.</p>
       </div>
@@ -110,7 +110,7 @@ export const PatientsPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, phone, or email"
-              className="w-full bg-white text-slate-900 pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 placeholder:text-slate-400"
+              className="w-full bg-white text-slate-900 pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-brand-700 focus:ring-1 focus:ring-brand-700 placeholder:text-slate-400"
             />
           </div>
 

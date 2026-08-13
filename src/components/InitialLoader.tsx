@@ -48,7 +48,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0d1117] text-white select-none overflow-hidden"
         >
           {/* Subtle background gradient glow */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(20,184,166,0.08)_0%,transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(44,76,156,0.14)_0%,transparent_70%)] pointer-events-none" />
 
           {/* Central Tooth SVG & Brand Tagline */}
           <div className="relative flex flex-col items-center gap-6 z-10">
@@ -75,7 +75,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
             >
               <svg
                 viewBox="0 0 100 100"
-                className="w-full h-full text-teal-400 drop-shadow-[0_0_20px_rgba(20,184,166,0.5)]"
+                className="w-full h-full text-brand-600 drop-shadow-[0_0_20px_rgba(44,76,156,0.55)]"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
@@ -130,7 +130,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
               className="text-center space-y-1.5"
             >
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
-                VIHANA <span className="text-teal-400 font-extrabold">DENTAL CARE</span>
+                VIHANA <span className="text-brand-600 font-extrabold">DENTAL CARE</span>
               </h1>
               <p className="text-xs uppercase tracking-[0.25em] text-slate-400 font-medium">
                 Kalapatti • Coimbatore
@@ -141,7 +141,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
           {/* Bottom Progress Line */}
           <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-48 h-[2px] bg-slate-800 rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-teal-500 to-emerald-400"
+              className="h-full bg-gradient-to-r from-brand-800 via-brand-600 to-brand-accent"
               initial={{ width: '0%' }}
               animate={{ width: stage === 'exiting' ? '100%' : '80%' }}
               transition={{ duration: 2.2, ease: 'easeInOut' }}

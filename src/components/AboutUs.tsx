@@ -16,8 +16,8 @@ export const AboutUs: React.FC = () => {
           viewport={{ once: true, margin: "-50px" }}
           transition={springTransition}
         >
-          <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20">
-            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+          <div className="inline-flex items-center gap-1.5 bg-brand-700/10 text-brand-950 text-xs font-bold px-4 py-1.5 rounded-full border border-brand-700/20">
+            <Sparkles className="w-3.5 h-3.5 text-brand-800" />
             <span>Pioneering Dental Care in Kalapatti</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
@@ -37,7 +37,7 @@ export const AboutUs: React.FC = () => {
           className="bg-[#F5F5F7] text-slate-800 rounded-[32px] p-8 sm:p-12 space-y-8 border border-slate-200/60"
         >
           <div className="max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20">
+            <div className="inline-flex items-center gap-1.5 bg-brand-700/10 text-brand-950 text-xs font-bold px-4 py-1.5 rounded-full border border-brand-700/20">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Why Kalapatti Chooses Vihana</span>
             </div>
@@ -61,7 +61,7 @@ export const AboutUs: React.FC = () => {
               'Comfortable, anxiety-free visits for every patient'
             ].map((point) => (
               <div key={point} className="flex items-start gap-2.5 text-sm text-slate-700 bg-white border border-slate-200/80 rounded-2xl px-4 py-3">
-                <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-brand-800 mt-0.5 shrink-0" />
                 <span>{point}</span>
               </div>
             ))}
@@ -82,7 +82,7 @@ export const AboutUs: React.FC = () => {
             whileHover={{ y: -6 }}
             className="bg-[#F5F5F7] p-8 rounded-[28px] border border-slate-200/60 shadow-xs hover:shadow-xl transition-all"
           >
-            <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-800 flex items-center justify-center mb-5 border border-teal-500/20">
+            <div className="w-12 h-12 rounded-2xl bg-brand-700/10 text-brand-950 flex items-center justify-center mb-5 border border-brand-700/20">
               <Award className="w-6 h-6" />
             </div>
             <h3 className="text-lg font-extrabold text-slate-900 mb-2">5+ Years Experience</h3>
@@ -116,7 +116,7 @@ export const AboutUs: React.FC = () => {
             whileHover={{ y: -6 }}
             className="bg-[#F5F5F7] p-8 rounded-[28px] border border-slate-200/60 shadow-xs hover:shadow-xl transition-all"
           >
-            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-800 flex items-center justify-center mb-5 border border-cyan-500/20">
+            <div className="w-12 h-12 rounded-2xl bg-brand-700/10 text-brand-950 flex items-center justify-center mb-5 border border-brand-700/20">
               <Sparkles className="w-6 h-6" />
             </div>
             <h3 className="text-lg font-extrabold text-slate-900 mb-2">3D Scanner & Laser</h3>

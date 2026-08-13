@@ -68,14 +68,14 @@ export const ConsultsPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
                 <div>
                   <p className="text-sm font-bold text-slate-900">{appt.patientName}</p>
                   <p className="text-xs text-slate-500">{appt.serviceName}</p>
-                  <p className="text-xs text-teal-700 font-semibold mt-0.5">{appt.date} at {appt.timeSlot}</p>
+                  <p className="text-xs text-brand-900 font-semibold mt-0.5">{appt.date} at {appt.timeSlot}</p>
                   <p className="text-[11px] text-slate-400 font-mono mt-0.5">#{appt.id} · {appt.patientPhone}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => act(appt.id, 'approve')}
                     disabled={actioningId === appt.id}
-                    className="flex-1 flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs font-bold py-2.5 rounded-lg transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-brand-800 hover:bg-brand-900 disabled:opacity-50 text-white text-xs font-bold py-2.5 rounded-lg transition-colors"
                   >
                     {actioningId === appt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                     <span>Approve</span>

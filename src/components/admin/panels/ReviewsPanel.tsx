@@ -123,7 +123,7 @@ export const ReviewsPanel: React.FC<Props> = ({ authedFetch, onSessionExpired })
       <div><label className={labelClass}>Clinic Reply <span className="font-normal text-slate-400">(optional)</span></label><textarea value={draft.clinicReply || ''} onChange={(e) => onChange({ ...draft, clinicReply: e.target.value })} rows={2} className={inputClass} /></div>
       <label className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer">
         <span className="text-sm font-semibold text-slate-700">Show "Google Verified" badge</span>
-        <input type="checkbox" checked={draft.verifiedGoogle} onChange={(e) => onChange({ ...draft, verifiedGoogle: e.target.checked })} className="w-4 h-4 accent-teal-600" />
+        <input type="checkbox" checked={draft.verifiedGoogle} onChange={(e) => onChange({ ...draft, verifiedGoogle: e.target.checked })} className="w-4 h-4 accent-brand-800" />
       </label>
       {error && <ErrorBanner message={error} />}
       <div className="flex items-center gap-2 pt-1">

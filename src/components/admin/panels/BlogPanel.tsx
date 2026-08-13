@@ -173,7 +173,7 @@ export const BlogPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
             <span className={labelClass}>Cover Image *</span>
             <input
               ref={fileInputRef} type="file" accept="image/*" onChange={handleNewImageChange}
-              className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-teal-600 file:text-white file:text-xs file:font-bold hover:file:bg-teal-700 file:cursor-pointer cursor-pointer"
+              className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-800 file:text-white file:text-xs file:font-bold hover:file:bg-brand-900 file:cursor-pointer cursor-pointer"
             />
           </label>
           {newImage && <img src={newImage} alt="Preview" className="w-full h-32 object-cover rounded-xl border border-slate-200" />}
@@ -200,7 +200,7 @@ export const BlogPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
                   <div className="space-y-2">
                     <label className="block">
                       <span className="text-[11px] font-semibold text-slate-500 block mb-1">Replace image (optional)</span>
-                      <input type="file" accept="image/*" onChange={handleEditImageChange} className="w-full text-[11px] text-slate-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:bg-teal-600 file:text-white file:text-[11px] file:font-bold hover:file:bg-teal-700 file:cursor-pointer cursor-pointer" />
+                      <input type="file" accept="image/*" onChange={handleEditImageChange} className="w-full text-[11px] text-slate-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:bg-brand-800 file:text-white file:text-[11px] file:font-bold hover:file:bg-brand-900 file:cursor-pointer cursor-pointer" />
                     </label>
                     {(editDraft.imageUrl || post.imageUrl) && <img src={editDraft.imageUrl || post.imageUrl} alt="" className="w-full h-24 object-cover rounded-lg border border-slate-200" />}
                     <input type="text" value={editDraft.title} onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))} className={inputClass} />

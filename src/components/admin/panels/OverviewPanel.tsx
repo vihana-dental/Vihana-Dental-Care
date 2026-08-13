@@ -35,9 +35,9 @@ export const OverviewPanel: React.FC<Props> = ({ onNavigate }) => (
           <button
             key={tile.id}
             onClick={() => onNavigate(tile.id)}
-            className="text-left bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-200 rounded-xl p-4 transition-colors group"
+            className="text-left bg-slate-50 hover:bg-brand-200 border border-slate-200 hover:border-brand-400 rounded-xl p-4 transition-colors group"
           >
-            <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 group-hover:border-teal-200 flex items-center justify-center text-teal-700 mb-3">
+            <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 group-hover:border-brand-400 flex items-center justify-center text-brand-900 mb-3">
               {tile.icon}
             </div>
             <p className="text-sm font-bold text-slate-900">{tile.label}</p>

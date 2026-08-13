@@ -52,8 +52,8 @@ export const BlogView: React.FC = () => {
           viewport={{ once: true, margin: "-50px" }}
           transition={springTransition}
         >
-          <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-800 text-xs font-bold px-4 py-1.5 rounded-full border border-teal-500/20">
-            <Newspaper className="w-3.5 h-3.5 text-teal-600" />
+          <div className="inline-flex items-center gap-1.5 bg-brand-700/10 text-brand-950 text-xs font-bold px-4 py-1.5 rounded-full border border-brand-700/20">
+            <Newspaper className="w-3.5 h-3.5 text-brand-800" />
             <span>From the Clinic</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-sans">
@@ -66,7 +66,7 @@ export const BlogView: React.FC = () => {
 
         {loading && (
           <div className="flex items-center justify-center gap-2 text-slate-500 text-sm py-16">
-            <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
+            <Loader2 className="w-5 h-5 animate-spin text-brand-800" />
             <span>Loading posts...</span>
           </div>
         )}
@@ -141,7 +141,7 @@ export const BlogView: React.FC = () => {
               </div>
               <div className="p-6 sm:p-8 space-y-4">
                 <div className="flex items-center gap-3 text-xs text-slate-500">
-                  <span className="flex items-center gap-1 font-semibold text-teal-700"><User className="w-3.5 h-3.5" />{activePost.author}</span>
+                  <span className="flex items-center gap-1 font-semibold text-brand-900"><User className="w-3.5 h-3.5" />{activePost.author}</span>
                   <span className="flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" />{formatDate(activePost.createdAt)}</span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{activePost.title}</h2>

@@ -13,7 +13,7 @@ export const PanelCard: React.FC<{ children: React.ReactNode; className?: string
 export const PanelHeader: React.FC<{ icon: React.ReactNode; title: string; subtitle: string; action?: React.ReactNode }> = ({ icon, title, subtitle, action }) => (
   <div className="flex items-center justify-between gap-3 px-6 py-5 border-b border-slate-100">
     <div className="flex items-center gap-3 min-w-0">
-      <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 shrink-0">
+      <div className="w-10 h-10 rounded-xl bg-brand-200 border border-brand-300 flex items-center justify-center text-brand-900 shrink-0">
         {icon}
       </div>
       <div className="min-w-0">
@@ -27,7 +27,7 @@ export const PanelHeader: React.FC<{ icon: React.ReactNode; title: string; subti
 
 export const LoadingRow: React.FC<{ label: string }> = ({ label }) => (
   <div className="flex items-center justify-center gap-2 text-slate-400 text-sm py-10">
-    <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+    <Loader2 className="w-4 h-4 animate-spin text-brand-800" />
     <span>{label}</span>
   </div>
 );
@@ -60,15 +60,15 @@ export const ToggleSwitch: React.FC<{ checked: boolean; onChange: (checked: bool
     aria-checked={checked}
     disabled={disabled}
     onClick={() => onChange(!checked)}
-    className={`relative w-10 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${checked ? 'bg-teal-600' : 'bg-slate-300'}`}
+    className={`relative w-10 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${checked ? 'bg-brand-800' : 'bg-slate-300'}`}
   >
     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
   </button>
 );
 
-export const inputClass = "w-full bg-white text-slate-900 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 placeholder:text-slate-400";
+export const inputClass = "w-full bg-white text-slate-900 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-brand-700 focus:ring-1 focus:ring-brand-700 placeholder:text-slate-400";
 export const labelClass = "text-xs font-semibold text-slate-600 block mb-1.5";
-export const primaryButtonClass = "flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors";
+export const primaryButtonClass = "flex items-center justify-center gap-2 bg-brand-800 hover:bg-brand-900 disabled:opacity-50 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors";
 export const ghostButtonClass = "flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold py-2.5 px-4 rounded-xl border border-slate-200 transition-colors";
 export const dangerButtonClass = "flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 text-rose-700 text-sm font-semibold py-2.5 px-4 rounded-xl border border-rose-200 transition-colors";
 

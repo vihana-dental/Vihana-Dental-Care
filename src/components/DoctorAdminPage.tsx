@@ -135,7 +135,7 @@ export const DoctorAdminPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
-          <div className="flex items-center justify-center gap-2 mb-6 text-teal-300">
+          <div className="flex items-center justify-center gap-2 mb-6 text-brand-500">
             <ShieldCheck className="w-5 h-5" />
             <span className="text-xs font-bold tracking-widest uppercase">Vihana Dental Care — Doctor Admin</span>
           </div>

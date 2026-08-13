@@ -96,10 +96,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-4 flex-wrap">
             <a
               href={`tel:${CLINIC_INFO.phone}`}
-              className="flex items-center gap-1.5 hover:text-teal-300 transition-colors"
+              className="flex items-center gap-1.5 hover:text-brand-500 transition-colors"
               id="top-bar-phone"
             >
-              <Phone className="w-3.5 h-3.5 text-teal-400" />
+              <Phone className="w-3.5 h-3.5 text-brand-600" />
               <span className="font-semibold">{CLINIC_INFO.phone}</span>
             </a>
             <a
@@ -113,11 +113,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-semibold">WhatsApp Us</span>
             </a>
             <div className="hidden md:flex items-center gap-1.5 text-slate-300">
-              <MapPin className="w-3.5 h-3.5 text-teal-400" />
+              <MapPin className="w-3.5 h-3.5 text-brand-600" />
               <span>{CLINIC_INFO.address}, {CLINIC_INFO.city}</span>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 text-slate-300">
-              <Clock className="w-3.5 h-3.5 text-teal-400" />
+              <Clock className="w-3.5 h-3.5 text-brand-600" />
               <span>Mon-Sat: 9-1:30 & 5-8:30 PM</span>
             </div>
           </div>
@@ -145,7 +145,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div>
             <h1 className="text-xl font-extrabold tracking-tight text-slate-900 leading-tight flex items-center gap-1.5">
               <span>VIHANA</span>
-              <span className="text-teal-700 font-light">DENTAL CARE</span>
+              <span className="text-brand-900 font-light">DENTAL CARE</span>
             </h1>
             <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">
               COIMBATORE
@@ -161,8 +161,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => setActiveTab(item.id)}
               className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all relative ${
                 highlightedTab === item.id
-                  ? 'text-teal-800 font-bold'
-                  : 'text-slate-600 hover:text-teal-700 hover:bg-slate-50'
+                  ? 'text-brand-950 font-bold'
+                  : 'text-slate-600 hover:text-brand-900 hover:bg-slate-50'
               }`}
               id={`nav-link-${item.id}`}
             >
@@ -170,7 +170,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {highlightedTab === item.id && (
                 <motion.div
                   layoutId="activeTabUnderline"
-                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-teal-600 rounded-full"
+                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-brand-800 rounded-full"
                   transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 />
               )}
@@ -184,10 +184,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onOpenBooking()}
             whileHover={{ scale: 1.02, y: -1 }}
             whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center gap-2 bg-teal-700 hover:bg-teal-800 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition-all"
+            className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-950 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition-all"
             id="navbar-book-now-button"
           >
-            <Calendar className="w-4 h-4 text-teal-200" />
+            <Calendar className="w-4 h-4 text-brand-400" />
             <span>Book Appointment</span>
           </motion.button>
         </div>
@@ -219,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium ${
-                  highlightedTab === item.id ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                  highlightedTab === item.id ? 'bg-brand-200 text-brand-950 font-bold' : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {item.label}
@@ -242,7 +242,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onOpenBooking();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-teal-700 text-white py-3 rounded-xl font-bold text-sm shadow-sm"
+                className="w-full flex items-center justify-center gap-2 bg-brand-900 text-white py-3 rounded-xl font-bold text-sm shadow-sm"
               >
                 <Calendar className="w-4 h-4" />
                 <span>Book Appointment Now</span>

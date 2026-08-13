@@ -13,7 +13,7 @@ interface Props {
 export const STATUS_BADGE: Record<string, string> = {
   pending: 'bg-slate-100 text-slate-600',
   pending_approval: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-teal-100 text-teal-700',
+  confirmed: 'bg-brand-300 text-brand-900',
   rescheduled: 'bg-sky-100 text-sky-700',
   completed: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-rose-100 text-rose-700',
@@ -333,7 +333,7 @@ export const AppointmentDetailPanel: React.FC<{
 
       {a.videoRoomUrl && (
         <p className="text-[11px] text-slate-500">
-          Meet link: <a href={a.videoRoomUrl} target="_blank" rel="noreferrer" className="text-teal-700 underline break-all">{a.videoRoomUrl}</a>
+          Meet link: <a href={a.videoRoomUrl} target="_blank" rel="noreferrer" className="text-brand-900 underline break-all">{a.videoRoomUrl}</a>
         </p>
       )}
       {a.notes && <p className="text-[11px] text-slate-500">Notes: {a.notes}</p>}

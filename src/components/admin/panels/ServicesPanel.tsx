@@ -77,7 +77,7 @@ const ServiceForm: React.FC<{
       <div>
         <label className={labelClass}>Image *</label>
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange}
-          className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-teal-600 file:text-white file:text-xs file:font-bold hover:file:bg-teal-700 file:cursor-pointer cursor-pointer" />
+          className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-800 file:text-white file:text-xs file:font-bold hover:file:bg-brand-900 file:cursor-pointer cursor-pointer" />
         {imageError && <p className="text-xs text-rose-600 mt-1">{imageError}</p>}
         {draft.image && <img src={draft.image} alt="Preview" className="w-full h-32 object-cover rounded-xl border border-slate-200 mt-2" />}
       </div>
@@ -266,7 +266,7 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-bold text-slate-900">{service.title}</p>
-                        <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full">{service.category}</span>
+                        <span className="text-[10px] font-bold text-brand-900 bg-brand-200 border border-brand-300 px-2 py-0.5 rounded-full">{service.category}</span>
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{service.shortDescription}</p>
                       <p className="text-xs text-slate-400 mt-1">{service.durationMinutes} min · {service.priceRange}</p>

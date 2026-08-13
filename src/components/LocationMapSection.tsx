@@ -11,8 +11,8 @@ export const LocationMapSection: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold px-3 py-1 rounded-full">
-            <MapPin className="w-3.5 h-3.5 text-teal-400" />
+          <div className="inline-flex items-center gap-1.5 bg-brand-700/20 text-brand-500 border border-brand-700/30 text-xs font-semibold px-3 py-1 rounded-full">
+            <MapPin className="w-3.5 h-3.5 text-brand-600" />
             <span>Clinic Location & Directions</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
@@ -32,12 +32,12 @@ export const LocationMapSection: React.FC = () => {
                   <span>{CLINIC_INFO.name}</span>
                   <Sparkles className="w-4 h-4 text-amber-400" />
                 </h3>
-                <p className="text-xs text-teal-400 font-medium">Coimbatore Multispecialty Center</p>
+                <p className="text-xs text-brand-600 font-medium">Coimbatore Multispecialty Center</p>
               </div>
 
               <div className="space-y-4 text-xs sm:text-sm text-slate-300">
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                  <MapPin className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Address</p>
                     <p className="mt-0.5">{CLINIC_INFO.address}, Coimbatore, Tamil Nadu - {CLINIC_INFO.pincode}</p>
@@ -45,10 +45,10 @@ export const LocationMapSection: React.FC = () => {
                 </div>
 
                 <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-start gap-3 group">
-                  <Phone className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                  <Phone className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Call Us</p>
-                    <p className="mt-0.5 group-hover:text-teal-300 transition-colors">{CLINIC_INFO.phone}</p>
+                    <p className="mt-0.5 group-hover:text-brand-500 transition-colors">{CLINIC_INFO.phone}</p>
                   </div>
                 </a>
 
@@ -66,15 +66,15 @@ export const LocationMapSection: React.FC = () => {
                 </a>
 
                 <a href={`mailto:${CLINIC_INFO.email}`} className="flex items-start gap-3 group">
-                  <Mail className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                  <Mail className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Email Us</p>
-                    <p className="mt-0.5 group-hover:text-teal-300 transition-colors">{CLINIC_INFO.email}</p>
+                    <p className="mt-0.5 group-hover:text-brand-500 transition-colors">{CLINIC_INFO.email}</p>
                   </div>
                 </a>
 
                 <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                  <Clock className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Clinic Timings</p>
                     <p className="mt-0.5">{CLINIC_INFO.workingHours.weekdays}</p>
@@ -89,7 +89,7 @@ export const LocationMapSection: React.FC = () => {
                 href={CLINIC_INFO.googleBusinessUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-teal-600 hover:bg-teal-500 text-slate-950 font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"
+                className="w-full bg-brand-800 hover:bg-brand-700 text-slate-950 font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"
               >
                 <Navigation className="w-4 h-4" />
                 <span>Open in Google Maps App</span>
@@ -119,7 +119,7 @@ export const LocationMapSection: React.FC = () => {
                   gestureHandling="greedy"
                 >
                   <AdvancedMarker position={CLINIC_INFO.location} title={CLINIC_INFO.name}>
-                    <Pin background="#0d9488" glyphColor="#ffffff" borderColor="#0f766e" />
+                    <Pin background="#003a60" glyphColor="#ffffff" borderColor="#002a45" />
                   </AdvancedMarker>
                 </Map>
               </APIProvider>
@@ -140,8 +140,8 @@ export const LocationMapSection: React.FC = () => {
                 {/* Top Badge Overlay */}
                 <div className="absolute top-4 left-4 bg-slate-900/90 text-white p-3 rounded-2xl border border-slate-700/80 shadow-xl backdrop-blur-md max-w-xs pointer-events-none hidden sm:block">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-ping" />
-                    <span className="text-xs font-bold text-teal-300">Vihana Dental Care</span>
+                    <div className="w-2.5 h-2.5 rounded-full bg-brand-600 animate-ping" />
+                    <span className="text-xs font-bold text-brand-500">Vihana Dental Care</span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-1 font-medium">
                     No 77, Post Office St, Kalapatti, Coimbatore

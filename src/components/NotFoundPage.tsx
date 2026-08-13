@@ -20,7 +20,7 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
         transition={{ type: 'spring', stiffness: 100, damping: 20 }}
         className="max-w-lg w-full text-center space-y-6"
       >
-        <p className="text-8xl sm:text-9xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-teal-600 via-emerald-500 to-teal-700">
+        <p className="text-8xl sm:text-9xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand-900 via-brand-accent to-brand-800">
           404
         </p>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -33,7 +33,7 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           <button
             onClick={onGoHome}
-            className="w-full sm:w-auto bg-teal-700 hover:bg-teal-800 text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg flex items-center justify-center gap-2 text-sm transition-colors"
+            className="w-full sm:w-auto bg-brand-900 hover:bg-brand-950 text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg flex items-center justify-center gap-2 text-sm transition-colors"
           >
             <Home className="w-4 h-4" />
             <span>Back to Home</span>
@@ -42,7 +42,7 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
             onClick={onGoHome}
             className="w-full sm:w-auto bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold px-6 py-3.5 rounded-2xl shadow-sm flex items-center justify-center gap-2 text-sm transition-colors"
           >
-            <Calendar className="w-4 h-4 text-teal-600" />
+            <Calendar className="w-4 h-4 text-brand-800" />
             <span>Book an Appointment</span>
           </button>
           <a

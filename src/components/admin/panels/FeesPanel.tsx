@@ -74,7 +74,7 @@ export const FeesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
                 type="checkbox"
                 checked={feeConfig.confirmationFeeEnabled}
                 onChange={(e) => setFeeConfig({ ...feeConfig, confirmationFeeEnabled: e.target.checked })}
-                className="w-4 h-4 accent-teal-600"
+                className="w-4 h-4 accent-brand-800"
               />
             </label>
 

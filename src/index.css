@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* Brand palette anchored on #003a60 (brand-800). A full 50-950 scale so
+   light tints (badges/panels), mid tones (interactive states) and deep
+   navy (headings, primary surfaces) all derive from the same brand hue
+   instead of Tailwind's stock blue. brand-accent (#2C4C9C) is a secondary
+   royal-blue used sparingly for gradients/highlights alongside it. */
+@theme {
+  --color-brand-50: #eff6fb;
+  --color-brand-100: #d8ebf9;
+  --color-brand-200: #b0dbf7;
+  --color-brand-300: #74c3f6;
+  --color-brand-400: #31a8f6;
+  --color-brand-500: #008be6;
+  --color-brand-600: #006fb8;
+  --color-brand-700: #00538a;
+  --color-brand-800: #003a60;
+  --color-brand-900: #002a45;
+  --color-brand-950: #001929;
+
+  --color-brand-accent: #2c4c9c;
+  --color-brand-accent-light: #446aca;
+  --color-brand-accent-dark: #203770;
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 88px; /* clears the sticky navbar on any anchor/programmatic scroll */
@@ -18,7 +41,7 @@ body {
 /* Thin, branded scrollbar for internal scroll panels (chat widget, modals, admin tables) instead of the default chunky OS scrollbar. */
 .scroll-thin {
   scrollbar-width: thin;
-  scrollbar-color: #99f6e4 transparent;
+  scrollbar-color: #74c3f6 transparent;
 }
 .scroll-thin::-webkit-scrollbar {
   width: 6px;
@@ -28,9 +51,9 @@ body {
   background: transparent;
 }
 .scroll-thin::-webkit-scrollbar-thumb {
-  background-color: #99f6e4;
+  background-color: #74c3f6;
   border-radius: 9999px;
 }
 .scroll-thin::-webkit-scrollbar-thumb:hover {
-  background-color: #5eead4;
+  background-color: #31a8f6;
 }

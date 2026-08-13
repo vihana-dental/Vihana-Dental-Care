@@ -72,7 +72,7 @@ export const GoogleReviewsOverridePanel: React.FC<Props> = ({ authedFetch, onSes
                 type="checkbox"
                 checked={override.enabled}
                 onChange={(e) => setOverride({ ...override, enabled: e.target.checked })}
-                className="w-4 h-4 accent-teal-600"
+                className="w-4 h-4 accent-brand-800"
               />
             </label>
 

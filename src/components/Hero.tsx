@@ -232,7 +232,7 @@ export const Hero: React.FC<HeroProps> = ({
           >
             <Calendar className="w-5 h-5" />
             <span>Book Appointment Online</span>
-            <span className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
+            <span className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center shrink-0">
               <ArrowUpRight className="w-[18px] h-[18px] text-slate-950" />
             </span>
           </motion.button>
@@ -248,7 +248,7 @@ export const Hero: React.FC<HeroProps> = ({
             className="bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/25 text-white font-semibold px-6 py-3.5 rounded-full flex items-center justify-center gap-2 text-sm transition-colors w-full sm:w-auto"
             id="hero-whatsapp-bot-button"
           >
-            <MessageCircle className="w-4 h-4 text-teal-300" />
+            <MessageCircle className="w-4 h-4 text-brand-500" />
             <span>Book Appointment on WhatsApp</span>
           </motion.a>
         </div>
@@ -281,7 +281,7 @@ export const Hero: React.FC<HeroProps> = ({
             style={revealStyle(progress, isMobile, REVEAL_OFFSETS.leftBlock)}
             className="lg:col-span-6 lg:max-w-lg text-center lg:text-left transition-[transform,opacity] duration-300 ease-out"
           >
-            <p className="text-xs sm:text-sm font-bold tracking-[0.25em] uppercase text-teal-300">
+            <p className="text-xs sm:text-sm font-bold tracking-[0.25em] uppercase text-brand-500">
               Vihana Dental Care · Kalapatti, Coimbatore
             </p>
 
@@ -294,19 +294,19 @@ export const Hero: React.FC<HeroProps> = ({
                   brand-color drop-shadow stack, no new colors/content. */}
               <span
                 aria-hidden="true"
-                className="absolute inset-0 text-6xl sm:text-7xl lg:text-8xl font-extrabold text-teal-700/30 tracking-tight leading-none pointer-events-none select-none"
+                className="absolute inset-0 text-6xl sm:text-7xl lg:text-8xl font-extrabold text-brand-900/30 tracking-tight leading-none pointer-events-none select-none"
                 style={{ transform: 'translateY(10px)' }}
               >
                 smile.
               </span>
               <span
                 aria-hidden="true"
-                className="absolute inset-0 text-6xl sm:text-7xl lg:text-8xl font-extrabold text-teal-500/40 tracking-tight leading-none pointer-events-none select-none"
+                className="absolute inset-0 text-6xl sm:text-7xl lg:text-8xl font-extrabold text-brand-700/40 tracking-tight leading-none pointer-events-none select-none"
                 style={{ transform: 'translateY(5px)' }}
               >
                 smile.
               </span>
-              <span className="relative text-6xl sm:text-7xl lg:text-8xl font-extrabold text-teal-400 tracking-tight leading-none">
+              <span className="relative text-6xl sm:text-7xl lg:text-8xl font-extrabold text-brand-600 tracking-tight leading-none">
                 smile.
               </span>
               <svg
@@ -368,7 +368,7 @@ export const Hero: React.FC<HeroProps> = ({
             >
               <Calendar className="w-5 h-5" />
               <span>Book Appointment Online</span>
-              <span className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
+              <span className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center shrink-0">
                 <ArrowUpRight className="w-[18px] h-[18px] text-slate-950" />
               </span>
             </motion.button>
@@ -383,7 +383,7 @@ export const Hero: React.FC<HeroProps> = ({
               className="bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/25 text-white font-semibold px-6 py-3.5 rounded-full flex items-center justify-center gap-2 text-sm transition-colors w-full sm:w-auto"
               id="hero-whatsapp-bot-button-mobile"
             >
-              <MessageCircle className="w-4 h-4 text-teal-300" />
+              <MessageCircle className="w-4 h-4 text-brand-500" />
               <span>Book Appointment on WhatsApp</span>
             </motion.a>
           </div>

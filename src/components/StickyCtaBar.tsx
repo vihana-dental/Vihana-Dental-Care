@@ -22,7 +22,7 @@ export const StickyCtaBar: React.FC<StickyCtaBarProps> = ({ onOpenBooking }) => 
             className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-slate-700 bg-slate-100 active:bg-slate-200 transition-colors"
             id="sticky-call-now"
           >
-            <Phone className="w-5 h-5 text-teal-700" />
+            <Phone className="w-5 h-5 text-brand-900" />
             <span className="text-[11px] font-bold">Call Now</span>
           </a>
           <a
@@ -38,7 +38,7 @@ export const StickyCtaBar: React.FC<StickyCtaBarProps> = ({ onOpenBooking }) => 
           <motion.button
             onClick={onOpenBooking}
             whileTap={{ scale: 0.96 }}
-            className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-white bg-teal-600 shadow-lg shadow-teal-600/30"
+            className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-white bg-brand-800 shadow-lg shadow-brand-800/30"
             id="sticky-book-now"
           >
             <Calendar className="w-5 h-5" />
@@ -52,11 +52,12 @@ export const StickyCtaBar: React.FC<StickyCtaBarProps> = ({ onOpenBooking }) => 
         href={whatsappHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="hidden lg:flex fixed bottom-6 right-6 z-50 items-center justify-center w-14 h-14 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white shadow-2xl shadow-emerald-500/30 transition-all hover:scale-105"
+        className="hidden lg:flex fixed bottom-24 right-6 z-50 items-center gap-2 pl-4 pr-5 h-14 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm shadow-2xl shadow-emerald-500/30 transition-all hover:scale-105"
         id="desktop-whatsapp-bubble"
-        aria-label="Chat on WhatsApp"
+        aria-label="Book Appointments on Whatsapp"
       >
-        <MessageCircle className="w-6 h-6" />
+        <MessageCircle className="w-6 h-6 shrink-0" />
+        <span>Book Appointments on Whatsapp</span>
       </a>
     </>
   );
