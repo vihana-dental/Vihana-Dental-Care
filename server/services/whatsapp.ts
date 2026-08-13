@@ -88,17 +88,33 @@ export function sendImageMessage(to: string, imageUrl: string, caption?: string)
  * The template itself must already exist and be Approved in Meta's WhatsApp
  * Manager > Message Templates before this will succeed (Graph API rejects
  * unknown/pending template names).
+ *
+ * `buttonPayloads`, if given, fills the template's Quick Reply buttons in
+ * order (index 0 = first button, etc.) — the button TEXT is fixed at
+ * template-approval time in Meta's UI, but the payload that comes back on
+ * the webhook when tapped is set fresh on every send. This is how a
+ * template's Reschedule/Cancel buttons get wired to a specific appointment:
+ * pass `[\`reschedule:${id}\`, \`cancel:${id}\`]` and a tap lands on the SAME
+ * webhook handler (server.ts, matches on the "reschedule:"/"cancel:" prefix)
+ * already used by the live-session interactive buttons — no separate
+ * handling needed for the template-triggered case.
  */
-export function sendTemplateMessage(to: string, templateName: string, bodyParams: string[] = []) {
+export function sendTemplateMessage(to: string, templateName: string, bodyParams: string[] = [], buttonPayloads: string[] = []) {
+  const components: Record<string, unknown>[] = [];
+  if (bodyParams.length > 0) {
+    components.push({ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) });
+  }
+  buttonPayloads.forEach((payload, index) => {
+    components.push({ type: 'button', sub_type: 'quick_reply', index: String(index), parameters: [{ type: 'payload', payload }] });
+  });
+
   return graphApiSend({
     to,
     type: 'template',
     template: {
       name: templateName,
       language: { code: META_WHATSAPP_TEMPLATE_LANGUAGE },
-      ...(bodyParams.length > 0
-        ? { components: [{ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) }] }
-        : {})
+      ...(components.length > 0 ? { components } : {})
     }
   });
 }
@@ -110,13 +126,13 @@ export function sendTemplateMessage(to: string, templateName: string, bodyParams
  * when configured; falls back to free-form text otherwise, which only
  * succeeds if the patient has messaged the bot number in the last 24h.
  */
-export function sendConfirmationMessage(to: string, body: string, params: string[]) {
-  if (META_WHATSAPP_TEMPLATE_CONFIRMATION) return sendTemplateMessage(to, META_WHATSAPP_TEMPLATE_CONFIRMATION, params);
+export function sendConfirmationMessage(to: string, body: string, params: string[], buttonPayloads: string[] = []) {
+  if (META_WHATSAPP_TEMPLATE_CONFIRMATION) return sendTemplateMessage(to, META_WHATSAPP_TEMPLATE_CONFIRMATION, params, buttonPayloads);
   return sendTextMessage(to, body);
 }
 
-export function sendReminderMessage(to: string, body: string, params: string[]) {
-  if (META_WHATSAPP_TEMPLATE_REMINDER) return sendTemplateMessage(to, META_WHATSAPP_TEMPLATE_REMINDER, params);
+export function sendReminderMessage(to: string, body: string, params: string[], buttonPayloads: string[] = []) {
+  if (META_WHATSAPP_TEMPLATE_REMINDER) return sendTemplateMessage(to, META_WHATSAPP_TEMPLATE_REMINDER, params, buttonPayloads);
   return sendTextMessage(to, body);
 }
 

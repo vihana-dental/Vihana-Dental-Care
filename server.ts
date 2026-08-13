@@ -1842,10 +1842,15 @@ app.post('/api/admin/appointments/:id/send-confirmation', requireAdminAuth, asyn
   // configured send failure is reported back as an error. Uses the approved
   // META_WHATSAPP_TEMPLATE_CONFIRMATION template when set — required for this
   // business-initiated send to work outside an open 24h patient session.
+  // The template's Reschedule/Cancel Quick Reply buttons get this specific
+  // appointment's id baked into their payload on every send, so a tap lands
+  // on the exact same "reschedule:"/"cancel:" webhook handler already used
+  // by the live-session interactive buttons above.
   const result = await sendConfirmationMessage(
     appointment.patientPhone,
     buildConfirmationMessage(appointment),
-    [appointment.serviceName, appointment.date, appointment.timeSlot, appointment.rescheduleToken]
+    [appointment.serviceName, appointment.date, appointment.timeSlot, appointment.id],
+    [`reschedule:${appointment.id}`, `cancel:${appointment.id}`]
   );
   if (!result.success && !result.mock) {
     return res.status(502).json({ success: false, error: result.error || 'Could not send confirmation message.' });
@@ -1862,7 +1867,8 @@ app.post('/api/admin/appointments/:id/send-reminder', requireAdminAuth, async (r
   const result = await sendReminderMessage(
     appointment.patientPhone,
     buildReminderMessage(appointment),
-    [appointment.serviceName, appointment.date, appointment.timeSlot, appointment.rescheduleToken]
+    [appointment.serviceName, appointment.date, appointment.timeSlot, appointment.id],
+    [`reschedule:${appointment.id}`, `cancel:${appointment.id}`]
   );
   if (!result.success && !result.mock) {
     return res.status(502).json({ success: false, error: result.error || 'Could not send reminder message.' });
