@@ -73,8 +73,19 @@ export function getPublicKeyId(): string {
   return RAZORPAY_KEY_ID || 'rzp_test_mockkey123';
 }
 
-/** Razorpay's REST API auth: HTTP Basic with key_id as username, key_secret as password. */
-async function razorpayFetch(path: string, body: Record<string, unknown>): Promise<any> {
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Razorpay's REST API auth: HTTP Basic with key_id as username, key_secret
+ * as password. Retries transient failures up to twice with a short delay —
+ * confirmed directly against live Razorpay Test Mode that identical
+ * credentials, called seconds apart with zero changes, intermittently
+ * return 401 "Authentication failed" under light request pressure instead
+ * of a proper 429. Retrying on 401/429/5xx self-heals that without the
+ * patient ever seeing "could not initiate payment gateway" for what is
+ * actually a transient hiccup, not a real credentials problem.
+ */
+async function razorpayFetch(path: string, body: Record<string, unknown>, attempt = 1): Promise<any> {
   const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
 
   const res = await fetch(`https://api.razorpay.com/v1${path}`, {
@@ -88,6 +99,18 @@ async function razorpayFetch(path: string, body: Record<string, unknown>): Promi
 
   const data = await res.json();
   if (!res.ok) {
+    // Test Mode has been observed intermittently returning 401
+    // "Authentication failed" for identical, correct credentials under
+    // request pressure, instead of a proper 429 — one quick retry papers
+    // over an isolated blip. It will NOT fix sustained throttling (seen
+    // directly during heavy debugging: retries just add multi-second
+    // delay and still fail) — that needs the request rate to actually
+    // drop, not more retries, so this stays deliberately shallow.
+    const isTransient = res.status === 401 || res.status === 429 || res.status >= 500;
+    if (isTransient && attempt < 2) {
+      await sleep(500);
+      return razorpayFetch(path, body, attempt + 1);
+    }
     const message = data?.error?.description || `Razorpay API error (${res.status})`;
     throw new Error(message);
   }
