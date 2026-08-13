@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import { ShieldCheck, Lock, Loader2, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ShieldCheck, AlertTriangle } from 'lucide-react';
 import { AdminSidebar, AdminSection } from './admin/AdminSidebar';
 import { OverviewPanel } from './admin/panels/OverviewPanel';
+import { AppointmentsPanel } from './admin/panels/AppointmentsPanel';
+import { LiveCalendarPanel } from './admin/panels/LiveCalendarPanel';
+import { PatientsPanel } from './admin/panels/PatientsPanel';
 import { FeesPanel } from './admin/panels/FeesPanel';
 import { ConsultsPanel } from './admin/panels/ConsultsPanel';
 import { ServicesPanel } from './admin/panels/ServicesPanel';
@@ -14,9 +17,29 @@ import { GoogleReviewsOverridePanel } from './admin/panels/GoogleReviewsOverride
 import { CalendarPanel } from './admin/panels/CalendarPanel';
 
 const SESSION_STORAGE_KEY = 'vihana_doctor_admin_token';
+const GOOGLE_LOGIN_CLIENT_ID = import.meta.env.VITE_GOOGLE_LOGIN_CLIENT_ID as string | undefined;
+
+// Google Identity Services loads as a global script, not an npm package —
+// no first-party types ship for it, so this is deliberately typed loosely
+// rather than hand-rolling a full ambient declaration for a handful of calls.
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: { client_id: string; callback: (resp: { credential: string }) => void }) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+        };
+      };
+    };
+  }
+}
 
 const SECTION_TITLES: Record<AdminSection, string> = {
   overview: 'Dashboard',
+  appointments: 'Appointments',
+  'live-calendar': 'Live Calendar',
+  patients: 'Patient Database',
   fees: 'Booking Fees',
   consults: 'Online Consults',
   services: 'Services',
@@ -37,35 +60,68 @@ const SECTION_TITLES: Record<AdminSection, string> = {
 // visual primitives in ./admin/shared.tsx.
 export const DoctorAdminPage: React.FC = () => {
   const [token, setToken] = useState<string | null>(() => sessionStorage.getItem(SESSION_STORAGE_KEY));
-  const [pin, setPin] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [activeSection, setActiveSection] = useState<AdminSection>('overview');
+  const googleButtonRef = useRef<HTMLDivElement>(null);
 
   const authedFetch = (url: string, options: RequestInit = {}) =>
     fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginLoading(true);
+  const handleCredentialResponse = async (response: { credential: string }) => {
     setLoginError('');
     try {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
+        body: JSON.stringify({ credential: response.credential })
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Login failed.');
       sessionStorage.setItem(SESSION_STORAGE_KEY, data.token);
       setToken(data.token);
-      setPin('');
     } catch (err: any) {
       setLoginError(err?.message || 'Could not log in. Please try again.');
-    } finally {
-      setLoginLoading(false);
     }
   };
+
+  // Google Identity Services is a global script (not an npm package) — load
+  // it once, then initialize + render the "Sign in with Google" button into
+  // googleButtonRef once both the script and the ref are ready.
+  useEffect(() => {
+    if (token || !GOOGLE_LOGIN_CLIENT_ID) return;
+
+    const setup = () => {
+      if (!window.google || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_LOGIN_CLIENT_ID,
+        callback: handleCredentialResponse
+      });
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: 'filled_black',
+        size: 'large',
+        shape: 'pill',
+        width: 280
+      });
+    };
+
+    if (window.google) {
+      setup();
+      return;
+    }
+
+    const existing = document.getElementById('google-identity-script');
+    if (existing) {
+      existing.addEventListener('load', setup, { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-identity-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = setup;
+    document.head.appendChild(script);
+  }, [token]);
 
   const handleLogout = () => {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
@@ -81,26 +137,20 @@ export const DoctorAdminPage: React.FC = () => {
             <ShieldCheck className="w-5 h-5" />
             <span className="text-xs font-bold tracking-widest uppercase">Vihana Dental Care — Doctor Admin</span>
           </div>
-          <form onSubmit={handleLogin} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 pb-2">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center">
-                <Lock className="w-5 h-5 text-teal-300" />
-              </div>
-              <div>
-                <p className="text-sm font-bold">Doctor Login</p>
-                <p className="text-[10px] text-slate-400">Enter your PIN to manage the dashboard</p>
-              </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+            <div className="text-center pb-2">
+              <p className="text-sm font-bold">Doctor Login</p>
+              <p className="text-[10px] text-slate-400 mt-1">Sign in with an authorized Google account</p>
             </div>
 
-            <input
-              type="password"
-              inputMode="numeric"
-              autoFocus
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              placeholder="Enter PIN"
-              className="w-full bg-slate-950 text-white text-center tracking-[0.4em] text-lg px-4 py-3 rounded-xl border border-slate-800 focus:outline-none focus:border-teal-500"
-            />
+            <div className="flex justify-center" ref={googleButtonRef} />
+
+            {!GOOGLE_LOGIN_CLIENT_ID && (
+              <div className="flex items-center gap-2 bg-amber-950/50 border border-amber-900 text-amber-300 text-xs p-2.5 rounded-xl">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Google sign-in isn't configured yet.</span>
+              </div>
+            )}
 
             {loginError && (
               <div className="flex items-center gap-2 bg-rose-950/50 border border-rose-900 text-rose-300 text-xs p-2.5 rounded-xl">
@@ -108,16 +158,7 @@ export const DoctorAdminPage: React.FC = () => {
                 <span>{loginError}</span>
               </div>
             )}
-
-            <button
-              type="submit"
-              disabled={loginLoading || !pin.trim()}
-              className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-sm font-bold py-3 rounded-xl transition-colors"
-            >
-              {loginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-              <span>{loginLoading ? 'Verifying...' : 'Unlock'}</span>
-            </button>
-          </form>
+          </div>
           <p className="text-center text-[10px] text-slate-600 mt-6">Vihana Dental Care internal tool. Not linked from the public site.</p>
         </div>
       </div>
@@ -137,6 +178,9 @@ export const DoctorAdminPage: React.FC = () => {
           </div>
 
           {activeSection === 'overview' && <OverviewPanel onNavigate={setActiveSection} />}
+          {activeSection === 'appointments' && <AppointmentsPanel {...panelProps} />}
+          {activeSection === 'live-calendar' && <LiveCalendarPanel {...panelProps} />}
+          {activeSection === 'patients' && <PatientsPanel {...panelProps} />}
           {activeSection === 'fees' && <FeesPanel {...panelProps} />}
           {activeSection === 'consults' && <ConsultsPanel {...panelProps} />}
           {activeSection === 'services' && <ServicesPanel {...panelProps} />}

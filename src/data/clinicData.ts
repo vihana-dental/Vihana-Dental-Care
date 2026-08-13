@@ -429,13 +429,16 @@ export const DOCTORS: Doctor[] = [
     availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
     ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
     pgInstitution: "JKK Nattraja Dental College, Namakkal",
-    externalTraining: ["Brava Lingual Braces Certified", "Invisalign Qualified", "RCT Certified"]
+    externalTraining: ["Brava Lingual Braces Certified", "Invisalign Qualified", "RCT Certified"],
+    bookable: true
   }
 ];
 
 // Visiting specialists who consult at the clinic on a case-referral basis.
-// Informational only — deliberately excluded from DOCTORS/the booking flow;
-// there is no appointment-booking module for them.
+// Shown on the public Team page always; individually toggleable via
+// `bookable` (defaults false here) to optionally also appear in the
+// booking flows alongside lead doctors — see the `bookable` field's doc
+// comment on ConsultantDoctor in src/types.ts.
 export const CONSULTANT_DOCTORS: ConsultantDoctor[] = [
   {
     id: "consultant-saraaj-bhuvan",
@@ -446,7 +449,8 @@ export const CONSULTANT_DOCTORS: ConsultantDoctor[] = [
     photo: "/images/Dr.Saraaj%20Bhuvan.jpeg",
     ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
     pgInstitution: "Sri Ramachandra Institute of Higher Education & Research",
-    qualificationYear: "2012–2017"
+    qualificationYear: "2012–2017",
+    bookable: false
   },
   {
     id: "consultant-santhosh-babu",
@@ -456,7 +460,8 @@ export const CONSULTANT_DOCTORS: ConsultantDoctor[] = [
     bio: "Consultant surgeon specializing in Oral & Maxillofacial Surgery, providing expert surgical care for complex extractions, impactions, and other oral surgical procedures at Vihana Dental Care.",
     photo: "/images/Dr.%20Santhosh%20Babu%20MDS.jpeg",
     ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
-    pgInstitution: "CSI College of Dental Sciences and Research"
+    pgInstitution: "CSI College of Dental Sciences and Research",
+    bookable: false
   },
   {
     id: "consultant-kavimalar",
@@ -466,7 +471,8 @@ export const CONSULTANT_DOCTORS: ConsultantDoctor[] = [
     bio: "Consultant Endodontist and root canal specialist. Previously served as Senior Lecturer at Sri Ramakrishna Dental College & Hospital, Coimbatore.",
     photo: "/images/Dr.Kavimalar.jpeg",
     ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
-    pgInstitution: "M.S. Ramaiah Dental College and Hospital"
+    pgInstitution: "M.S. Ramaiah Dental College and Hospital",
+    bookable: false
   },
   {
     id: "consultant-sandhiya",
@@ -477,7 +483,8 @@ export const CONSULTANT_DOCTORS: ConsultantDoctor[] = [
     photo: "/images/Dr.Sandhiya.jpeg",
     ugInstitution: "Sri Ramakrishna Dental College and Hospital, Coimbatore",
     pgInstitution: "Annamalai Dental College",
-    experienceYears: 8
+    experienceYears: 8,
+    bookable: false
   }
 ];
 

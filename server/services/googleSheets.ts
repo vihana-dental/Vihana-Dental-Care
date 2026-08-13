@@ -62,20 +62,24 @@ async function authorizedFetch(url: string, options: RequestInit = {}): Promise<
 }
 
 export interface AppointmentRowParams {
+  appointmentId: string;
   patientName: string;
   phone: string;
   service: string;
   date: string;
   time: string;
-  channel: 'whatsapp' | 'chatbot' | 'website_cta';
+  channel: 'whatsapp' | 'chatbot' | 'website_cta' | 'admin_direct';
   paymentStatus: string;
   amountPaid: number;
+  status: string;
+  patientVisited: boolean;
 }
 
 const CHANNEL_LABELS: Record<AppointmentRowParams['channel'], string> = {
   whatsapp: 'WhatsApp',
   chatbot: 'Chatbot',
-  website_cta: 'Website CTA'
+  website_cta: 'Website CTA',
+  admin_direct: 'Admin (Direct)'
 };
 
 export interface AppendRowResult {
@@ -83,6 +87,16 @@ export interface AppendRowResult {
   mock: boolean;
   error?: string;
 }
+
+// Column layout (A:L) — J onward (AppointmentID/Status/PatientVisited) added
+// in Phase 5 of the admin console build specifically so toggles in
+// /doctor-admin can find and update a specific row later; rows appended
+// before that change won't have an ID in column J and simply won't be
+// find-able by updateAppointmentRowById (existing history is left alone).
+const APPOINTMENT_ID_COLUMN = 'J';
+const STATUS_COLUMN = 'K';
+const PATIENT_VISITED_COLUMN = 'L';
+const PAYMENT_STATUS_COLUMN = 'H';
 
 /** Appends one row matching the sheet's fixed column order — never throws. */
 export async function appendAppointmentRow(params: AppointmentRowParams): Promise<AppendRowResult> {
@@ -99,7 +113,10 @@ export async function appendAppointmentRow(params: AppointmentRowParams): Promis
     `'${params.time}`,
     CHANNEL_LABELS[params.channel],
     params.paymentStatus,
-    params.amountPaid
+    params.amountPaid,
+    params.appointmentId,
+    params.status,
+    params.patientVisited ? 'Yes' : 'No'
   ];
 
   if (!isGoogleSheetsConfigured()) {
@@ -108,7 +125,7 @@ export async function appendAppointmentRow(params: AppointmentRowParams): Promis
   }
 
   try {
-    const range = `${encodeURIComponent(GOOGLE_SHEETS_TAB_NAME)}!A:I`;
+    const range = `${encodeURIComponent(GOOGLE_SHEETS_TAB_NAME)}!A:L`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
 
     const res = await authorizedFetch(url, {
@@ -124,6 +141,66 @@ export async function appendAppointmentRow(params: AppointmentRowParams): Promis
     return { success: true, mock: false };
   } catch (error: any) {
     console.error('Google Sheets appendAppointmentRow failed (booking still proceeds):', error?.message || error);
+    return { success: false, mock: false, error: error?.message || 'Unknown Sheets error' };
+  }
+}
+
+export interface AppointmentRowUpdate {
+  status?: string;
+  paymentStatus?: string;
+  patientVisited?: boolean;
+}
+
+/**
+ * Finds the row whose AppointmentID column (J) matches `appointmentId` and
+ * updates just the cells present in `patch`. Never throws — a failed or
+ * not-found update is logged and the caller's actual state change (already
+ * applied to appointmentsStorage/Supabase before this is called) proceeds
+ * regardless, same "additive, best-effort" contract as appendAppointmentRow.
+ */
+export async function updateAppointmentRowById(appointmentId: string, patch: AppointmentRowUpdate): Promise<AppendRowResult> {
+  if (!isGoogleSheetsConfigured()) {
+    console.log('[google sheets mock] Would update row for', appointmentId, patch);
+    return { success: false, mock: true };
+  }
+
+  try {
+    const idColumnRange = `${encodeURIComponent(GOOGLE_SHEETS_TAB_NAME)}!${APPOINTMENT_ID_COLUMN}:${APPOINTMENT_ID_COLUMN}`;
+    const getUrl = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_SPREADSHEET_ID}/values/${idColumnRange}`;
+    const getRes = await authorizedFetch(getUrl);
+    if (!getRes.ok) throw new Error(`Sheets API error reading ID column: ${getRes.status} ${await getRes.text()}`);
+    const { values } = await getRes.json();
+    const rowIndex: number = Array.isArray(values) ? values.findIndex((row: string[]) => row[0] === appointmentId) : -1;
+
+    if (rowIndex === -1) {
+      console.warn(`Google Sheets: no row found for appointment ${appointmentId} — likely booked before the ID column existed.`);
+      return { success: false, mock: false, error: 'Row not found' };
+    }
+
+    const sheetRow = rowIndex + 1; // values.get is 1-indexed from the top of the range
+    const data: { range: string; values: unknown[][] }[] = [];
+    if (patch.paymentStatus !== undefined) {
+      data.push({ range: `${encodeURIComponent(GOOGLE_SHEETS_TAB_NAME)}!${PAYMENT_STATUS_COLUMN}${sheetRow}`, values: [[patch.paymentStatus]] });
+    }
+    if (patch.status !== undefined) {
+      data.push({ range: `${encodeURIComponent(GOOGLE_SHEETS_TAB_NAME)}!${STATUS_COLUMN}${sheetRow}`, values: [[patch.status]] });
+    }
+    if (patch.patientVisited !== undefined) {
+      data.push({ range: `${encodeURIComponent(GOOGLE_SHEETS_TAB_NAME)}!${PATIENT_VISITED_COLUMN}${sheetRow}`, values: [[patch.patientVisited ? 'Yes' : 'No']] });
+    }
+    if (data.length === 0) return { success: true, mock: false };
+
+    const batchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_SPREADSHEET_ID}/values:batchUpdate`;
+    const batchRes = await authorizedFetch(batchUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data })
+    });
+    if (!batchRes.ok) throw new Error(`Sheets API error updating row: ${batchRes.status} ${await batchRes.text()}`);
+
+    return { success: true, mock: false };
+  } catch (error: any) {
+    console.error(`Google Sheets updateAppointmentRowById failed for ${appointmentId}:`, error?.message || error);
     return { success: false, mock: false, error: error?.message || 'Unknown Sheets error' };
   }
 }

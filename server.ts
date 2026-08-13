@@ -2,10 +2,13 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import crypto from 'crypto';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { Appointment, Inquiry, DentalService, Doctor, GalleryItem } from './src/types';
-import { SERVICES as STATIC_SERVICES, DOCTORS as STATIC_DOCTORS, CLINIC_INFO } from './src/data/clinicData';
+import { OAuth2Client } from 'google-auth-library';
+import { Appointment, Inquiry, DentalService, Doctor, ConsultantDoctor, GalleryItem } from './src/types';
+import { SERVICES as STATIC_SERVICES, DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS, CLINIC_INFO } from './src/data/clinicData';
 import {
   getPublicKeyId,
   createOrder,
@@ -24,9 +27,11 @@ import {
   isGoogleCalendarConfigured,
   isGoogleOAuthClientConfigured,
   getGoogleOAuthConsentUrl,
-  exchangeGoogleOAuthCode
+  exchangeGoogleOAuthCode,
+  generateMeetLinkForEvent,
+  updateCalendarEventNote
 } from './server/services/googleCalendar';
-import { upsertPatient } from './server/services/supabase';
+import { upsertPatient, listPatients, deletePatient } from './server/services/supabase';
 import {
   listBlogPosts,
   getBlogPostBySlug,
@@ -35,7 +40,7 @@ import {
   updateBlogPost,
   deleteBlogPost
 } from './server/services/blog';
-import { appendAppointmentRow } from './server/services/googleSheets';
+import { appendAppointmentRow, updateAppointmentRowById } from './server/services/googleSheets';
 import { persistAppointment, loadAllAppointments, isAppointmentsPersistenceConfigured } from './server/services/appointmentsStore';
 import { getServicePriceDisplay, getAllServicePriceDisplays, setServicePriceDisplay } from './server/services/pricing';
 import { listServices, getServiceById, createService, updateService, deleteService } from './server/services/services';
@@ -71,6 +76,30 @@ declare global {
   }
 }
 
+// Standard security headers (HSTS, X-Content-Type-Options, X-Frame-Options,
+// Referrer-Policy, etc). CSP and Cross-Origin-Embedder-Policy are switched
+// off rather than left at helmet's strict defaults: this app embeds several
+// third-party scripts/iframes (Google Identity Services login button,
+// Razorpay Checkout, Google Maps/Places, WhatsApp deep links) and a
+// correctly-scoped CSP allowlisting every one of those origins needs to be
+// built and tested deliberately, not turned on blind — shipping a wrong CSP
+// would silently break login/payment instead of protecting anything.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// Rate limiting for public-facing booking/payment endpoints — previously
+// only /api/admin/login had any throttling. Applied narrowly to the routes
+// a scripted client could actually abuse (create bookings, spin up payment
+// orders/links); deliberately excludes /api/payments/webhook, which must
+// always ack Razorpay's server-to-server calls immediately regardless of
+// volume (see that route's own comments).
+const publicApiLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please wait a few minutes and try again.' }
+});
+
 app.use(express.json({
   // Raised from the 100kb default so the blog admin's image upload (encoded
   // client-side as a base64 data: URI, no separate file storage service)
@@ -89,24 +118,32 @@ let clinicFeeConfig = {
   onlineFeeINR: 500     // Default ₹500 advance for online video consults
 };
 
-// ---------------- MINIMAL DOCTOR ADMIN AUTH ----------------
-// Lightweight PIN-based session, scoped to a single purpose: letting the
-// doctor update the advance booking fee without touching code. Deliberately
-// small — no patient records, staff accounts, or clinical data behind this.
-const DOCTOR_ADMIN_PIN = process.env.DOCTOR_ADMIN_PIN || '2468';
+// ---------------- DOCTOR ADMIN AUTH (Google Sign-In, allowlisted emails) ----------------
+// Session mechanics are unchanged from the original PIN-based design — only
+// the login step itself is different. A random bearer token is still what
+// every /api/admin/* route actually checks; only how that token gets minted
+// changed (a verified Google identity instead of a shared 4-digit PIN).
+const GOOGLE_LOGIN_CLIENT_ID = process.env.GOOGLE_LOGIN_CLIENT_ID || '';
+const DOCTOR_ADMIN_ALLOWED_EMAILS = (process.env.DOCTOR_ADMIN_ALLOWED_EMAILS || '')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+const googleLoginClient = GOOGLE_LOGIN_CLIENT_ID ? new OAuth2Client(GOOGLE_LOGIN_CLIENT_ID) : null;
+
 const ADMIN_SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
-const adminSessions = new Map<string, number>(); // token -> expiresAt
+interface AdminSession { expiresAt: number; email: string; }
+const adminSessions = new Map<string, AdminSession>(); // token -> session
 
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const expiresAt = token ? adminSessions.get(token) : undefined;
+  const session = token ? adminSessions.get(token) : undefined;
 
-  if (!token || !expiresAt || expiresAt < Date.now()) {
+  if (!token || !session || session.expiresAt < Date.now()) {
     if (token) adminSessions.delete(token);
     return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
   }
 
-  adminSessions.set(token, Date.now() + ADMIN_SESSION_TTL_MS); // sliding expiry
+  session.expiresAt = Date.now() + ADMIN_SESSION_TTL_MS; // sliding expiry
   next();
 }
 
@@ -120,6 +157,48 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
 // configured and before the first live load completes.
 let SERVICES_LIVE: DentalService[] = STATIC_SERVICES;
 let DOCTORS_LIVE: Doctor[] = STATIC_DOCTORS;
+let CONSULTANTS_LIVE: ConsultantDoctor[] = STATIC_CONSULTANTS;
+
+// The single shared roster all three booking channels (website modal,
+// WhatsApp bot, chat widget) read from — lead doctors and visiting
+// consultants merged, filtered to only those currently toggled bookable in
+// the Team panel. Normalized to one common shape so callers don't need to
+// know or care which underlying type (Doctor vs ConsultantDoctor) a given
+// entry came from.
+interface BookableDoctorOption {
+  id: string;
+  name: string;
+  displayTitle: string;
+  photo: string;
+}
+
+function getBookableDoctors(): BookableDoctorOption[] {
+  const doctors = DOCTORS_LIVE.filter((d) => d.bookable).map((d) => ({
+    id: d.id, name: d.name, displayTitle: d.title, photo: d.photo
+  }));
+  const consultants = CONSULTANTS_LIVE.filter((c) => c.bookable).map((c) => ({
+    id: c.id, name: c.name, displayTitle: c.specialty, photo: c.photo
+  }));
+  return [...doctors, ...consultants];
+}
+
+// Resolves a doctorId to a { id, name } pair for attaching to an
+// appointment, checking BOTH DOCTORS_LIVE and CONSULTANTS_LIVE — now that
+// consultants can also be bookable, a doctorId picked via the booking flow
+// might belong to either pool, and a lookup against DOCTORS_LIVE alone
+// would silently fall back to the wrong person for any consultant booking.
+// Falls back to the first lead doctor only if the id matches neither pool
+// (e.g. a stale/invalid id) — this is a lookup for an id the caller already
+// chose, not the bookable-filtered picker itself, so it deliberately
+// doesn't filter by `bookable` here (see Phase 2 notes: bookable gates the
+// picker lists, not resolution of an id someone already selected).
+function resolveDoctorOrConsultant(doctorId?: string): { id: string; name: string } {
+  const doctor = DOCTORS_LIVE.find((d) => d.id === doctorId);
+  if (doctor) return { id: doctor.id, name: doctor.name };
+  const consultant = CONSULTANTS_LIVE.find((c) => c.id === doctorId);
+  if (consultant) return { id: consultant.id, name: consultant.name };
+  return { id: DOCTORS_LIVE[0].id, name: DOCTORS_LIVE[0].name };
+}
 
 // In-memory data persistence for demo session
 let appointmentsStorage: Appointment[] = [
@@ -147,6 +226,7 @@ let appointmentsStorage: Appointment[] = [
     consultationType: "in-clinic",
     paymentStatus: "paid",
     feeAmount: 300,
+    patientVisited: false,
     channel: "website_cta"
   },
   {
@@ -171,6 +251,7 @@ let appointmentsStorage: Appointment[] = [
     consultationType: "online-video",
     paymentStatus: "paid",
     feeAmount: 500,
+    patientVisited: false,
     channel: "chatbot"
   }
 ];
@@ -425,6 +506,16 @@ app.get('/api/team', async (req, res) => {
   res.json({ success: true, doctors, consultants });
 });
 
+// The single shared doctor-picker roster for all three booking channels
+// (website modal, WhatsApp bot, chat widget) — lead doctors and visiting
+// consultants merged, filtered to whoever is currently toggled bookable in
+// the Team panel. Reads the same in-memory DOCTORS_LIVE/CONSULTANTS_LIVE
+// mirrors every other booking route already uses, so it reflects admin
+// edits immediately with no extra fetch/round-trip.
+app.get('/api/bookable-doctors', (req, res) => {
+  res.json({ success: true, doctors: getBookableDoctors() });
+});
+
 app.get('/api/gallery', async (req, res) => {
   const items = await listGalleryItems();
   res.json({ success: true, items });
@@ -519,6 +610,7 @@ async function recordConfirmedAppointment(appointment: Appointment): Promise<voi
         sourceChannel: appointment.channel
       }),
       appendAppointmentRow({
+        appointmentId: appointment.id,
         patientName: appointment.patientName,
         phone: appointment.patientPhone,
         service: appointment.serviceName,
@@ -526,7 +618,9 @@ async function recordConfirmedAppointment(appointment: Appointment): Promise<voi
         time: appointment.timeSlot,
         channel: appointment.channel,
         paymentStatus: appointment.paymentStatus,
-        amountPaid: appointment.feeAmount || 0
+        amountPaid: appointment.feeAmount || 0,
+        status: appointment.status,
+        patientVisited: appointment.patientVisited
       }),
       persistAppointment(appointment)
     ]);
@@ -594,7 +688,7 @@ async function confirmAppointmentPayment(appointment: Appointment, paymentId: st
 // Creates the appointment as PENDING *before* talking to Razorpay, then
 // creates the order against it. The fee is computed server-side from the
 // live fee config — never trusted from the client.
-app.post('/api/payments/create-order', async (req, res) => {
+app.post('/api/payments/create-order', publicApiLimiter, async (req, res) => {
   const {
     patientName, patientPhone, patientEmail, doctorId, serviceId,
     date, timeSlot, notes, caregiverPhone, consultationType
@@ -623,7 +717,7 @@ app.post('/api/payments/create-order', async (req, res) => {
     return res.status(400).json({ success: false, error: 'No advance fee is currently configured for this consultation type.' });
   }
 
-  const doctor = DOCTORS_LIVE.find(d => d.id === doctorId) || DOCTORS_LIVE[0];
+  const doctor = resolveDoctorOrConsultant(doctorId);
   const service = SERVICES_LIVE.find(s => s.id === serviceId) || SERVICES_LIVE[0];
   const appointmentId = generateDailyAppointmentId();
 
@@ -650,6 +744,7 @@ app.post('/api/payments/create-order', async (req, res) => {
     consultationType: isOnline ? 'online-video' : 'in-clinic',
     paymentStatus: 'pending',
     feeAmount: fee,
+    patientVisited: false,
     channel: 'website_cta'
   };
 
@@ -680,7 +775,7 @@ app.post('/api/payments/create-order', async (req, res) => {
 
 // Frontend's post-checkout callback. Verifies the HMAC signature Razorpay
 // signs `order_id|payment_id` with, then flips PENDING -> CONFIRMED.
-app.post('/api/payments/verify', async (req, res) => {
+app.post('/api/payments/verify', publicApiLimiter, async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
   if (typeof razorpay_order_id !== 'string' || typeof razorpay_payment_id !== 'string') {
@@ -839,7 +934,7 @@ app.post('/api/payments/webhook', async (req, res) => {
 // reference_id is that appointment's ID — the payment_link.paid webhook
 // above uses that to confirm it once Razorpay notifies us, since a payment
 // link has no in-browser popup/signature callback to verify synchronously.
-app.post('/api/razorpay/create-payment-link', async (req, res) => {
+app.post('/api/razorpay/create-payment-link', publicApiLimiter, async (req, res) => {
   const {
     patientName, patientPhone, patientEmail, doctorId, serviceId,
     date, timeSlot, notes, consultationType
@@ -868,7 +963,7 @@ app.post('/api/razorpay/create-payment-link', async (req, res) => {
     return res.status(400).json({ success: false, error: 'No advance fee is currently configured for this consultation type.' });
   }
 
-  const doctor = DOCTORS_LIVE.find(d => d.id === doctorId) || DOCTORS_LIVE[0];
+  const doctor = resolveDoctorOrConsultant(doctorId);
   const service = SERVICES_LIVE.find(s => s.id === serviceId) || SERVICES_LIVE[0];
   const appointmentId = generateDailyAppointmentId();
 
@@ -894,6 +989,7 @@ app.post('/api/razorpay/create-payment-link', async (req, res) => {
     consultationType: isOnline ? 'online-video' : 'in-clinic',
     paymentStatus: 'pending',
     feeAmount: fee,
+    patientVisited: false,
     channel: 'chatbot'
   };
 
@@ -922,7 +1018,7 @@ app.post('/api/razorpay/create-payment-link', async (req, res) => {
 // button simulate what the webhook would do. With live keys configured,
 // this deliberately does NOT fake a confirmation — real confirmation only
 // ever comes from the webhook above, so it just reports current status.
-app.post('/api/payments/confirm-payment-link', async (req, res) => {
+app.post('/api/payments/confirm-payment-link', publicApiLimiter, async (req, res) => {
   const { appointmentId } = req.body;
   if (typeof appointmentId !== 'string') {
     return res.status(400).json({ success: false, error: 'appointmentId is required.' });
@@ -988,10 +1084,11 @@ app.post('/api/payments/confirm-payment-link', async (req, res) => {
 // category -> service, and morning/evening -> time.
 
 interface WhatsAppConversationState {
-  step: 'awaiting_category' | 'awaiting_service' | 'awaiting_date' | 'awaiting_time_period' | 'awaiting_time' | 'awaiting_payment';
+  step: 'awaiting_category' | 'awaiting_service' | 'awaiting_doctor' | 'awaiting_date' | 'awaiting_time_period' | 'awaiting_time' | 'awaiting_payment';
   contactName?: string;
   category?: string;
   serviceId?: string;
+  doctorId?: string;
   date?: string;
   timePeriod?: 'Morning' | 'Evening';
   appointmentId?: string;
@@ -1198,10 +1295,49 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
     const service = servicesInCategory.find((s) => `svc:${s.id}` === picked.id)!;
 
     state.serviceId = service.id;
+    state.step = 'awaiting_doctor';
+    const bookable = getBookableDoctors();
+    await sendListMessage(
+      from,
+      `Great choice — ${service.title}. Which doctor would you like to see?`,
+      'Choose Doctor',
+      [{ title: 'Available Doctors', rows: bookable.map((d) => ({ id: `doc:${d.id}`, title: d.name, description: d.displayTitle })) }]
+    );
+    return;
+  }
+
+  if (state.step === 'awaiting_doctor') {
+    // Re-validate against the CURRENT bookable list, not a snapshot taken
+    // when this step started — a doctor could get toggled off mid-
+    // conversation in the admin console between the list being sent and
+    // the patient replying.
+    const bookable = getBookableDoctors();
+    const options = bookable.map((d) => ({ id: `doc:${d.id}`, label: d.name }));
+    const picked = resolveSelection(msg, options);
+    if (!picked) {
+      await sendTextMessage(from, "Sorry, I didn't catch that — please tap one of the doctors above.");
+      return;
+    }
+    const doctor = bookable.find((d) => `doc:${d.id}` === picked.id);
+    if (!doctor) {
+      // Toggled off between list send and reply — refresh and re-ask
+      // instead of booking them into someone no longer available.
+      const refreshed = getBookableDoctors();
+      state.step = 'awaiting_doctor';
+      await sendListMessage(
+        from,
+        "Sorry, that doctor is no longer available for booking — please pick from the current list.",
+        'Choose Doctor',
+        [{ title: 'Available Doctors', rows: refreshed.map((d) => ({ id: `doc:${d.id}`, title: d.name, description: d.displayTitle })) }]
+      );
+      return;
+    }
+
+    state.doctorId = doctor.id;
     state.step = 'awaiting_date';
     await sendReplyButtons(
       from,
-      `Great choice — ${service.title}. When would you like to come in?`,
+      `${doctor.name} — when would you like to come in?`,
       [
         { id: 'date:today', title: 'Today' },
         { id: 'date:tomorrow', title: 'Tomorrow' },
@@ -1301,6 +1437,12 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
     }
 
     const service = SERVICES_LIVE.find((s) => s.id === state!.serviceId) || SERVICES_LIVE[0];
+    // Re-validate the chosen doctor is still bookable right before creating
+    // the appointment, same defensive reasoning as the slot-conflict check
+    // above — falls back to the first currently-bookable doctor rather than
+    // failing outright, since we're already past the point of re-prompting.
+    const bookableNow = getBookableDoctors();
+    const chosenDoctor = bookableNow.find((d) => d.id === state!.doctorId) || bookableNow[0];
     // Estimated treatment cost is pulled from the centralized pricing table
     // purely for display/transparency in the chat — matches the confirmed
     // product decision to charge the same small refundable slot-booking
@@ -1310,6 +1452,11 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
     const depositINR = clinicFeeConfig.confirmationFeeEnabled ? clinicFeeConfig.inClinicFeeINR : 0;
     const appointmentId = generateDailyAppointmentId();
     const patientName = state.contactName || `WhatsApp Patient ${from.slice(-4)}`;
+
+    if (!chosenDoctor) {
+      await sendTextMessage(from, "Sorry, there are no doctors currently available for booking. Please call the clinic directly.");
+      return;
+    }
 
     if (depositINR <= 0) {
       await sendTextMessage(from, "Sorry, online booking deposits are temporarily disabled. Please call the clinic to book this appointment.");
@@ -1321,8 +1468,8 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
       patientName,
       patientPhone: from,
       patientEmail: '',
-      doctorId: DOCTORS_LIVE[0].id,
-      doctorName: DOCTORS_LIVE[0].name,
+      doctorId: chosenDoctor.id,
+      doctorName: chosenDoctor.name,
       serviceId: service.id,
       serviceName: service.title,
       date: state.date!,
@@ -1338,6 +1485,7 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
       consultationType: 'in-clinic',
       paymentStatus: 'pending',
       feeAmount: depositINR,
+      patientVisited: false,
       channel: 'whatsapp'
     };
 
@@ -1411,6 +1559,82 @@ async function retryWhatsAppPaymentLink(to: string, appointmentId: string): Prom
   }
 }
 
+// Shared by the public direct/free-booking route and the admin console's
+// direct-booking bypass (POST /api/admin/appointments/direct-book) — both
+// end at "create a confirmed appointment, sync it to Calendar, log it to
+// Sheets/Supabase," differing only in how paymentStatus/feeAmount/channel
+// get set. Payment-required bookings never call this — those go through
+// /api/payments/create-order + /verify or /api/razorpay/create-payment-link
+// + the webhook instead, which confirm payment server-side before an
+// appointment is ever created this way.
+interface CreateConfirmedAppointmentInput {
+  patientName: string;
+  patientPhone: string;
+  patientEmail?: string;
+  doctorId?: string;
+  serviceId?: string;
+  date: string;
+  timeSlot: string;
+  notes?: string;
+  caregiverPhone?: string;
+  consultationType?: string;
+  paymentStatus: Appointment['paymentStatus'];
+  feeAmount: number;
+  channel: Appointment['channel'];
+}
+
+async function createConfirmedAppointment(input: CreateConfirmedAppointmentInput) {
+  const isOnline = input.consultationType === 'online-video';
+  const doctor = resolveDoctorOrConsultant(input.doctorId);
+  const service = SERVICES_LIVE.find(s => s.id === input.serviceId) || SERVICES_LIVE[0];
+  const rescheduleToken = `RSC-${Math.floor(10000 + Math.random() * 90000)}`;
+
+  const newAppointment: Appointment = {
+    id: generateDailyAppointmentId(),
+    patientName: input.patientName,
+    patientPhone: input.patientPhone,
+    patientEmail: input.patientEmail || `${input.patientName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+    doctorId: doctor.id,
+    doctorName: doctor.name,
+    serviceId: service.id,
+    serviceName: service.title,
+    date: input.date,
+    timeSlot: input.timeSlot,
+    notes: input.notes || '',
+    status: 'confirmed',
+    googleCalendarSynced: false,
+    whatsappConfirmationSent: true,
+    whatsappReminderScheduled: true,
+    rescheduleToken,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    caregiverPhone: input.caregiverPhone,
+    consultationType: isOnline ? 'online-video' : 'in-clinic',
+    videoRoomUrl: undefined,
+    onlineConsultStatus: isOnline ? 'pending_doctor_approval' : undefined,
+    paymentStatus: input.paymentStatus,
+    paymentId: undefined,
+    feeAmount: input.feeAmount,
+    patientVisited: false,
+    channel: input.channel
+  };
+
+  // Both consultation types sync to the calendar immediately on confirmation.
+  // Online consults do NOT get a Meet link yet — the doctor may not actually
+  // be free at the slot the patient picked, so the event goes in as
+  // 'tentative' and a Meet link is only created once the doctor approves in
+  // /doctor-admin (see approveOnlineConsult).
+  const calendarSync = await syncAppointmentToCalendar(newAppointment);
+  newAppointment.googleCalendarEventId = calendarSync.eventId;
+  newAppointment.googleCalendarSynced = calendarSync.synced;
+  newAppointment.videoRoomUrl = calendarSync.meetLink;
+
+  appointmentsStorage.unshift(newAppointment);
+  await recordConfirmedAppointment(newAppointment);
+
+  return { appointment: newAppointment, calendarSync };
+}
+
 // POST Appointment (Create pending online consultation or direct confirmed in-clinic booking)
 // Direct/free booking path only (Module C — website CTA, no advance fee
 // currently configured). Deliberately does NOT accept a client-supplied
@@ -1418,7 +1642,7 @@ async function retryWhatsAppPaymentLink(to: string, appointmentId: string): Prom
 // /api/payments/create-order + /verify or /api/razorpay/create-payment-link
 // + the webhook, both of which confirm payment server-side. Trusting a
 // client-asserted "I paid" flag here would let anyone book for free.
-app.post('/api/appointments', async (req, res) => {
+app.post('/api/appointments', publicApiLimiter, async (req, res) => {
   const {
     patientName, patientPhone, patientEmail, doctorId, serviceId,
     date, timeSlot, notes, caregiverPhone, consultationType, channel
@@ -1445,7 +1669,6 @@ app.post('/api/appointments', async (req, res) => {
     });
   }
 
-  const paymentStatus: 'waived' = 'waived';
   const bookingChannel: Appointment['channel'] = channel === 'whatsapp' || channel === 'chatbot' ? channel : 'website_cta';
 
   // Final server-side guard against a double-booked slot (the frontend already
@@ -1457,52 +1680,10 @@ app.post('/api/appointments', async (req, res) => {
     return res.status(409).json({ success: false, error: slotCheck.message || 'That time slot is no longer available. Please pick another.' });
   }
 
-  const doctor = DOCTORS_LIVE.find(d => d.id === doctorId) || DOCTORS_LIVE[0];
-  const service = SERVICES_LIVE.find(s => s.id === serviceId) || SERVICES_LIVE[0];
-  const rescheduleToken = `RSC-${Math.floor(10000 + Math.random() * 90000)}`;
-
-  const newAppointment: Appointment = {
-    id: generateDailyAppointmentId(),
-    patientName,
-    patientPhone,
-    patientEmail: patientEmail || `${patientName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
-    doctorId: doctor.id,
-    doctorName: doctor.name,
-    serviceId: service.id,
-    serviceName: service.title,
-    date,
-    timeSlot,
-    notes: notes || '',
-    status: 'confirmed',
-    googleCalendarSynced: false,
-    whatsappConfirmationSent: true,
-    whatsappReminderScheduled: true,
-    rescheduleToken,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    caregiverPhone,
-    consultationType: isOnline ? 'online-video' : 'in-clinic',
-    videoRoomUrl: undefined,
-    onlineConsultStatus: isOnline ? 'pending_doctor_approval' : undefined,
-    paymentStatus,
-    paymentId: undefined,
-    feeAmount,
-    channel: bookingChannel
-  };
-
-  // Both consultation types sync to the calendar immediately on confirmation.
-  // Online consults do NOT get a Meet link yet — the doctor may not actually
-  // be free at the slot the patient picked, so the event goes in as
-  // 'tentative' and a Meet link is only created once the doctor approves in
-  // /doctor-admin (see approveOnlineConsult).
-  const calendarSync = await syncAppointmentToCalendar(newAppointment);
-  newAppointment.googleCalendarEventId = calendarSync.eventId;
-  newAppointment.googleCalendarSynced = calendarSync.synced;
-  newAppointment.videoRoomUrl = calendarSync.meetLink;
-
-  appointmentsStorage.unshift(newAppointment);
-
-  await recordConfirmedAppointment(newAppointment);
+  const { appointment: newAppointment, calendarSync } = await createConfirmedAppointment({
+    patientName, patientPhone, patientEmail, doctorId, serviceId, date, timeSlot, notes, caregiverPhone, consultationType,
+    paymentStatus: 'waived', feeAmount, channel: bookingChannel
+  });
 
   res.json({
     success: true,
@@ -1511,6 +1692,236 @@ app.post('/api/appointments', async (req, res) => {
     message: "Appointment confirmed successfully.",
     whatsappLink: buildAppointmentWhatsAppLink(newAppointment.id, CLINIC_INFO.whatsapp)
   });
+});
+
+// Admin-only direct booking — the doctor creates a confirmed appointment
+// straight from /doctor-admin, bypassing Razorpay entirely (paymentStatus:
+// 'waived', feeAmount: 0). Deliberately a separate route rather than a
+// bypass flag on the public /api/appointments above, so that endpoint's
+// "payment is required" guard stays simple and can't be spoofed by a
+// client-supplied flag — this route's only gate is requireAdminAuth. Still
+// syncs to Calendar and logs to Sheets/Supabase exactly like a normal
+// booking; only the payment step is skipped.
+app.post('/api/admin/appointments/direct-book', requireAdminAuth, async (req, res) => {
+  const { patientName, patientPhone, patientEmail, doctorId, serviceId, date, timeSlot, notes, caregiverPhone, consultationType } = req.body;
+
+  if (
+    typeof patientName !== 'string' || !patientName.trim() ||
+    typeof patientPhone !== 'string' || !patientPhone.trim() ||
+    typeof date !== 'string' || !date.trim() ||
+    typeof timeSlot !== 'string' || !timeSlot.trim()
+  ) {
+    return res.status(400).json({ success: false, error: 'Missing or invalid required fields: patientName, patientPhone, date, timeSlot' });
+  }
+
+  const slotCheck = await isSlotStillAvailable(date, timeSlot);
+  if (!slotCheck.valid && !slotCheck.degraded) {
+    return res.status(409).json({ success: false, error: slotCheck.message || 'That time slot is no longer available. Please pick another.' });
+  }
+
+  const { appointment: newAppointment, calendarSync } = await createConfirmedAppointment({
+    patientName, patientPhone, patientEmail, doctorId, serviceId, date, timeSlot, notes, caregiverPhone, consultationType,
+    paymentStatus: 'waived', feeAmount: 0, channel: 'admin_direct'
+  });
+
+  res.json({
+    success: true,
+    appointment: newAppointment,
+    calendarSync,
+    message: 'Appointment booked directly — payment bypassed.',
+    whatsappLink: buildAppointmentWhatsAppLink(newAppointment.id, CLINIC_INFO.whatsapp)
+  });
+});
+
+// Read-only appointments list for the admin console's Appointments/Payments
+// tracking panel — additive alongside Calendar/Sheets, not a replacement for
+// either. Reads the same in-memory appointmentsStorage every other
+// appointment route already uses; all filters are optional.
+app.get('/api/admin/appointments', requireAdminAuth, (req, res) => {
+  const { status, paymentStatus, consultationType, channel, from, to, q } = req.query;
+
+  let results = appointmentsStorage;
+  if (typeof status === 'string' && status) results = results.filter(a => a.status === status);
+  if (typeof paymentStatus === 'string' && paymentStatus) results = results.filter(a => a.paymentStatus === paymentStatus);
+  if (typeof consultationType === 'string' && consultationType) results = results.filter(a => a.consultationType === consultationType);
+  if (typeof channel === 'string' && channel) results = results.filter(a => a.channel === channel);
+  if (typeof from === 'string' && from) results = results.filter(a => a.date >= from);
+  if (typeof to === 'string' && to) results = results.filter(a => a.date <= to);
+  if (typeof q === 'string' && q.trim()) {
+    const needle = q.trim().toLowerCase();
+    results = results.filter(a =>
+      a.patientName.toLowerCase().includes(needle) ||
+      a.patientPhone.includes(needle) ||
+      a.id.toLowerCase().includes(needle)
+    );
+  }
+
+  res.json({ success: true, appointments: results });
+});
+
+// Predrafted WhatsApp templates for the admin console's manual Send
+// Confirmation / Send Reminder buttons — centralized here so the wording
+// matches what the automated on-booking send already uses elsewhere in
+// this file, rather than drifting out of sync with a second copy.
+function buildConfirmationMessage(appointment: Appointment): string {
+  return `✅ Your ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care is confirmed. Reschedule/cancel code: ${appointment.rescheduleToken}`;
+}
+
+function buildReminderMessage(appointment: Appointment): string {
+  return `⏰ Reminder: you have a ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care. Reply if you need to reschedule (code: ${appointment.rescheduleToken}).`;
+}
+
+// Centralized "make this change everywhere" helper for the toggle switches
+// and action buttons below — every one of them updates the in-memory
+// appointmentsStorage entry (the source of truth for the rest of the app),
+// persists to Supabase, and best-effort mirrors the change to the Google
+// Sheets log. None of these external syncs ever block or fail the actual
+// state change — same "additive, best-effort" contract used everywhere
+// else Sheets/Calendar are touched in this file.
+async function syncAppointmentEverywhere(appointment: Appointment, sheetsPatch: { status?: string; paymentStatus?: string; patientVisited?: boolean }): Promise<void> {
+  appointment.updatedAt = new Date().toISOString();
+  await persistAppointment(appointment);
+  await updateAppointmentRowById(appointment.id, sheetsPatch);
+}
+
+app.patch('/api/admin/appointments/:id', requireAdminAuth, async (req, res) => {
+  const appointment = findAppointmentById(req.params.id);
+  if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+
+  const { status, paymentStatus, patientVisited } = req.body;
+  const notes: string[] = [];
+
+  if (status !== undefined) {
+    if (!['pending', 'pending_approval', 'confirmed', 'rescheduled', 'completed', 'cancelled', 'payment_failed'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status value.' });
+    }
+    appointment.status = status;
+    notes.push(`Status set to "${status}"`);
+  }
+  if (paymentStatus !== undefined) {
+    if (!['pending', 'paid', 'waived', 'failed'].includes(paymentStatus)) {
+      return res.status(400).json({ success: false, error: 'Invalid paymentStatus value.' });
+    }
+    appointment.paymentStatus = paymentStatus;
+    notes.push(`Payment marked "${paymentStatus}"`);
+  }
+  if (patientVisited !== undefined) {
+    appointment.patientVisited = Boolean(patientVisited);
+    notes.push(`Patient visited: ${appointment.patientVisited ? 'Yes' : 'No'}`);
+  }
+
+  await syncAppointmentEverywhere(appointment, { status, paymentStatus, patientVisited });
+  if (notes.length > 0) {
+    await updateCalendarEventNote(appointment.googleCalendarEventId, `Admin update — ${notes.join(', ')}`);
+  }
+
+  res.json({ success: true, appointment });
+});
+
+app.post('/api/admin/appointments/:id/send-confirmation', requireAdminAuth, async (req, res) => {
+  const appointment = findAppointmentById(req.params.id);
+  if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+
+  // sendTextMessage never throws — it always resolves { success, mock, error? }.
+  // mock:true (WhatsApp not configured yet) is treated as a soft success, same
+  // as every automatic send-on-booking elsewhere in this file; only a real,
+  // configured send failure is reported back as an error.
+  const result = await sendTextMessage(appointment.patientPhone, buildConfirmationMessage(appointment));
+  if (!result.success && !result.mock) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not send confirmation message.' });
+  }
+  appointment.whatsappConfirmationSent = true;
+  await persistAppointment(appointment);
+  res.json({ success: true, appointment, mock: result.mock });
+});
+
+app.post('/api/admin/appointments/:id/send-reminder', requireAdminAuth, async (req, res) => {
+  const appointment = findAppointmentById(req.params.id);
+  if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+
+  const result = await sendTextMessage(appointment.patientPhone, buildReminderMessage(appointment));
+  if (!result.success && !result.mock) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not send reminder message.' });
+  }
+  appointment.whatsappReminderScheduled = true;
+  await persistAppointment(appointment);
+  res.json({ success: true, appointment, mock: result.mock });
+});
+
+// Generates a Meet link for ANY appointment with a synced Calendar event —
+// not just ones originally booked as online-video (e.g. converting an
+// in-clinic booking to a video consult on request). Reuses the same
+// generalized Calendar function Phase 5C added rather than duplicating
+// approveOnlineConsult's pending-approval-specific logic.
+app.post('/api/admin/appointments/:id/generate-meet-link', requireAdminAuth, async (req, res) => {
+  const appointment = findAppointmentById(req.params.id);
+  if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+  if (!appointment.googleCalendarEventId) {
+    return res.status(400).json({ success: false, error: 'This appointment has no synced Calendar event to attach a Meet link to.' });
+  }
+
+  const result = await generateMeetLinkForEvent(appointment.googleCalendarEventId);
+  if (!result.success || !result.meetLink) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not generate a Meet link.' });
+  }
+
+  appointment.videoRoomUrl = result.meetLink;
+  await persistAppointment(appointment);
+
+  const sendResult = await sendTextMessage(appointment.patientPhone, `🎥 Your Google Meet link for the ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot}: ${result.meetLink}`);
+  if (!sendResult.success && !sendResult.mock) {
+    console.error('Meet link generated but WhatsApp send failed:', sendResult.error);
+  }
+
+  res.json({ success: true, appointment });
+});
+
+app.post('/api/admin/appointments/:id/send-meet-reminder', requireAdminAuth, async (req, res) => {
+  const appointment = findAppointmentById(req.params.id);
+  if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+  if (!appointment.videoRoomUrl) {
+    return res.status(400).json({ success: false, error: 'No Meet link exists for this appointment yet.' });
+  }
+
+  const result = await sendTextMessage(
+    appointment.patientPhone,
+    `⏰ Reminder: your online consult is on ${appointment.date} at ${appointment.timeSlot}. Join here: ${appointment.videoRoomUrl}`
+  );
+  if (!result.success && !result.mock) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not send Meet reminder.' });
+  }
+  res.json({ success: true, mock: result.mock });
+});
+
+// Patient Database panel — a view over the `patients` table that's already
+// populated on every booking (upsertPatient above), plus the DPDP-aligned
+// "right to erasure" delete action. Access control is already satisfied by
+// requireAdminAuth (itself behind the Google Sign-In allowlist); the only
+// new work here is the read/delete routes and a minimal audit log of which
+// admin viewed/deleted patient data. This is a technical safeguard aligned
+// with DPDP principles, not a substitute for legal review.
+function auditLog(req: express.Request, action: string): void {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const email = adminSessions.get(token)?.email || 'unknown';
+  console.log(`[patient-data audit] ${email} — ${action} — ${new Date().toISOString()}`);
+}
+
+app.get('/api/admin/patients', requireAdminAuth, async (req, res) => {
+  auditLog(req, 'viewed patient list');
+  const result = await listPatients();
+  if (!result.success && !result.mock) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not load patients.' });
+  }
+  res.json({ success: true, patients: result.patients, mock: result.mock });
+});
+
+app.delete('/api/admin/patients/:id', requireAdminAuth, async (req, res) => {
+  auditLog(req, `deleted patient ${req.params.id}`);
+  const result = await deletePatient(req.params.id);
+  if (!result.success && !result.mock) {
+    return res.status(502).json({ success: false, error: result.error || 'Could not delete patient.' });
+  }
+  res.json({ success: true, mock: result.mock });
 });
 
 // Shared by the DELETE route (website self-service cancel/reschedule) and
@@ -1547,15 +1958,18 @@ app.delete('/api/appointments/:id', async (req, res) => {
   });
 });
 
-// ---------------- DOCTOR ADMIN (fee editing only) ----------------
+// ---------------- DOCTOR ADMIN LOGIN ----------------
 
-// Simple rate limiting for PIN attempts to slow down brute-forcing a 4-digit PIN.
+// Simple rate limiting on login attempts to slow down token-replay/guessing spam.
+// Google's own account security (2FA, breach detection, device trust) is the
+// real defense now — this is cheap defense-in-depth on top of it, kept from
+// the original PIN-era code.
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
 
-app.post('/api/admin/login', (req, res) => {
-  const { pin } = req.body;
+app.post('/api/admin/login', async (req, res) => {
+  const { credential } = req.body;
   const ip = req.ip || 'unknown';
 
   const attempt = loginAttempts.get(ip);
@@ -1564,17 +1978,38 @@ app.post('/api/admin/login', (req, res) => {
     return res.status(429).json({ success: false, error: 'Too many attempts. Try again in a few minutes.' });
   }
 
-  if (typeof pin !== 'string' || pin !== DOCTOR_ADMIN_PIN) {
+  const fail = (message: string) => {
     loginAttempts.set(ip, {
       count: attempt && attempt.resetAt > now ? attempt.count + 1 : 1,
       resetAt: attempt && attempt.resetAt > now ? attempt.resetAt : now + LOGIN_WINDOW_MS
     });
-    return res.status(401).json({ success: false, error: 'Incorrect PIN.' });
+    return res.status(401).json({ success: false, error: message });
+  };
+
+  if (typeof credential !== 'string' || !credential) {
+    return fail('Google sign-in failed. Please try again.');
+  }
+  if (!googleLoginClient) {
+    console.error('GOOGLE_LOGIN_CLIENT_ID is not configured — admin login is unavailable.');
+    return res.status(503).json({ success: false, error: 'Admin login is not configured yet.' });
+  }
+
+  let email: string | undefined;
+  try {
+    const ticket = await googleLoginClient.verifyIdToken({ idToken: credential, audience: GOOGLE_LOGIN_CLIENT_ID });
+    const payload = ticket.getPayload();
+    if (payload?.email_verified && payload.email) email = payload.email.toLowerCase();
+  } catch (err: any) {
+    console.error('Google ID token verification failed:', err?.message || err);
+  }
+
+  if (!email || !DOCTOR_ADMIN_ALLOWED_EMAILS.includes(email)) {
+    return fail('This Google account is not authorized for admin access.');
   }
 
   loginAttempts.delete(ip);
   const token = crypto.randomBytes(24).toString('hex');
-  adminSessions.set(token, now + ADMIN_SESSION_TTL_MS);
+  adminSessions.set(token, { expiresAt: now + ADMIN_SESSION_TTL_MS, email });
   res.json({ success: true, token, expiresInMs: ADMIN_SESSION_TTL_MS });
 });
 
@@ -1801,7 +2236,7 @@ app.delete('/api/admin/faqs/:id', requireAdminAuth, async (req, res) => {
 
 // ---------------- TEAM: DOCTORS (admin writes) ----------------
 function parseDoctorInput(body: any): { input?: any; error?: string } {
-  const { name, title, qualification, specialization, experienceYears, photo, bio, availableDays, ugInstitution, pgInstitution, externalTraining, qualificationYear } = body;
+  const { name, title, qualification, specialization, experienceYears, photo, bio, availableDays, ugInstitution, pgInstitution, externalTraining, qualificationYear, bookable } = body;
   if (typeof name !== 'string' || !name.trim()) return { error: 'name is required.' };
   if (typeof title !== 'string' || !title.trim()) return { error: 'title is required.' };
   if (typeof qualification !== 'string' || !qualification.trim()) return { error: 'qualification is required.' };
@@ -1824,7 +2259,8 @@ function parseDoctorInput(body: any): { input?: any; error?: string } {
       ugInstitution: typeof ugInstitution === 'string' && ugInstitution.trim() ? ugInstitution.trim() : undefined,
       pgInstitution: typeof pgInstitution === 'string' && pgInstitution.trim() ? pgInstitution.trim() : undefined,
       externalTraining: Array.isArray(externalTraining) ? externalTraining.filter((t: any) => typeof t === 'string' && t.trim()) : undefined,
-      qualificationYear: typeof qualificationYear === 'string' && qualificationYear.trim() ? qualificationYear.trim() : undefined
+      qualificationYear: typeof qualificationYear === 'string' && qualificationYear.trim() ? qualificationYear.trim() : undefined,
+      bookable: typeof bookable === 'boolean' ? bookable : true
     }
   };
 }
@@ -1862,7 +2298,7 @@ app.delete('/api/admin/team/doctors/:id', requireAdminAuth, async (req, res) => 
 
 // ---------------- TEAM: CONSULTANTS (admin writes) ----------------
 function parseConsultantInput(body: any): { input?: any; error?: string } {
-  const { name, specialty, qualification, bio, photo, ugInstitution, pgInstitution, externalTraining, qualificationYear, experienceYears } = body;
+  const { name, specialty, qualification, bio, photo, ugInstitution, pgInstitution, externalTraining, qualificationYear, experienceYears, bookable } = body;
   if (typeof name !== 'string' || !name.trim()) return { error: 'name is required.' };
   if (typeof specialty !== 'string' || !specialty.trim()) return { error: 'specialty is required.' };
   if (typeof qualification !== 'string' || !qualification.trim()) return { error: 'qualification is required.' };
@@ -1880,7 +2316,8 @@ function parseConsultantInput(body: any): { input?: any; error?: string } {
       pgInstitution: typeof pgInstitution === 'string' && pgInstitution.trim() ? pgInstitution.trim() : undefined,
       externalTraining: Array.isArray(externalTraining) ? externalTraining.filter((t: any) => typeof t === 'string' && t.trim()) : undefined,
       qualificationYear: typeof qualificationYear === 'string' && qualificationYear.trim() ? qualificationYear.trim() : undefined,
-      experienceYears: typeof experienceYears === 'number' ? experienceYears : undefined
+      experienceYears: typeof experienceYears === 'number' ? experienceYears : undefined,
+      bookable: typeof bookable === 'boolean' ? bookable : false
     }
   };
 }
@@ -1896,6 +2333,7 @@ app.post('/api/admin/team/consultants', requireAdminAuth, async (req, res) => {
 
   const result = await createConsultant(input);
   if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save this consultant.' });
+  CONSULTANTS_LIVE = await listConsultants();
   res.json({ success: true, consultant: result.consultant });
 });
 
@@ -1905,12 +2343,14 @@ app.patch('/api/admin/team/consultants/:id', requireAdminAuth, async (req, res) 
 
   const result = await updateConsultant(req.params.id, input);
   if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Consultant not found.' });
+  CONSULTANTS_LIVE = await listConsultants();
   res.json({ success: true, consultant: result.consultant });
 });
 
 app.delete('/api/admin/team/consultants/:id', requireAdminAuth, async (req, res) => {
   const result = await deleteConsultant(req.params.id);
   if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Consultant not found.' });
+  CONSULTANTS_LIVE = await listConsultants();
   res.json({ success: true });
 });
 
@@ -2308,7 +2748,8 @@ async function startServer() {
   // that case.
   SERVICES_LIVE = await listServices();
   DOCTORS_LIVE = await listDoctors();
-  console.log(`Loaded ${SERVICES_LIVE.length} service(s) and ${DOCTORS_LIVE.length} doctor(s) from Supabase.`);
+  CONSULTANTS_LIVE = await listConsultants();
+  console.log(`Loaded ${SERVICES_LIVE.length} service(s), ${DOCTORS_LIVE.length} doctor(s), and ${CONSULTANTS_LIVE.length} consultant(s) from Supabase.`);
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

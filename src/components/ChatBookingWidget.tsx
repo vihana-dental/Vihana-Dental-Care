@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { SERVICES, DOCTORS, CLINIC_INFO } from '../data/clinicData';
+import { SERVICES, CLINIC_INFO } from '../data/clinicData';
 import { AvailabilitySlot, BookingDraft, ChatBubble, ChatFlowStep, FeeConfig } from '../types';
 import {
   Bot,
@@ -60,7 +60,7 @@ const SERVICE_CATEGORIES = Array.from(new Set(SERVICES.map((s) => s.category)));
 // progress indicator and to decide whether free text typed mid-flow is
 // allowed to redirect the step (see handleFreeTextSend) — a stray question
 // typed while picking a service used to silently reset the whole flow.
-const BOOKING_STEPS: ChatFlowStep[] = ['consultation_type', 'category', 'service', 'datetime', 'patient_details', 'payment'];
+const BOOKING_STEPS: ChatFlowStep[] = ['consultation_type', 'category', 'service', 'doctor', 'datetime', 'patient_details', 'payment'];
 
 export const ChatBookingWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -92,6 +92,7 @@ export const ChatBookingWidget: React.FC = () => {
   const [cancelError, setCancelError] = useState('');
   const [cancelDone, setCancelDone] = useState(false);
   const [checkingSlot, setCheckingSlot] = useState(false);
+  const [bookableDoctors, setBookableDoctors] = useState<{ id: string; name: string; displayTitle: string; photo: string }[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -99,6 +100,13 @@ export const ChatBookingWidget: React.FC = () => {
       fetch('/api/clinic-info')
         .then((res) => res.json())
         .then((data) => data.feeConfig && setFeeConfig(data.feeConfig))
+        .catch(() => {});
+      // Live, bookable-filtered roster — shared with the website modal and
+      // WhatsApp bot via the same endpoint, so a doctor toggled off in the
+      // Team panel disappears from this picker immediately.
+      fetch('/api/bookable-doctors')
+        .then((res) => res.json())
+        .then((data) => data.success && setBookableDoctors(data.doctors))
         .catch(() => {});
     }
   }, [isOpen]);
@@ -153,14 +161,19 @@ export const ChatBookingWidget: React.FC = () => {
     setStep('service');
   };
 
-  // Only one doctor practices at the clinic, so there's nothing to actually
-  // choose here — auto-assigning and skipping straight to date/time removes
-  // a click that used to just be a "Continue" confirmation screen.
   const handleServiceSelect = (serviceId: string) => {
     const service = SERVICES.find((s) => s.id === serviceId);
     pushUser(service?.title || 'Selected service');
-    setDraft((d) => ({ ...d, serviceId, doctorId: DOCTORS[0].id }));
-    pushBot(`Great choice — you'll be seeing ${DOCTORS[0].name}. Pick a date and time that works for you.`);
+    setDraft((d) => ({ ...d, serviceId }));
+    pushBot('Which doctor would you like to see?');
+    setStep('doctor');
+  };
+
+  const handleDoctorSelect = (doctorId: string) => {
+    const doctor = bookableDoctors.find((d) => d.id === doctorId);
+    pushUser(doctor?.name || 'Selected doctor');
+    setDraft((d) => ({ ...d, doctorId }));
+    pushBot('Pick a date and time that works for you.');
     setStep('datetime');
   };
 
@@ -225,7 +238,7 @@ export const ChatBookingWidget: React.FC = () => {
           patientName: draft.patientName,
           patientPhone: draft.patientPhone,
           patientEmail: draft.patientEmail,
-          doctorId: draft.doctorId || DOCTORS[0].id,
+          doctorId: draft.doctorId || bookableDoctors[0]?.id,
           serviceId: draft.serviceId,
           date: draft.date,
           timeSlot: draft.timeSlot,
@@ -259,7 +272,7 @@ export const ChatBookingWidget: React.FC = () => {
           patientName: draft.patientName,
           patientPhone: draft.patientPhone,
           patientEmail: draft.patientEmail,
-          doctorId: draft.doctorId || DOCTORS[0].id,
+          doctorId: draft.doctorId || bookableDoctors[0]?.id,
           serviceId: draft.serviceId,
           date: draft.date,
           timeSlot: draft.timeSlot,
@@ -539,6 +552,35 @@ export const ChatBookingWidget: React.FC = () => {
                         {s.title}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {step === 'doctor' && (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setStep('service')}
+                    className="text-[10px] text-teal-700 font-semibold hover:underline"
+                  >
+                    ← Back to treatments
+                  </button>
+                  <div className="grid grid-cols-1 gap-2 pt-1">
+                    {bookableDoctors.map((doc) => (
+                      <button
+                        key={doc.id}
+                        onClick={() => handleDoctorSelect(doc.id)}
+                        className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 hover:border-teal-400 hover:bg-teal-50/60 transition-colors text-left"
+                      >
+                        <img src={doc.photo} alt={doc.name} className="w-9 h-9 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">{doc.name}</p>
+                          <p className="text-[10px] text-slate-500 truncate">{doc.displayTitle}</p>
+                        </div>
+                      </button>
+                    ))}
+                    {bookableDoctors.length === 0 && (
+                      <p className="text-[11px] text-slate-400 py-2">Loading available doctors...</p>
+                    )}
                   </div>
                 </div>
               )}

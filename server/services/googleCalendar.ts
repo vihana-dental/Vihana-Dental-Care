@@ -373,6 +373,94 @@ export async function approveOnlineConsult(eventId: string | undefined, cleanSum
   }
 }
 
+export interface GenerateMeetLinkResult {
+  success: boolean;
+  meetLink?: string;
+  mock: boolean;
+  error?: string;
+}
+
+/**
+ * Generalized version of the PATCH-for-conferenceData mechanics
+ * `approveOnlineConsult` above already proved out — usable for ANY
+ * appointment with a `googleCalendarEventId`, not just ones sitting in
+ * `pending_doctor_approval`. Unlike `approveOnlineConsult`, this does NOT
+ * touch the event's `status`/`summary` — an admin generating a Meet link
+ * for an already-confirmed in-clinic appointment (converting it to a video
+ * consult) shouldn't have its confirmation state or title altered as a
+ * side effect.
+ */
+export async function generateMeetLinkForEvent(eventId?: string): Promise<GenerateMeetLinkResult> {
+  if (!eventId) return { success: false, mock: false, error: 'No calendar event to attach a Meet link to.' };
+
+  if (!isGoogleCalendarConfigured() || eventId.startsWith('gcal_mock_')) {
+    return { success: true, meetLink: `https://meet.google.com/mock-${eventId.slice(-10)}`, mock: true };
+  }
+
+  try {
+    const requestId = `vihana-meet-${eventId}-${Date.now()}`;
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events/${eventId}?conferenceDataVersion=1`;
+
+    const res = await authorizedFetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conferenceData: { createRequest: { requestId, conferenceSolutionKey: { type: 'hangoutsMeet' } } }
+      })
+    });
+
+    if (!res.ok) {
+      const bodyText = await res.text();
+      console.error(`Google Calendar generateMeetLinkForEvent failed (${res.status}):`, bodyText);
+      return { success: false, mock: false, error: `Calendar API error: ${res.status}` };
+    }
+
+    const event: any = await res.json();
+    const meetLink = event.conferenceData?.entryPoints?.find((e: any) => e.entryPointType === 'video')?.uri;
+    return { success: true, meetLink, mock: false };
+  } catch (error: any) {
+    console.error('Google Calendar generateMeetLinkForEvent failed:', error);
+    return { success: false, mock: false, error: error?.message || 'Meet link generation failed' };
+  }
+}
+
+/**
+ * Appends a timestamped note to an event's description — used by the admin
+ * console's toggle switches (e.g. "Marked visited by admin") so anyone
+ * looking at the doctor's actual Calendar sees why/when a change happened,
+ * without needing to open /doctor-admin. Reads the current description
+ * first since Calendar's PATCH replaces field values rather than merging
+ * them. Best-effort — never throws, matching every other Calendar function
+ * here (a failed note must never block the admin action that triggered it).
+ */
+export async function updateCalendarEventNote(eventId: string | undefined, note: string): Promise<{ success: boolean; mock: boolean }> {
+  if (!eventId) return { success: false, mock: true };
+  if (!isGoogleCalendarConfigured() || eventId.startsWith('gcal_mock_')) return { success: true, mock: true };
+
+  try {
+    const eventUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events/${eventId}`;
+    const getRes = await authorizedFetch(eventUrl);
+    if (!getRes.ok) throw new Error(`Fetch event failed: ${getRes.status}`);
+    const event: any = await getRes.json();
+
+    const stamp = new Date().toLocaleString('en-IN', { timeZone: GOOGLE_CALENDAR_TIMEZONE });
+    const existingDescription: string = event.description || '';
+    const newDescription = `${existingDescription}${existingDescription ? '\n' : ''}[${stamp}] ${note}`;
+
+    const patchRes = await authorizedFetch(eventUrl, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: newDescription })
+    });
+    if (!patchRes.ok) throw new Error(`Patch event failed: ${patchRes.status}`);
+
+    return { success: true, mock: false };
+  } catch (error: any) {
+    console.error(`Google Calendar updateCalendarEventNote failed for ${eventId}:`, error?.message || error);
+    return { success: false, mock: false };
+  }
+}
+
 export async function cancelCalendarEvent(eventId?: string): Promise<{ cancelled: boolean; mock: boolean }> {
   if (!eventId) return { cancelled: false, mock: true };
 

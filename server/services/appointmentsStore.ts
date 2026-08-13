@@ -64,6 +64,7 @@ function appointmentToRow(a: Appointment): Record<string, unknown> {
     razorpay_payment_link_id: a.razorpayPaymentLinkId ?? null,
     fee_amount: a.feeAmount ?? null,
     channel: a.channel,
+    patient_visited: a.patientVisited,
     created_at: a.createdAt,
     updated_at: a.updatedAt
   };
@@ -98,6 +99,7 @@ function rowToAppointment(r: any): Appointment {
     razorpayPaymentLinkId: r.razorpay_payment_link_id ?? undefined,
     feeAmount: r.fee_amount ?? undefined,
     channel: r.channel,
+    patientVisited: r.patient_visited ?? false,
     createdAt: r.created_at,
     updatedAt: r.updated_at
   };

@@ -1,10 +1,12 @@
 /**
  * Team section — doctor-editable via /doctor-admin. Two entity types,
  * mirroring the existing Doctor / ConsultantDoctor split in src/types.ts:
- * team_doctors (lead doctors, selectable in the booking flow) and
- * team_consultants (visiting specialists, informational only — never
- * offered as a bookable option, by existing design). Same pattern as
- * blog.ts / services.ts.
+ * team_doctors (lead doctors) and team_consultants (visiting specialists).
+ * Both carry a `bookable` flag toggled per-person from the Team panel —
+ * doctors default bookable, consultants default not — that determines
+ * whether they appear as a selectable option in the booking flows (see
+ * getBookableDoctors() in server.ts, which merges both pools filtered by
+ * this flag). Same persistence pattern as blog.ts / services.ts.
  */
 
 import { DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS } from '../../src/data/clinicData';
@@ -52,7 +54,8 @@ function rowToDoctor(row: any): Doctor {
     ugInstitution: row.ug_institution ?? undefined,
     pgInstitution: row.pg_institution ?? undefined,
     externalTraining: row.external_training ?? undefined,
-    qualificationYear: row.qualification_year ?? undefined
+    qualificationYear: row.qualification_year ?? undefined,
+    bookable: row.bookable ?? true
   };
 }
 
@@ -71,6 +74,7 @@ function doctorToRow(id: string, input: DoctorInput) {
     pg_institution: input.pgInstitution ?? null,
     external_training: input.externalTraining ?? null,
     qualification_year: input.qualificationYear ?? null,
+    bookable: input.bookable ?? true,
     updated_at: new Date().toISOString()
   };
 }
@@ -207,7 +211,8 @@ function rowToConsultant(row: any): ConsultantDoctor {
     pgInstitution: row.pg_institution ?? undefined,
     externalTraining: row.external_training ?? undefined,
     qualificationYear: row.qualification_year ?? undefined,
-    experienceYears: row.experience_years ?? undefined
+    experienceYears: row.experience_years ?? undefined,
+    bookable: row.bookable ?? false
   };
 }
 
@@ -224,6 +229,7 @@ function consultantToRow(id: string, input: ConsultantInput) {
     external_training: input.externalTraining ?? null,
     qualification_year: input.qualificationYear ?? null,
     experience_years: input.experienceYears ?? null,
+    bookable: input.bookable ?? false,
     updated_at: new Date().toISOString()
   };
 }

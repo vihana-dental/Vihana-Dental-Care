@@ -31,7 +31,7 @@ export interface UpsertPatientParams {
   name: string;
   phone: string;
   email?: string;
-  sourceChannel: 'whatsapp' | 'chatbot' | 'website_cta';
+  sourceChannel: 'whatsapp' | 'chatbot' | 'website_cta' | 'admin_direct';
 }
 
 export interface UpsertPatientResult {
@@ -106,6 +106,70 @@ export async function upsertPatient(params: UpsertPatientParams): Promise<Upsert
   } catch (error: any) {
     console.error('Supabase upsertPatient failed (booking still proceeds):', error?.message || error);
     return { success: false, mock: false, created: false, error: error?.message || 'Unknown Supabase error' };
+  }
+}
+
+export interface PatientRecord {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  sourceChannel: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Full patient list for the admin console's Patient Database panel — newest first. Never throws. */
+export async function listPatients(): Promise<{ success: boolean; mock: boolean; patients: PatientRecord[]; error?: string }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, mock: true, patients: [] };
+  }
+
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/patients?select=id,name,phone,email,source_channel,created_at,updated_at&order=created_at.desc`,
+      { headers: supabaseHeaders() }
+    );
+    if (!res.ok) throw new Error(`Supabase patients read failed: ${res.status} ${await res.text()}`);
+
+    const rows: any[] = await res.json();
+    const patients: PatientRecord[] = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      email: r.email || undefined,
+      sourceChannel: r.source_channel,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
+    return { success: true, mock: false, patients };
+  } catch (error: any) {
+    console.error('Supabase listPatients failed:', error?.message || error);
+    return { success: false, mock: false, patients: [], error: error?.message || 'Unknown Supabase error' };
+  }
+}
+
+/**
+ * Deletes a single patient identity record — the DPDP-aligned "right to
+ * erasure" action. Deliberately does NOT cascade into that patient's
+ * historical appointments (clinical/financial records with their own
+ * retention justification); this removes only the standalone patients row.
+ */
+export async function deletePatient(patientId: string): Promise<{ success: boolean; mock: boolean; error?: string }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, mock: true };
+  }
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/patients?id=eq.${encodeURIComponent(patientId)}`, {
+      method: 'DELETE',
+      headers: supabaseHeaders({ Prefer: 'return=minimal' })
+    });
+    if (!res.ok) throw new Error(`Supabase patient delete failed: ${res.status} ${await res.text()}`);
+    return { success: true, mock: false };
+  } catch (error: any) {
+    console.error('Supabase deletePatient failed:', error?.message || error);
+    return { success: false, mock: false, error: error?.message || 'Unknown Supabase error' };
   }
 }
 

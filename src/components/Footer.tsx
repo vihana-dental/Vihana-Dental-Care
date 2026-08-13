@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CLINIC_INFO, SERVICES } from '../data/clinicData';
-import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle, Mail } from 'lucide-react';
+import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle, Mail, Award } from 'lucide-react';
+import { CertificationsModal } from './CertificationsModal';
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
 interface FooterProps {
@@ -8,6 +9,8 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
+  const [certsOpen, setCertsOpen] = useState(false);
+
   return (
     <footer className="bg-slate-950 text-slate-300 pt-16 pb-28 lg:pb-24 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
@@ -33,10 +36,16 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               Vihana Dental Care is Coimbatore's premier multispecialty center specializing in computer-guided implants, 3D Invisalign aligners, and laser root canal therapy.
             </p>
 
-            <div className="pt-2 flex items-center gap-2">
+            <div className="pt-2 flex flex-wrap items-center gap-2">
               <span className="bg-slate-900 text-teal-300 text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-teal-400" /> HIPAA Encrypted Practice
               </span>
+              <button
+                onClick={() => setCertsOpen(true)}
+                className="bg-slate-900 hover:bg-slate-800 text-teal-300 text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1 transition-colors"
+              >
+                <Award className="w-3.5 h-3.5 text-teal-400" /> Certifications
+              </button>
             </div>
           </div>
 
@@ -128,18 +137,28 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Vihana Dental Care, Coimbatore. All Rights Reserved.</p>
-          <a
-            href="https://www.thepaperplane.co.in"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-slate-400 hover:text-teal-400 transition-colors"
-          >
-            Designed &amp; Developed by <span className="font-semibold">The Paper Plane</span>
-          </a>
+        <div className="pt-8 border-t border-slate-800 flex flex-col gap-4 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-2">
+            <a href="/privacy-policy.html" className="hover:text-teal-400 transition-colors">Privacy Policy</a>
+            <a href="/terms-of-service.html" className="hover:text-teal-400 transition-colors">Terms of Service</a>
+            <a href="/refund-cancellation-policy.html" className="hover:text-teal-400 transition-colors">Refund &amp; Cancellation</a>
+            <a href="/data-deletion.html" className="hover:text-teal-400 transition-colors">Data Deletion</a>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p>© {new Date().getFullYear()} Vihana Dental Care, Coimbatore. All Rights Reserved.</p>
+            <a
+              href="https://www.thepaperplane.co.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-teal-400 transition-colors"
+            >
+              Designed &amp; Developed by <span className="font-semibold">The Paper Plane</span>
+            </a>
+          </div>
         </div>
       </div>
+
+      <CertificationsModal isOpen={certsOpen} onClose={() => setCertsOpen(false)} />
     </footer>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SERVICES, DOCTORS } from '../data/clinicData';
+import { SERVICES } from '../data/clinicData';
 import { Appointment, AvailabilitySlot } from '../types';
 import {
   X,
@@ -30,7 +30,24 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const [step, setStep] = useState<number>(1);
   const [consultationType, setConsultationType] = useState<'in-clinic' | 'online-video'>('in-clinic');
   const [selectedServiceId, setSelectedServiceId] = useState<string>(initialServiceId || SERVICES[0].id);
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>(DOCTORS[0].id);
+  const [bookableDoctors, setBookableDoctors] = useState<{ id: string; name: string; displayTitle: string; photo: string }[]>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+
+  // Live, bookable-filtered roster — shared with the WhatsApp bot and chat
+  // widget via the same /api/bookable-doctors endpoint, so a doctor toggled
+  // off in the Team panel disappears from this picker immediately, and
+  // admin-edited doctors always show up here (this used to read the static
+  // DOCTORS import, which never reflected admin edits).
+  useEffect(() => {
+    fetch('/api/bookable-doctors')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) return;
+        setBookableDoctors(data.doctors);
+        setSelectedDoctorId((prev) => prev || data.doctors[0]?.id || '');
+      })
+      .catch(() => {});
+  }, []);
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date(Date.now() + 86400000).toISOString().split('T')[0]
   );
@@ -421,7 +438,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                   Select Specialist Doctor
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {DOCTORS.map((doc) => (
+                  {bookableDoctors.map((doc) => (
                     <div
                       key={doc.id}
                       onClick={() => setSelectedDoctorId(doc.id)}
@@ -438,7 +455,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                         referrerPolicy="no-referrer"
                       />
                       <p className="text-xs font-bold text-slate-900 leading-tight">{doc.name}</p>
-                      <p className="text-[10px] text-slate-500 mt-1">{doc.title.split('&')[0]}</p>
+                      <p className="text-[10px] text-slate-500 mt-1">{doc.displayTitle.split('&')[0]}</p>
                     </div>
                   ))}
                 </div>
@@ -447,7 +464,8 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
               <div className="pt-4 border-t border-slate-100 flex justify-end">
                 <button
                   onClick={() => setStep(2)}
-                  className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-6 py-3 rounded-xl shadow transition-all flex items-center gap-2"
+                  disabled={!selectedDoctorId}
+                  className="bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-xs font-bold px-6 py-3 rounded-xl shadow transition-all flex items-center gap-2"
                   id="booking-next-step"
                 >
                   <span>Continue to Time & Details</span>

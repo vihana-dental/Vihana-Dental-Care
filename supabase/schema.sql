@@ -19,7 +19,13 @@ create table if not exists patients (
   name text not null,
   phone text not null,
   email text,
-  source_channel text not null check (source_channel in ('whatsapp', 'chatbot', 'website_cta')),
+  -- 'admin_direct' = doctor booked it directly from the admin console,
+  -- bypassing payment entirely (added alongside the Appointments/Payments
+  -- tracking panel — if this table already exists from before that, run:
+  --   alter table patients drop constraint if exists patients_source_channel_check;
+  --   alter table patients add constraint patients_source_channel_check
+  --     check (source_channel in ('whatsapp', 'chatbot', 'website_cta', 'admin_direct'));
+  source_channel text not null check (source_channel in ('whatsapp', 'chatbot', 'website_cta', 'admin_direct')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -130,6 +136,11 @@ create table if not exists appointments (
   razorpay_payment_link_id text,
   fee_amount numeric,
   channel text not null,
+  -- Added in Phase 5 of the admin console build — doctor-toggled once the
+  -- patient has actually shown up. If this table already existed before
+  -- that phase, run:
+  --   alter table appointments add column if not exists patient_visited boolean not null default false;
+  patient_visited boolean not null default false,
   created_at timestamptz not null,
   updated_at timestamptz not null
 );
@@ -179,10 +190,15 @@ create table if not exists faqs (
 -- Mirrors the Doctor / ConsultantDoctor shapes in src/types.ts field for
 -- field. Kept as two tables (not one with a discriminator) because their
 -- shapes genuinely differ (doctors have availableDays and a required
--- experience_years; consultants don't) and because DOCTORS vs
--- CONSULTANT_DOCTORS already drives real behavior — only team_doctors
--- entries are selectable in the booking flow, consultants are
--- informational-only by design.
+-- experience_years; consultants don't). Both carry `bookable` — whether
+-- this person appears as a selectable option in the booking flows —
+-- defaulting true for doctors (preserves prior behavior) and false for
+-- consultants (also preserves prior behavior: nobody's bookable until a
+-- doctor explicitly flips it on from the Team panel).
+--
+-- If these tables already exist from before `bookable` was added, run:
+--   alter table team_doctors add column if not exists bookable boolean not null default true;
+--   alter table team_consultants add column if not exists bookable boolean not null default false;
 create table if not exists team_doctors (
   id text primary key,
   name text not null,
@@ -197,6 +213,7 @@ create table if not exists team_doctors (
   pg_institution text,
   external_training text[],
   qualification_year text,
+  bookable boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -213,6 +230,7 @@ create table if not exists team_consultants (
   external_training text[],
   qualification_year text,
   experience_years integer,
+  bookable boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

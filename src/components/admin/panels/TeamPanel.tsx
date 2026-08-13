@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Users, Loader2, Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
+import { Users, Loader2, Plus, Pencil, Trash2, CheckCircle2, CalendarCheck2 } from 'lucide-react';
 import { Doctor, ConsultantDoctor } from '../../../types';
 import {
   PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass,
-  primaryButtonClass, ghostButtonClass, dangerButtonClass, ListFieldEditor
+  primaryButtonClass, ghostButtonClass, dangerButtonClass, ListFieldEditor, ToggleSwitch as BookableSwitch
 } from '../shared';
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -47,7 +47,8 @@ const PhotoField: React.FC<{ photo: string; onChange: (dataUri: string) => void 
 type DoctorDraft = Omit<Doctor, 'id'>;
 const EMPTY_DOCTOR: DoctorDraft = {
   name: '', title: '', qualification: '', specialization: '', experienceYears: 1,
-  photo: '', bio: '', availableDays: [...WEEKDAYS], ugInstitution: '', pgInstitution: '', externalTraining: [], qualificationYear: ''
+  photo: '', bio: '', availableDays: [...WEEKDAYS], ugInstitution: '', pgInstitution: '', externalTraining: [], qualificationYear: '',
+  bookable: true
 };
 
 const DoctorForm: React.FC<{
@@ -73,6 +74,14 @@ const DoctorForm: React.FC<{
     </div>
     <div><label className={labelClass}>Qualification Year <span className="font-normal text-slate-400">(optional, e.g. "2012–2017")</span></label><input type="text" value={draft.qualificationYear || ''} onChange={(e) => onChange({ ...draft, qualificationYear: e.target.value })} className={inputClass} /></div>
     <ListFieldEditor label="Specialized / External Training" items={draft.externalTraining || []} onChange={(externalTraining) => onChange({ ...draft, externalTraining })} placeholder="e.g. Invisalign Qualified" />
+
+    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
+      <div>
+        <p className="text-xs font-bold text-slate-700">Bookable</p>
+        <p className="text-[11px] text-slate-400">Appears in the doctor picker on website, WhatsApp, and chat booking</p>
+      </div>
+      <BookableSwitch checked={draft.bookable} onChange={(bookable) => onChange({ ...draft, bookable })} />
+    </div>
 
     <div>
       <label className={labelClass}>Available Days *</label>
@@ -107,7 +116,8 @@ const DoctorForm: React.FC<{
 type ConsultantDraft = Omit<ConsultantDoctor, 'id'>;
 const EMPTY_CONSULTANT: ConsultantDraft = {
   name: '', specialty: '', qualification: '', bio: '', photo: '',
-  ugInstitution: '', pgInstitution: '', externalTraining: [], qualificationYear: '', experienceYears: undefined
+  ugInstitution: '', pgInstitution: '', externalTraining: [], qualificationYear: '', experienceYears: undefined,
+  bookable: false
 };
 
 const ConsultantForm: React.FC<{
@@ -132,6 +142,14 @@ const ConsultantForm: React.FC<{
       <div><label className={labelClass}>Years of Experience <span className="font-normal text-slate-400">(optional)</span></label><input type="number" min={0} value={draft.experienceYears ?? ''} onChange={(e) => onChange({ ...draft, experienceYears: e.target.value ? Number(e.target.value) : undefined })} className={inputClass} /></div>
     </div>
     <ListFieldEditor label="Specialized / External Training" items={draft.externalTraining || []} onChange={(externalTraining) => onChange({ ...draft, externalTraining })} placeholder="e.g. RCT Certified" />
+
+    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
+      <div>
+        <p className="text-xs font-bold text-slate-700">Bookable</p>
+        <p className="text-[11px] text-slate-400">Appears in the doctor picker on website, WhatsApp, and chat booking</p>
+      </div>
+      <BookableSwitch checked={draft.bookable} onChange={(bookable) => onChange({ ...draft, bookable })} />
+    </div>
 
     {error && <ErrorBanner message={error} />}
     <div className="flex items-center gap-2 pt-1">
@@ -270,6 +288,48 @@ export const TeamPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
     }
   };
 
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const toggleDoctorBookable = async (doc: Doctor) => {
+    setTogglingId(doc.id);
+    setActionError('');
+    const { id, ...draft } = doc;
+    try {
+      const res = await authedFetch(`/api/admin/team/doctors/${encodeURIComponent(id)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...draft, bookable: !doc.bookable })
+      });
+      if (res.status === 401) return onSessionExpired();
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Could not update.');
+      setDoctors((prev) => prev && prev.map((d) => d.id === id ? data.doctor : d));
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not update bookable status.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const toggleConsultantBookable = async (c: ConsultantDoctor) => {
+    setTogglingId(c.id);
+    setActionError('');
+    const { id, ...draft } = c;
+    try {
+      const res = await authedFetch(`/api/admin/team/consultants/${encodeURIComponent(id)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...draft, bookable: !c.bookable })
+      });
+      if (res.status === 401) return onSessionExpired();
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Could not update.');
+      setConsultants((prev) => prev && prev.map((x) => x.id === id ? data.consultant : x));
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not update bookable status.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const handleDelete = async (id: string, kind: 'doctors' | 'consultants') => {
     if (!window.confirm('Remove this team member from the public site?')) return;
     setDeletingId(id);
@@ -293,7 +353,7 @@ export const TeamPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
       <PanelHeader
         icon={<Users className="w-5 h-5" />}
         title="Our Team"
-        subtitle="Lead doctors (bookable) and visiting consultants (informational only)"
+        subtitle="Lead doctors and visiting consultants — toggle Bookable to add anyone to the appointment booking flow"
         action={!showNewForm && <button onClick={openNewForm} className={primaryButtonClass}><Plus className="w-4 h-4" /><span>Add</span></button>}
       />
       <div className="p-6 space-y-5">
@@ -331,6 +391,10 @@ export const TeamPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
                       <p className="text-xs text-slate-500">{doc.title}</p>
                       <p className="text-xs text-slate-400 mt-0.5">{doc.experienceYears}+ years · {doc.qualification}</p>
                     </div>
+                    <div className="flex items-center gap-1 shrink-0 text-slate-500" title="Bookable in website, WhatsApp & chat booking">
+                      <CalendarCheck2 className="w-3.5 h-3.5" />
+                      <BookableSwitch checked={doc.bookable} onChange={() => toggleDoctorBookable(doc)} disabled={togglingId === doc.id} />
+                    </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button onClick={() => startEditingDoctor(doc)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-200" title="Edit"><Pencil className="w-4 h-4" /></button>
                       <button onClick={() => handleDelete(doc.id, 'doctors')} disabled={deletingId === doc.id} className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 disabled:opacity-50" title="Delete">
@@ -357,6 +421,10 @@ export const TeamPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
                       <p className="text-sm font-bold text-slate-900">{c.name}</p>
                       <p className="text-xs text-slate-500">{c.specialty}</p>
                       <p className="text-xs text-slate-400 mt-0.5">{c.qualification}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 text-slate-500" title="Bookable in website, WhatsApp & chat booking">
+                      <CalendarCheck2 className="w-3.5 h-3.5" />
+                      <BookableSwitch checked={c.bookable} onChange={() => toggleConsultantBookable(c)} disabled={togglingId === c.id} />
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button onClick={() => startEditingConsultant(c)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-200" title="Edit"><Pencil className="w-4 h-4" /></button>

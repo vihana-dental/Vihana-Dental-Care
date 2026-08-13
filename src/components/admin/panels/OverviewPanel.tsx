@@ -1,12 +1,15 @@
 import React from 'react';
 import {
   IndianRupee, Video, Stethoscope, Users, Image as ImageIcon,
-  Newspaper, HelpCircle, Star, CalendarCheck2, LayoutGrid
+  Newspaper, HelpCircle, Star, CalendarCheck2, LayoutGrid, CalendarDays, CalendarRange, UserCog
 } from 'lucide-react';
 import { AdminSection } from '../AdminSidebar';
 import { PanelCard, PanelHeader } from '../shared';
 
 const TILES: { id: AdminSection; label: string; description: string; icon: React.ReactNode }[] = [
+  { id: 'appointments', label: 'Appointments', description: 'Every booking, payment status, and direct booking', icon: <CalendarDays className="w-5 h-5" /> },
+  { id: 'live-calendar', label: 'Live Calendar', description: 'Month view of every appointment, click to manage', icon: <CalendarRange className="w-5 h-5" /> },
+  { id: 'patients', label: 'Patient Database', description: 'Search, view, and (if needed) erase patient records', icon: <UserCog className="w-5 h-5" /> },
   { id: 'fees', label: 'Booking Fees', description: 'In-clinic & online consult advance fees', icon: <IndianRupee className="w-5 h-5" /> },
   { id: 'consults', label: 'Online Consults', description: 'Approve or release pending video consults', icon: <Video className="w-5 h-5" /> },
   { id: 'services', label: 'Services', description: 'Full treatment catalog — pricing, benefits, procedures', icon: <Stethoscope className="w-5 h-5" /> },

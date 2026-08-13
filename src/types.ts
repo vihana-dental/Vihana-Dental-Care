@@ -70,12 +70,19 @@ export interface Doctor {
   pgInstitution?: string;
   externalTraining?: string[];
   qualificationYear?: string;
+  // Whether this doctor appears as a selectable option in the booking
+  // flows (website, WhatsApp bot, chat widget). Defaults true for lead
+  // doctors — toggled per-doctor from the Team panel.
+  bookable: boolean;
 }
 
-// Visiting specialists shown for informational purposes only — deliberately
-// NOT part of the Doctor/DOCTORS shape, so they never show up as a
-// selectable option in the booking flows (AppointmentBookingModal,
-// ChatBookingWidget), which only ever read from DOCTORS.
+// Visiting specialists, shown on the public Team page for informational
+// purposes. Historically never bookable by design — now optionally
+// bookable via the same `bookable` toggle used on Doctor, so a consultant
+// can be switched on to appear in the booking flows alongside lead doctors
+// (see getBookableDoctors() in server.ts, which merges both pools filtered
+// by this flag). Defaults false — no consultant becomes bookable until a
+// doctor explicitly turns it on from the Team panel.
 export interface ConsultantDoctor {
   id: string;
   name: string;
@@ -88,6 +95,7 @@ export interface ConsultantDoctor {
   externalTraining?: string[];
   qualificationYear?: string;
   experienceYears?: number;
+  bookable: boolean;
 }
 
 export interface GalleryItem {
@@ -157,11 +165,15 @@ export interface Appointment {
   razorpayOrderId?: string;
   razorpayPaymentLinkId?: string;
   feeAmount?: number;
+  // Doctor-toggled from the admin console once the patient has actually
+  // shown up — purely a tracking flag, independent of `status`.
+  patientVisited: boolean;
 
   // Which intake channel produced this booking — drives the "Channel" column
   // in the Google Sheets appointment log and the source_channel on the
-  // Supabase patient record.
-  channel: 'whatsapp' | 'chatbot' | 'website_cta';
+  // Supabase patient record. 'admin_direct' = doctor booked it directly from
+  // the admin console, bypassing payment entirely.
+  channel: 'whatsapp' | 'chatbot' | 'website_cta' | 'admin_direct';
 }
 
 export interface Inquiry {
@@ -268,6 +280,7 @@ export type ChatFlowStep =
   | 'consultation_type'
   | 'category'
   | 'service'
+  | 'doctor'
   | 'datetime'
   | 'patient_details'
   | 'payment'

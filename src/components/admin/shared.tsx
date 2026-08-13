@@ -49,6 +49,23 @@ export const SuccessBanner: React.FC<{ message: string }> = ({ message }) => (
   </div>
 );
 
+// Compact on/off switch, used across admin panels for any boolean toggle
+// (doctor/consultant `bookable`, appointment `patientVisited`/payment/
+// confirmation state, etc.) — one visual language for every switch in the
+// console instead of each panel rolling its own.
+export const ToggleSwitch: React.FC<{ checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }> = ({ checked, onChange, disabled }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    disabled={disabled}
+    onClick={() => onChange(!checked)}
+    className={`relative w-10 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${checked ? 'bg-teal-600' : 'bg-slate-300'}`}
+  >
+    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+  </button>
+);
+
 export const inputClass = "w-full bg-white text-slate-900 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 placeholder:text-slate-400";
 export const labelClass = "text-xs font-semibold text-slate-600 block mb-1.5";
 export const primaryButtonClass = "flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors";
