@@ -15,6 +15,22 @@
     <meta name="theme-color" content="#002a45" />
     <link rel="icon" type="image/jpeg" href="/images/vihana_dental_logo_1784918513788.jpg" />
 
+    <!-- LCP preload. The hero photo is rendered by React, so without this the
+         browser can't even discover it until the module bundle has downloaded,
+         parsed and mounted — the image request then starts late and LCP lands
+         well after first paint. The two `media` conditions mirror the
+         <picture> element in Hero.tsx exactly, so only the crop that will
+         actually be displayed is fetched. -->
+    <link rel="preload" as="image" href="/images/hero-mobile.webp" type="image/webp" media="(max-width: 1023px)" fetchpriority="high" />
+    <link rel="preload" as="image" href="/images/hero-desktop.webp" type="image/webp" media="(min-width: 1024px)" fetchpriority="high" />
+
+    <!-- Warm up the origins the page reaches for shortly after load (live
+         Google reviews, map tiles/fonts) so their TLS handshakes aren't on
+         the critical path when the requests are actually made. -->
+    <link rel="preconnect" href="https://maps.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://maps.googleapis.com" />
+    <link rel="dns-prefetch" href="https://checkout.razorpay.com" />
+
     <!-- Geo / Local SEO Tags -->
     <meta name="geo.region" content="IN-TN" />
     <meta name="geo.placename" content="Kalapatti, Coimbatore" />
@@ -125,10 +141,11 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Razorpay Standard Checkout SDK — required for the payment popup in
-         AppointmentBookingModal; without it, window.Razorpay is undefined
-         and the booking flow silently falls back to its dev/mock path. -->
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <!-- The Razorpay Checkout SDK is deliberately NOT loaded here. It used to
+         be a synchronous <script> at this point, which blocked HTML parsing
+         on a third-party payment bundle for every visitor, including the many
+         who never open the booking modal. It is now fetched on demand at the
+         payment step — see src/lib/razorpayLoader.ts. -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

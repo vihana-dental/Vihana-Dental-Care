@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { SERVICES, CLINIC_INFO } from '../data/clinicData';
+import { SERVICES, CLINIC_INFO, slotDisabledLabel } from '../data/clinicData';
 import { AvailabilitySlot, BookingDraft, ChatBubble, ChatFlowStep, FeeConfig } from '../types';
 import {
   Bot,
@@ -360,7 +360,17 @@ export const ChatBookingWidget: React.FC = () => {
       const res = await fetch('/api/gemini/booking-bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userMessage: text })
+        // Prior turns go along so the receptionist can resolve follow-ups
+        // ("how much is that one?") against what was already discussed.
+        // Only the plain text bubbles are sent — never patient contact
+        // details, which live in `draft` and stay on this side.
+        body: JSON.stringify({
+          userMessage: text,
+          conversationHistory: messages
+            .filter((m) => m.kind === 'text' && m.text)
+            .slice(-10)
+            .map((m) => ({ sender: m.sender, text: m.text }))
+        })
       });
       const data = await res.json();
       pushBot(data.reply || "I can help with booking, availability, or rescheduling — what would you like to do?");
@@ -374,7 +384,7 @@ export const ChatBookingWidget: React.FC = () => {
         if (data.action === 'START_BOOKING' || data.action === 'CHECK_AVAILABILITY') setStep('consultation_type');
         else if (data.action === 'RESCHEDULE_CANCEL') setStep('reschedule');
       }
-      // FAQ_ANSWER / OFF_TOPIC_REDIRECT: stay put, reply already shown
+      // ANSWER / HANDOFF: stay put, the reply above is the whole response.
     } catch (err) {
       pushBot(`I'm having trouble reaching our assistant right now. Please call ${CLINIC_INFO.phone} or tap a quick option below.`);
     } finally {
@@ -571,7 +581,7 @@ export const ChatBookingWidget: React.FC = () => {
                         onClick={() => handleDoctorSelect(doc.id)}
                         className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 hover:border-brand-600 hover:bg-brand-200/60 transition-colors text-left"
                       >
-                        <img src={doc.photo} alt={doc.name} className="w-9 h-9 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                        <img loading="lazy" decoding="async" src={doc.photo} alt={doc.name} className="w-9 h-9 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-900 truncate">{doc.name}</p>
                           <p className="text-[10px] text-slate-500 truncate">{doc.displayTitle}</p>
@@ -765,7 +775,14 @@ export const ChatBookingWidget: React.FC = () => {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Type a question, e.g. 'do you do Invisalign?'"
-                className="flex-1 bg-slate-100 text-slate-800 text-xs px-3.5 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-brand-600 focus:bg-white"
+                // Sentence-casing and a "send" return key make this behave like
+                // a real messaging field on mobile rather than a bare text box.
+                // Font size is lifted to 16px on touch pointers in index.css to
+                // stop iOS auto-zooming the page on focus.
+                enterKeyHint="send"
+                autoCapitalize="sentences"
+                autoComplete="off"
+                className="flex-1 min-w-0 bg-slate-100 text-slate-800 text-xs px-3.5 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-brand-600 focus:bg-white"
               />
               <button
                 type="submit"
@@ -788,6 +805,7 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
   const [timeSlot, setTimeSlot] = useState('');
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [dayFullyBooked, setDayFullyBooked] = useState(false);
+  const [dayLapsed, setDayLapsed] = useState(false);
   const [degradedMessage, setDegradedMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -803,6 +821,7 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
 
       setSlots(data.slots || []);
       setDayFullyBooked(Boolean(data.dayFullyBooked));
+      setDayLapsed(Boolean(data.dayLapsed));
       if (data.degraded) setDegradedMessage(data.message || 'Live availability temporarily unavailable — showing standard hours.');
 
       const firstAvailable = (data.slots || []).find((s: AvailabilitySlot) => s.available);
@@ -810,6 +829,7 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
     } catch (err: any) {
       setError(err?.message || 'Could not load availability for this date. Please try another date.');
       setSlots([]);
+      setDayLapsed(false);
       setTimeSlot('');
     } finally {
       setLoading(false);
@@ -862,20 +882,26 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
           </div>
         )}
 
-        {!loading && !error && dayFullyBooked && (
+        {!loading && !error && dayLapsed && (
+          <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+            Today's booking window has closed — slots are disabled once their start time has passed. Please pick another date above.
+          </p>
+        )}
+
+        {!loading && !error && !dayLapsed && dayFullyBooked && (
           <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
             Fully booked on this date — please pick another date above.
           </p>
         )}
 
-        {!loading && !error && !dayFullyBooked && (
+        {!loading && !error && !dayLapsed && !dayFullyBooked && (
           <div className="flex flex-wrap gap-1.5">
             {slots.map((s) => (
               <button
                 key={s.time}
                 onClick={() => s.available && setTimeSlot(s.time)}
                 disabled={!s.available}
-                title={!s.available ? 'Already booked' : undefined}
+                title={!s.available ? slotDisabledLabel(s.reason) : undefined}
                 className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
                   !s.available
                     ? 'bg-slate-50 border-slate-100 text-slate-300 line-through cursor-not-allowed'
@@ -889,11 +915,19 @@ const DateTimePanel: React.FC<{ onSubmit: (date: string, timeSlot: string) => vo
             ))}
           </div>
         )}
+
+        {/* Only while part of today is still bookable — a fully lapsed day is
+            already explained by the amber notice above. */}
+        {!loading && !error && !dayLapsed && slots.some((s) => s.reason === 'passed') && (
+          <p className="text-[10px] text-slate-400 mt-1.5">
+            Struck-through times have already passed today and can no longer be booked.
+          </p>
+        )}
       </div>
 
       <button
         onClick={() => timeSlot && onSubmit(date, timeSlot)}
-        disabled={!timeSlot || loading || dayFullyBooked}
+        disabled={!timeSlot || loading || dayFullyBooked || dayLapsed}
         className="w-full bg-brand-900 hover:bg-brand-950 disabled:opacity-50 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1"
       >
         Continue <ChevronRight className="w-3.5 h-3.5" />

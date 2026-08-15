@@ -343,9 +343,17 @@ export interface FeeConfig {
   onlineFeeINR: number;
 }
 
+/**
+ * `reason` explains *why* an unavailable slot can't be booked, so the UI can
+ * say "Passed" rather than the misleading "Already booked" it used to show
+ * for every disabled chip. Absent when the slot is available.
+ */
+export type SlotUnavailableReason = 'passed' | 'booked' | 'blocked';
+
 export interface AvailabilitySlot {
   time: string;
   available: boolean;
+  reason?: SlotUnavailableReason;
 }
 
 export interface AvailabilityResponse {
@@ -353,6 +361,7 @@ export interface AvailabilityResponse {
   date: string;
   dayFullyBooked: boolean;
   slots: AvailabilitySlot[];
+  dayLapsed?: boolean; // true when the date is today and every slot has already started
   degraded?: boolean; // true when Calendar couldn't be reached and slots are shown as tentative
   message?: string;
 }

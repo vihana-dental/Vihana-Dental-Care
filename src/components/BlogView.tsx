@@ -96,7 +96,7 @@ export const BlogView: React.FC = () => {
                 className="bg-[#F5F5F7] rounded-[28px] overflow-hidden border border-slate-200/80 shadow-xs hover:shadow-xl transition-all cursor-pointer flex flex-col"
               >
                 <div className="h-48 bg-slate-200 overflow-hidden">
-                  <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
                 <div className="p-5 space-y-2 flex-1 flex flex-col">
                   <h3 className="text-base font-extrabold text-slate-900 leading-snug line-clamp-2">{post.title}</h3>
@@ -137,7 +137,7 @@ export const BlogView: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
               <div className="h-64 bg-slate-100 overflow-hidden">
-                <img src={activePost.imageUrl} alt={activePost.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <img loading="lazy" decoding="async" src={activePost.imageUrl} alt={activePost.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               </div>
               <div className="p-6 sm:p-8 space-y-4">
                 <div className="flex items-center gap-3 text-xs text-slate-500">

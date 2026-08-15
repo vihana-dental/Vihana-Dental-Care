@@ -165,7 +165,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
               <div>
                 {/* Service Image */}
                 <div className="relative h-56 overflow-hidden bg-slate-100">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={service.image}
                     alt={`${service.title} in Kalapatti`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
@@ -267,7 +267,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
               className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto scroll-thin shadow-2xl border border-slate-100"
             >
               <div className="relative h-60 bg-slate-900">
-                <img
+                <img loading="lazy" decoding="async"
                   src={selectedServiceModal.image}
                   alt={selectedServiceModal.title}
                   className="w-full h-full object-cover opacity-90"

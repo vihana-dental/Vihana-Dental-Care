@@ -152,7 +152,7 @@ export const TestimonialsView: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={review.authorPhoto || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100"}
                       alt={review.authorName}
                       className="w-10 h-10 rounded-full object-cover border border-slate-200"

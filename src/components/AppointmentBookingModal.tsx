@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { SERVICES } from '../data/clinicData';
+import { SERVICES, slotDisabledLabel } from '../data/clinicData';
+import { loadRazorpayCheckout } from '../lib/razorpayLoader';
 import { Appointment, AvailabilitySlot } from '../types';
 import {
   X,
@@ -71,6 +72,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const [availabilityLoading, setAvailabilityLoading] = useState<boolean>(false);
   const [availabilityError, setAvailabilityError] = useState<string>('');
   const [dayFullyBooked, setDayFullyBooked] = useState<boolean>(false);
+  const [dayLapsed, setDayLapsed] = useState<boolean>(false);
   const [degradedMessage, setDegradedMessage] = useState<string>('');
 
   useEffect(() => {
@@ -95,6 +97,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
 
       setSlots(data.slots || []);
       setDayFullyBooked(Boolean(data.dayFullyBooked));
+      setDayLapsed(Boolean(data.dayLapsed));
       if (data.degraded) setDegradedMessage(data.message || 'Live availability temporarily unavailable — showing standard hours.');
 
       const firstAvailable = (data.slots || []).find((s: AvailabilitySlot) => s.available);
@@ -102,6 +105,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     } catch (err: any) {
       setAvailabilityError(err?.message || 'Could not load availability for this date.');
       setSlots([]);
+      setDayLapsed(false);
       setSelectedTimeSlot('');
     } finally {
       setAvailabilityLoading(false);
@@ -284,10 +288,23 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
       };
 
       // orderData.mock reflects whether the server has real Razorpay keys
-      // configured — not window.Razorpay presence. The Checkout SDK script is
-      // always loaded, so opening it with the placeholder mock key would show
+      // configured — opening Checkout with the placeholder mock key would show
       // the user a real Razorpay "invalid key" error instead of a clean demo.
-      if (!orderData.mock && (window as any).Razorpay) {
+      // The SDK is fetched here rather than in index.html so visitors who
+      // never book don't pay for a third-party payment bundle on first load.
+      const razorpayReady = orderData.mock ? false : await loadRazorpayCheckout();
+
+      // A real order whose SDK genuinely failed to load must surface as an
+      // error, never fall through to the mock branch below — simulating a
+      // payment the patient never made would be the worst possible outcome.
+      if (!orderData.mock && !razorpayReady) {
+        setPaymentError('Could not load the secure payment window. Please check your connection or any ad blocker, then try again.');
+        setPendingRetry(() => handleSubmitBooking);
+        setLoading(false);
+        return;
+      }
+
+      if (razorpayReady) {
         const rzp = new (window as any).Razorpay(options);
         rzp.on('payment.failed', function (response: any) {
           setLoading(false);
@@ -418,7 +435,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                           : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
                       }`}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={serv.image}
                         alt={serv.title}
                         className="w-12 h-12 rounded-lg object-cover shrink-0"
@@ -449,7 +466,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                           : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
                       }`}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={doc.photo}
                         alt={doc.name}
                         className="w-12 h-12 rounded-full object-cover mb-2 border border-brand-700"
@@ -517,13 +534,19 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                     </div>
                   )}
 
-                  {!availabilityLoading && !availabilityError && dayFullyBooked && (
+                  {!availabilityLoading && !availabilityError && dayLapsed && (
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+                      Today's booking window has closed — slots are disabled once their start time has passed. Please choose another date.
+                    </p>
+                  )}
+
+                  {!availabilityLoading && !availabilityError && !dayLapsed && dayFullyBooked && (
                     <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                       Fully booked on this date — please choose another date.
                     </p>
                   )}
 
-                  {!availabilityLoading && !availabilityError && !dayFullyBooked && (
+                  {!availabilityLoading && !availabilityError && !dayLapsed && !dayFullyBooked && (
                     <div className="flex flex-wrap gap-1.5">
                       {slots.map((s) => (
                         <button
@@ -531,7 +554,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                           type="button"
                           onClick={() => s.available && setSelectedTimeSlot(s.time)}
                           disabled={!s.available}
-                          title={!s.available ? 'Already booked' : undefined}
+                          title={!s.available ? slotDisabledLabel(s.reason) : undefined}
                           className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                             !s.available
                               ? 'bg-slate-50 border-slate-100 text-slate-300 line-through cursor-not-allowed'
@@ -544,6 +567,14 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                         </button>
                       ))}
                     </div>
+                  )}
+
+                  {/* Only shown while some of today is still bookable — once the
+                      whole day has lapsed the amber notice above says it instead. */}
+                  {!availabilityLoading && !availabilityError && !dayLapsed && slots.some((s) => s.reason === 'passed') && (
+                    <p className="text-[11px] text-slate-400 mt-1.5">
+                      Struck-through times have already passed today and can no longer be booked.
+                    </p>
                   )}
                 </div>
               </div>
@@ -669,7 +700,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || availabilityLoading || dayFullyBooked || !selectedTimeSlot}
+                  disabled={loading || availabilityLoading || dayFullyBooked || dayLapsed || !selectedTimeSlot}
                   className="bg-brand-900 hover:bg-brand-950 disabled:opacity-50 text-white text-xs font-bold px-8 py-3 rounded-xl shadow transition-all flex items-center gap-2"
                   id="submit-booking-button"
                 >

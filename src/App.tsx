@@ -1,25 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { InitialLoader } from './components/InitialLoader';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { AboutUs } from './components/AboutUs';
 import { TeamSection } from './components/TeamSection';
-import { BlogView } from './components/BlogView';
 import { ServicesView } from './components/ServicesView';
-import { GalleryView } from './components/GalleryView';
-import { TestimonialsView } from './components/TestimonialsView';
 import { InquirySection } from './components/InquirySection';
-import { LocationMapSection } from './components/LocationMapSection';
-import { AppointmentBookingModal } from './components/AppointmentBookingModal';
 import { StickyCtaBar } from './components/StickyCtaBar';
 import { ScrollExploreHint } from './components/ScrollExploreHint';
 import { Footer } from './components/Footer';
-import { ChatBookingWidget } from './components/ChatBookingWidget';
-import { DoctorAdminPage } from './components/DoctorAdminPage';
-import { NotFoundPage } from './components/NotFoundPage';
+import { DeferredSection } from './components/DeferredSection';
+
+// Split out of the initial bundle. Everything below is either far below the
+// fold on the homepage or on a route most visitors never open, so shipping it
+// in the first download only delays the hero for patients on mobile data.
+//
+// The admin console is the biggest single win — it pulls in every admin panel
+// and is reachable only from the unlinked /doctor-admin path, so no patient
+// should ever download it. LocationMapSection is the next, because it drags
+// in the Google Maps JS API.
+const BlogView = lazy(() => import('./components/BlogView').then((m) => ({ default: m.BlogView })));
+const GalleryView = lazy(() => import('./components/GalleryView').then((m) => ({ default: m.GalleryView })));
+const TestimonialsView = lazy(() => import('./components/TestimonialsView').then((m) => ({ default: m.TestimonialsView })));
+const LocationMapSection = lazy(() => import('./components/LocationMapSection').then((m) => ({ default: m.LocationMapSection })));
+const AppointmentBookingModal = lazy(() => import('./components/AppointmentBookingModal').then((m) => ({ default: m.AppointmentBookingModal })));
+const ChatBookingWidget = lazy(() => import('./components/ChatBookingWidget').then((m) => ({ default: m.ChatBookingWidget })));
+const DoctorAdminPage = lazy(() => import('./components/DoctorAdminPage').then((m) => ({ default: m.DoctorAdminPage })));
+const NotFoundPage = lazy(() => import('./components/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
 
 const KNOWN_PATHS = ['/', '/doctor-admin'];
+
+/** Height-reserving placeholder for a code-split section, so a tab switch
+ *  doesn't collapse the page height while its chunk downloads. */
+const SectionFallback: React.FC = () => (
+  <div className="min-h-[60vh] flex items-center justify-center" aria-hidden="true">
+    <div className="w-8 h-8 rounded-full border-2 border-brand-200 border-t-brand-800 animate-spin" />
+  </div>
+);
+
+/** Full-viewport equivalent, for the two code-split standalone routes. */
+const FullPageFallback: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center bg-[#F5F5F7]" aria-hidden="true">
+    <div className="w-10 h-10 rounded-full border-2 border-brand-200 border-t-brand-800 animate-spin" />
+  </div>
+);
 
 const TAB_TITLES: Record<string, string> = {
   home: 'Vihana Dental Care | Best Dentist in Kalapatti, Coimbatore',
@@ -59,7 +84,11 @@ export function App() {
   // Subtle, unlinked admin entry point — deliberately not referenced anywhere
   // in the public nav/footer. Bypasses the marketing site shell entirely.
   if (typeof window !== 'undefined' && window.location.pathname === '/doctor-admin') {
-    return <DoctorAdminPage />;
+    return (
+      <Suspense fallback={<FullPageFallback />}>
+        <DoctorAdminPage />
+      </Suspense>
+    );
   }
 
   // This is a single-page app with tab-based in-page navigation, not a
@@ -68,12 +97,14 @@ export function App() {
   // 404 instead of silently falling back to the homepage.
   if (typeof window !== 'undefined' && !KNOWN_PATHS.includes(window.location.pathname)) {
     return (
-      <NotFoundPage
-        onGoHome={() => {
-          window.history.pushState({}, '', '/');
-          window.location.reload();
-        }}
-      />
+      <Suspense fallback={<FullPageFallback />}>
+        <NotFoundPage
+          onGoHome={() => {
+            window.history.pushState({}, '', '/');
+            window.location.reload();
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -111,12 +142,15 @@ export function App() {
                 <div id="services"><ServicesView onSelectServiceToBook={handleOpenBooking} /></div>
                 <div id="about"><AboutUs /></div>
                 <div id="team"><TeamSection /></div>
-                <div id="gallery"><GalleryView /></div>
-                <div id="blog"><BlogView /></div>
-                <div id="reviews"><TestimonialsView /></div>
+                {/* Everything from here down is below the fold on every
+                    viewport, so it mounts just after first paint (or sooner
+                    if scrolled towards) rather than competing with the hero. */}
+                <DeferredSection id="gallery" minHeight={620}><GalleryView /></DeferredSection>
+                <DeferredSection id="blog" minHeight={560}><BlogView /></DeferredSection>
+                <DeferredSection id="reviews" minHeight={560}><TestimonialsView /></DeferredSection>
                 <div id="location">
                   <InquirySection />
-                  <LocationMapSection />
+                  <DeferredSection minHeight={520}><LocationMapSection /></DeferredSection>
                 </div>
               </div>
             )}
@@ -124,13 +158,21 @@ export function App() {
             {activeTab === 'about' && <AboutUs />}
             {activeTab === 'services' && <ServicesView onSelectServiceToBook={handleOpenBooking} />}
             {activeTab === 'team' && <TeamSection />}
-            {activeTab === 'blog' && <BlogView />}
-            {activeTab === 'gallery' && <GalleryView />}
-            {activeTab === 'reviews' && <TestimonialsView />}
+            {/* Code-split tabs — the fallback reserves height so switching
+                tabs doesn't collapse the page while the chunk arrives. */}
+            {activeTab === 'blog' && (
+              <Suspense fallback={<SectionFallback />}><BlogView /></Suspense>
+            )}
+            {activeTab === 'gallery' && (
+              <Suspense fallback={<SectionFallback />}><GalleryView /></Suspense>
+            )}
+            {activeTab === 'reviews' && (
+              <Suspense fallback={<SectionFallback />}><TestimonialsView /></Suspense>
+            )}
             {activeTab === 'location' && (
               <div className="space-y-0">
                 <InquirySection />
-                <LocationMapSection />
+                <Suspense fallback={<SectionFallback />}><LocationMapSection /></Suspense>
               </div>
             )}
           </motion.div>
@@ -147,15 +189,24 @@ export function App() {
           first frame and across every stacked section, not just Hero. */}
       {activeTab === 'home' && <ScrollExploreHint />}
 
-      {/* Full in-chat AI Booking Assistant (Razorpay + Google Calendar, no redirects) */}
-      <ChatBookingWidget />
+      {/* Full in-chat AI Booking Assistant (Razorpay + Google Calendar, no
+          redirects). Split out and mounted after first paint — the launcher
+          is a floating button, so nothing above the fold depends on it. */}
+      <Suspense fallback={null}>
+        <ChatBookingWidget />
+      </Suspense>
 
-      {/* Interactive Modals */}
-      <AppointmentBookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
-        initialServiceId={bookingServiceId}
-      />
+      {/* Interactive Modals — the chunk is only fetched once a patient
+          actually opens the booking flow. */}
+      {isBookingModalOpen && (
+        <Suspense fallback={null}>
+          <AppointmentBookingModal
+            isOpen={isBookingModalOpen}
+            onClose={() => setIsBookingModalOpen(false)}
+            initialServiceId={bookingServiceId}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -38,6 +38,26 @@ body {
   -webkit-overflow-scrolling: touch; /* momentum scrolling on iOS for any nested scroll container */
 }
 
+/* iOS Safari auto-zooms the viewport the moment a patient focuses a form
+   control whose font-size is under 16px — and every compact control in the
+   chat widget and booking modal is text-xs (12px). The page then stays
+   zoomed in after the keyboard closes, so simply tapping the chatbot's
+   textbox left the whole site blown up and scrolled sideways.
+
+   Raising focusable controls to 16px on touch pointers removes the trigger
+   at its source. Deliberately NOT done with `maximum-scale=1` on the
+   viewport meta, which also works but disables pinch-zoom for everyone,
+   including patients who rely on it to read. Padding and widths are
+   untouched, so desktop layout is unaffected — the rule only ever applies
+   to coarse pointers. */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* Thin, branded scrollbar for internal scroll panels (chat widget, modals, admin tables) instead of the default chunky OS scrollbar. */
 .scroll-thin {
   scrollbar-width: thin;

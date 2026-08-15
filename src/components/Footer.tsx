@@ -19,7 +19,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-800 bg-white">
-                <img 
+                <img loading="lazy" decoding="async" 
                   src={vihanaLogo} 
                   alt="Vihana Dental Care Logo"
                   className="w-full h-full object-cover"

@@ -90,7 +90,7 @@ export const GalleryView: React.FC = () => {
               onClick={() => setActiveImage(item)}
               className="group relative h-72 rounded-[28px] overflow-hidden bg-slate-100 border border-slate-200/80 cursor-pointer shadow-lg hover:border-brand-700/40 transition-all duration-300"
             >
-              <img
+              <img loading="lazy" decoding="async"
                 src={item.imageUrl}
                 alt={item.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
@@ -136,7 +136,7 @@ export const GalleryView: React.FC = () => {
               </button>
 
               <div className="relative max-h-[70vh] overflow-hidden bg-slate-100 flex items-center justify-center p-2">
-                <img
+                <img loading="lazy" decoding="async"
                   src={activeImage.imageUrl}
                   alt={activeImage.title}
                   className="max-h-[68vh] w-auto object-contain rounded-2xl"

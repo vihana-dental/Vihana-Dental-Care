@@ -1,4 +1,4 @@
-import { ClinicInfo, DentalService, Doctor, ConsultantDoctor, GalleryItem, Review, PatientRecord, AuditLog } from '../types';
+import { ClinicInfo, DentalService, Doctor, ConsultantDoctor, GalleryItem, Review, PatientRecord, AuditLog, SlotUnavailableReason } from '../types';
 
 const vihanaDoctor = '/images/Dr.Sanchana.jpeg';
 const vihanaOperatory = '/images/vihana_operatory_1784918541912.jpg';
@@ -131,6 +131,17 @@ export function isSlotInPast(dateISO: string, timeSlot: string): boolean {
   slotStart.setHours(hours, minutes, 0, 0);
 
   return slotStart.getTime() <= Date.now();
+}
+
+/**
+ * Tooltip text for a slot chip that can't be booked. Shared by the website
+ * modal and the chat widget so a lapsed slot never gets mislabelled as
+ * "Already booked" in one place and "Passed" in the other.
+ */
+export function slotDisabledLabel(reason?: SlotUnavailableReason): string {
+  if (reason === 'passed') return 'This time has passed — booking is closed for this slot';
+  if (reason === 'blocked') return 'The doctor is unavailable at this time';
+  return 'Already booked';
 }
 
 export const SERVICES: DentalService[] = [

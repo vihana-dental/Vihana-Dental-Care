@@ -23,7 +23,7 @@
  */
 
 import { OAuth2Client } from 'google-auth-library';
-import { Appointment } from '../../src/types';
+import { Appointment, AvailabilitySlot } from '../../src/types';
 import { getTimeSlotsForDate, isSlotInPast } from '../../src/data/clinicData';
 import { isSlotBlockedForDoctor } from './scheduleOverrides';
 
@@ -215,11 +215,17 @@ function slotOverlapsBusy(dateISO: string, timeSlot: string, busy: BusyInterval[
 
 export interface AvailabilityResult {
   success: boolean;
-  slots: { time: string; available: boolean }[];
+  slots: AvailabilitySlot[];
   dayFullyBooked: boolean;
+  /** True when the date is today and every one of its slots has already started. */
+  dayLapsed: boolean;
   degraded: boolean;
   message?: string;
 }
+
+/** Human-readable explanation for why booking a lapsed slot is refused. */
+export const SLOT_LAPSED_MESSAGE =
+  'That time has already passed — slots are disabled once their start time is reached. Please pick a later time or another date.';
 
 /**
  * All bookable slots for a date, each flagged available/unavailable against
@@ -228,13 +234,27 @@ export interface AvailabilityResult {
  * doctorId is optional so callers that haven't collected a doctor yet
  * (or the general clinic-wide view) still get a sensible result; it's
  * threaded through everywhere a doctor is actually known at the call site.
+ *
+ * Lapsed slots are deliberately *returned as disabled* rather than dropped
+ * from the list. Filtering them out made a half-elapsed day look like the
+ * clinic simply opened late, and an entirely elapsed day was reported as
+ * "Clinic is closed on this day" — which is a different fact, and a wrong
+ * one. Callers that only want bookable times still just filter on
+ * `available`; callers rendering a picker can now grey the past out and say
+ * so. `dayLapsed` distinguishes "today is over" from "closed today".
  */
 export async function computeAvailability(dateISO: string, doctorId?: string): Promise<AvailabilityResult> {
-  const allSlots = getTimeSlotsForDate(dateISO).filter((time) => !isSlotInPast(dateISO, time));
+  const allSlots = getTimeSlotsForDate(dateISO);
 
   if (allSlots.length === 0) {
-    return { success: true, slots: [], dayFullyBooked: true, degraded: false, message: 'Clinic is closed on this day.' };
+    return { success: true, slots: [], dayFullyBooked: true, dayLapsed: false, degraded: false, message: 'Clinic is closed on this day.' };
   }
+
+  const lapsed = new Map(allSlots.map((time) => [time, isSlotInPast(dateISO, time)]));
+  const dayLapsed = allSlots.every((time) => lapsed.get(time));
+  const lapsedMessage = dayLapsed
+    ? "Today's booking window has closed — every remaining slot has already started. Please choose another date."
+    : undefined;
 
   const freeBusy = await getFreeBusyForDate(dateISO);
 
@@ -243,31 +263,55 @@ export async function computeAvailability(dateISO: string, doctorId?: string): P
     // blocking booking entirely because Calendar was briefly unreachable.
     // Doctor-specific day-off overrides still apply even in degraded mode —
     // those come from our own database, not Calendar, so there's no reason
-    // to ignore them just because Calendar itself is unreachable.
+    // to ignore them just because Calendar itself is unreachable. The lapsed
+    // check is likewise local arithmetic, so it stays authoritative here too:
+    // a Calendar outage must never re-open a time that has already passed.
+    const slots: AvailabilitySlot[] = allSlots.map((time) => {
+      if (lapsed.get(time)) return { time, available: false, reason: 'passed' };
+      if (isSlotBlockedForDoctor(doctorId, dateISO, time)) return { time, available: false, reason: 'blocked' };
+      return { time, available: true };
+    });
+
     return {
       success: true,
-      slots: allSlots.map((time) => ({ time, available: !isSlotBlockedForDoctor(doctorId, dateISO, time) })),
-      dayFullyBooked: false,
+      slots,
+      dayFullyBooked: slots.every((s) => !s.available),
+      dayLapsed,
       degraded: true,
-      message: 'Live availability is temporarily unavailable — showing standard hours. We will confirm your exact slot manually if needed.'
+      message: lapsedMessage || 'Live availability is temporarily unavailable — showing standard hours. We will confirm your exact slot manually if needed.'
     };
   }
 
-  const slots = allSlots.map((time) => ({
-    time,
-    available: !slotOverlapsBusy(dateISO, time, freeBusy.busy) && !isSlotBlockedForDoctor(doctorId, dateISO, time)
-  }));
-  const dayFullyBooked = slots.every((s) => !s.available);
+  const slots: AvailabilitySlot[] = allSlots.map((time) => {
+    if (lapsed.get(time)) return { time, available: false, reason: 'passed' };
+    if (isSlotBlockedForDoctor(doctorId, dateISO, time)) return { time, available: false, reason: 'blocked' };
+    if (slotOverlapsBusy(dateISO, time, freeBusy.busy)) return { time, available: false, reason: 'booked' };
+    return { time, available: true };
+  });
 
-  return { success: true, slots, dayFullyBooked, degraded: false };
+  return {
+    success: true,
+    slots,
+    dayFullyBooked: slots.every((s) => !s.available),
+    dayLapsed,
+    degraded: false,
+    message: lapsedMessage
+  };
 }
 
 /** Re-check a single slot immediately before payment/Meet generation. */
 export async function isSlotStillAvailable(dateISO: string, timeSlot: string, doctorId?: string): Promise<{ valid: boolean; degraded: boolean; message?: string }> {
+  // Checked before anything else, and independently of Calendar: a lapsed
+  // slot is refused even when availability is degraded, which is the one
+  // case the "fail open on outage" rule must not cover.
+  if (isSlotInPast(dateISO, timeSlot)) {
+    return { valid: false, degraded: false, message: SLOT_LAPSED_MESSAGE };
+  }
+
   const availability = await computeAvailability(dateISO, doctorId);
   const slot = availability.slots.find((s) => s.time === timeSlot);
 
-  if (!slot) return { valid: false, degraded: availability.degraded, message: 'That time slot is outside clinic hours for this date, or has already passed.' };
+  if (!slot) return { valid: false, degraded: availability.degraded, message: 'That time slot is outside clinic hours for this date.' };
   if (availability.degraded) return { valid: true, degraded: true, message: availability.message };
 
   return { valid: slot.available, degraded: false, message: slot.available ? undefined : 'That slot was just booked by someone else. Please pick another time.' };

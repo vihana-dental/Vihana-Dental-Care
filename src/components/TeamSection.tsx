@@ -113,7 +113,7 @@ export const TeamSection: React.FC = () => {
               >
                 {/* Photo Column */}
                 <div className="md:col-span-5 relative min-h-[320px] md:min-h-[420px] bg-slate-200 overflow-hidden">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={doc.photo}
                     alt={doc.name}
                     className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
@@ -196,7 +196,7 @@ export const TeamSection: React.FC = () => {
                 className="bg-[#F5F5F7] rounded-[28px] overflow-hidden border border-slate-200/80 shadow-xs hover:shadow-xl transition-all flex flex-col"
               >
                 <div className="relative h-56 bg-slate-200 overflow-hidden">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={doc.photo}
                     alt={doc.name}
                     className="w-full h-full object-cover object-top"

@@ -3,10 +3,17 @@ import express from 'express';
 import path from 'path';
 import crypto from 'crypto';
 import helmet from 'helmet';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
 import { OAuth2Client } from 'google-auth-library';
+import {
+  getGeminiClient,
+  buildKnowledgeBase,
+  buildSystemInstruction,
+  RECEPTIONIST_ACTIONS,
+  generateWithFailover
+} from './server/services/receptionist';
 import { Appointment, Inquiry, DentalService, Doctor, ConsultantDoctor, GalleryItem } from './src/types';
 import { SERVICES as STATIC_SERVICES, DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS, CLINIC_INFO, getTimeSlotsForDate } from './src/data/clinicData';
 import {
@@ -99,6 +106,13 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
 }));
+
+// gzip every compressible response. Nothing was compressing text at all, so
+// the JS bundle went over the wire at its full uncompressed size — the
+// single largest transfer cost on a mobile connection (vendor-react alone
+// was 194KB instead of 61KB). Registered before the routes and the static
+// handler so it covers both API JSON and the built assets.
+app.use(compression());
 
 // Rate limiting for public-facing booking/payment endpoints — previously
 // only /api/admin/login had any throttling. Applied narrowly to the routes
@@ -347,21 +361,8 @@ let inquiriesStorage: Inquiry[] = [
   }
 ];
 
-// Initialize Gemini Client
-const getGeminiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY || "";
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey === "dummy-key") {
-    return null;
-  }
-  return new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
-    }
-  });
-};
+// Gemini client + model id now live in server/services/receptionist.ts,
+// alongside the grounded knowledge base that drives the chat widget.
 
 function getPublicFeeConfig() {
   return clinicFeeConfig;
@@ -562,6 +563,7 @@ app.get('/api/availability', async (req, res) => {
       date,
       slots: result.slots,
       dayFullyBooked: result.dayFullyBooked,
+      dayLapsed: result.dayLapsed,
       degraded: result.degraded,
       message: result.message
     });
@@ -572,6 +574,7 @@ app.get('/api/availability', async (req, res) => {
       date,
       slots: [],
       dayFullyBooked: false,
+      dayLapsed: false,
       degraded: true,
       message: 'Live availability is temporarily unavailable. We will confirm your exact slot manually if needed.'
     });
@@ -1381,7 +1384,15 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
     const availability = await computeAvailability(dateStr, state.doctorId);
     const availableSlots = availability.slots.filter((s) => s.available);
     if (availableSlots.length === 0) {
-      await sendTextMessage(from, "We're fully booked that day. Please try a different date (reply YYYY-MM-DD).");
+      // "Fully booked", "closed today" and "today is already over" are three
+      // different facts — saying the wrong one sends the patient off to call
+      // the clinic about a slot that was never on offer in the first place.
+      const reason = availability.dayLapsed
+        ? "today's booking window has closed — slots are disabled once their start time has passed"
+        : availability.slots.length === 0
+        ? "we're closed that day"
+        : "we're fully booked that day";
+      await sendTextMessage(from, `Sorry, ${reason}. Please try a different date (reply YYYY-MM-DD).`);
       return;
     }
 
@@ -1446,7 +1457,10 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
     const timeSlot = interactiveReplyId?.startsWith('time:') ? interactiveReplyId.slice('time:'.length) : text.trim();
     const slotCheck = await isSlotStillAvailable(state.date!, timeSlot, state.doctorId);
     if (!slotCheck.valid && !slotCheck.degraded) {
-      await sendTextMessage(from, 'Sorry, that slot was just taken. Please pick another time from the list above.');
+      // Use the checker's own reason — a lapsed slot and a just-taken slot
+      // need different instructions, and a patient who typed a past time
+      // should be told the time has passed, not that someone else took it.
+      await sendTextMessage(from, `${slotCheck.message || 'Sorry, that slot was just taken.'} Please pick another time from the list above.`);
       return;
     }
 
@@ -2813,8 +2827,7 @@ Clinic Details:
 Conversation context: ${JSON.stringify(conversationHistory || [])}
 Provide a helpful, friendly WhatsApp auto-reply.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const response = await generateWithFailover(ai, {
       contents: prompt,
       config: {
         systemInstruction,
@@ -2843,22 +2856,28 @@ Provide a helpful, friendly WhatsApp auto-reply.`;
   }
 });
 
-// POST Gemini Booking Widget Intent Endpoint — strictly scoped to appointment
-// booking. Only classifies free-text into one of a fixed set of actions the
-// widget's own deterministic state machine already knows how to handle; the
-// model never invents dates, fees, or appointment details itself.
-const BOOKING_BOT_ALLOWED_ACTIONS = ['START_BOOKING', 'CHECK_AVAILABILITY', 'RESCHEDULE_CANCEL', 'FAQ_ANSWER', 'OFF_TOPIC_REDIRECT'] as const;
+// POST Website Chat Receptionist — the free-text half of the chat widget.
+// The widget's guided booking sequence remains a deterministic state machine;
+// this endpoint answers the patient's own words, grounded strictly in the
+// live site content assembled by buildKnowledgeBase (services, team, FAQs,
+// fees, hours). It classifies intent so the widget can jump to the right
+// panel, and returns a real reply rather than a canned one.
+const MAX_HISTORY_TURNS = 10;
+const MAX_USER_MESSAGE_CHARS = 1000;
 
-app.post('/api/gemini/booking-bot', async (req, res) => {
-  const { userMessage } = req.body;
+app.post('/api/gemini/booking-bot', publicApiLimiter, async (req, res) => {
+  const { userMessage, conversationHistory } = req.body;
 
   if (typeof userMessage !== 'string' || !userMessage.trim()) {
     return res.status(400).json({ success: false, error: "userMessage is required" });
   }
 
+  // Degraded-mode reply used whenever the model is unreachable or answers
+  // badly. Deliberately does not attempt to answer the question — guessing
+  // is the one thing this endpoint must never do.
   const fallback = {
-    action: 'OFF_TOPIC_REDIRECT' as const,
-    reply: "I can help with booking, availability, rescheduling, or cancelling your Vihana Dental Care appointment. What would you like to do?"
+    action: 'HANDOFF' as const,
+    reply: `I'm having trouble reaching our assistant just now. You can still book right here using the options below, or call us on ${CLINIC_INFO.phone} and we'll help you straight away.`
   };
 
   try {
@@ -2867,35 +2886,60 @@ app.post('/api/gemini/booking-bot', async (req, res) => {
       throw new Error("Gemini API key is not configured.");
     }
 
-    const systemInstruction = `You are the appointment-booking assistant for Vihana Dental Care, Kalapatti, Coimbatore. You ONLY help with: booking appointments, checking availability, rescheduling/cancelling, and short factual FAQ about the clinic's services, doctor, hours, or fees.
+    // Assembled per request from the same live mirrors the public API serves,
+    // so admin edits (a renamed service, a new FAQ, a changed fee) are
+    // reflected in the very next reply.
+    const knowledgeBase = buildKnowledgeBase({
+      services: SERVICES_LIVE,
+      doctors: DOCTORS_LIVE,
+      consultants: CONSULTANTS_LIVE,
+      faqs: await listFAQs(),
+      feeConfig: getPublicFeeConfig()
+    });
 
-You must NEVER invent appointment details, dates, prices, or medical advice. You do not have live calendar or pricing data — the app UI shows that separately.
+    const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
-Respond ONLY with strict JSON: {"action": one of ${JSON.stringify(BOOKING_BOT_ALLOWED_ACTIONS)}, "reply": a short (1-2 sentence) friendly reply}.
-- Use START_BOOKING if the user wants to book/schedule an appointment.
-- Use CHECK_AVAILABILITY if they ask about open slots/timings.
-- Use RESCHEDULE_CANCEL if they want to change or cancel an existing appointment.
-- Use FAQ_ANSWER for general questions about services, the doctor, hours, or location — answer briefly and factually using only: Services — Dental Implants, Invisalign, Laser Root Canal, Cosmetic Smile Design, Teeth Whitening, Pediatric Care, Wisdom Tooth Surgery, Zirconia Crowns, Braces; Doctor — Dr. N. Sanchana, MDS (Orthodontist); Hours — Mon-Sat 9:00 AM-1:30 PM & 5:00 PM-8:30 PM, Sun 10:30 AM-1:00 PM.
-- Use OFF_TOPIC_REDIRECT for anything unrelated to this clinic's appointment booking (including medical diagnosis requests, unrelated small talk, or requests outside this scope) — politely redirect back to booking topics without answering the off-topic part.`;
+    // Prior turns are replayed as real multi-turn contents so follow-ups
+    // ("how much is that one?") resolve against what was already said,
+    // instead of every message being read in isolation.
+    const history = Array.isArray(conversationHistory) ? conversationHistory.slice(-MAX_HISTORY_TURNS) : [];
+    const contents = [
+      ...history
+        .filter((m: any) => m && typeof m.text === 'string' && m.text.trim())
+        .map((m: any) => ({
+          role: m.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: String(m.text).slice(0, MAX_USER_MESSAGE_CHARS) }]
+        })),
+      { role: 'user', parts: [{ text: userMessage.slice(0, MAX_USER_MESSAGE_CHARS) }] }
+    ];
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `User message: "${userMessage}"`,
+    const response = await generateWithFailover(ai, {
+      contents,
       config: {
-        systemInstruction,
-        temperature: 0.3,
-        responseMimeType: "application/json"
+        systemInstruction: buildSystemInstruction(knowledgeBase, todayISO),
+        temperature: 0.4,
+        responseMimeType: "application/json",
+        // Constrains the decode itself, so a malformed shape can't reach the
+        // widget and force it back onto the canned reply.
+        responseSchema: {
+          type: 'object',
+          properties: {
+            action: { type: 'string', enum: [...RECEPTIONIST_ACTIONS] },
+            reply: { type: 'string' }
+          },
+          required: ['action', 'reply']
+        }
       }
     });
 
     const parsed = JSON.parse(response.text || '{}');
-    if (!BOOKING_BOT_ALLOWED_ACTIONS.includes(parsed.action) || typeof parsed.reply !== 'string' || !parsed.reply.trim()) {
+    if (!RECEPTIONIST_ACTIONS.includes(parsed.action) || typeof parsed.reply !== 'string' || !parsed.reply.trim()) {
       throw new Error('Malformed model response');
     }
 
     res.json({ action: parsed.action, reply: parsed.reply });
   } catch (error) {
-    console.error("Booking bot intent classification failed:", error);
+    console.error("Website chat receptionist failed:", error);
     res.json(fallback);
   }
 });
@@ -2945,7 +2989,28 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+
+    // Vite fingerprints every file in /assets, so its contents can never
+    // change under a given URL — those are safe to cache forever. Everything
+    // else (images, robots.txt, and above all index.html, which is what
+    // points at the current asset hashes) keeps a short, revalidating policy
+    // so a redeploy is picked up immediately instead of being pinned to a
+    // stale shell. Previously all of it went out as `max-age=0`, so returning
+    // visitors re-downloaded the entire bundle on every single page view.
+    const ONE_YEAR_SECONDS = 31536000;
+    app.use(
+      express.static(distPath, {
+        setHeaders(res, filePath) {
+          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', `public, max-age=${ONE_YEAR_SECONDS}, immutable`);
+          } else if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+          } else {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+          }
+        }
+      })
+    );
 
     // Mirrors KNOWN_PATHS in src/App.tsx — the only paths this SPA actually
     // renders a real page for. Everything else falls through to the client's
@@ -2956,6 +3021,9 @@ async function startServer() {
     const SPA_PATHS = new Set(['/', '/doctor-admin']);
     app.get('*', (req, res) => {
       const status = SPA_PATHS.has(req.path) ? 200 : 404;
+      // The shell must never be cached — it carries the hashed asset names,
+      // so a cached copy would keep pointing at the previous deploy's chunks.
+      res.set('Cache-Control', 'no-cache');
       res.status(status).sendFile(path.join(distPath, 'index.html'));
     });
   }
