@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CLINIC_INFO, SERVICES } from '../data/clinicData';
+import { CLINIC_INFO, SERVICES, clinicWhatsAppHref } from '../data/clinicData';
 import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle, Mail, Award } from 'lucide-react';
 import { CertificationsModal } from './CertificationsModal';
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
@@ -107,16 +107,22 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           {/* Col 4: Contact & Hours */}
           <div className="space-y-3 text-xs">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Contact & Location</h4>
-            <p className="flex items-start gap-2 text-slate-300">
+            <a
+              href={CLINIC_INFO.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open ${CLINIC_INFO.name}'s location in Google Maps (opens in a new tab)`}
+              className="flex items-start gap-2 text-slate-300 hover:text-brand-500 transition-colors"
+            >
               <MapPin className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
               <span>{CLINIC_INFO.address}, Coimbatore - {CLINIC_INFO.pincode}</span>
-            </p>
+            </a>
             <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-center gap-2 text-slate-300 hover:text-brand-500 transition-colors">
               <Phone className="w-4 h-4 text-brand-600 shrink-0" />
               <span>{CLINIC_INFO.phone}</span>
             </a>
             <a
-              href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+              href={clinicWhatsAppHref()}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-slate-300 hover:text-emerald-300 transition-colors"

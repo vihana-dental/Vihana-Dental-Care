@@ -1,16 +1,16 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Phone, MessageCircle, Calendar } from 'lucide-react';
-import { CLINIC_INFO } from '../data/clinicData';
+import { CLINIC_INFO, whatsAppBotHref } from '../data/clinicData';
 
 interface StickyCtaBarProps {
   onOpenBooking: () => void;
 }
 
 export const StickyCtaBar: React.FC<StickyCtaBarProps> = ({ onOpenBooking }) => {
-  const whatsappHref = `https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-    "Hi Vihana Dental Care, I'd like to book an appointment."
-  )}`;
+  // Both of these are booking CTAs, so they open the automated assistant
+  // rather than the clinic's own line. Neither renders the number itself.
+  const whatsappHref = whatsAppBotHref("Hi Vihana Dental Care, I'd like to book an appointment.");
 
   return (
     <>

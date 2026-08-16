@@ -1,12 +1,12 @@
 import React from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
-import { CLINIC_INFO } from '../data/clinicData';
+import { CLINIC_INFO, clinicWhatsAppHref } from '../data/clinicData';
 import { MapPin, Phone, Clock, ExternalLink, Navigation, Sparkles, MessageCircle, Mail } from 'lucide-react';
 
-// This Contact & Map section is the one place that keeps showing the
-// original clinic WhatsApp number — every other CTA site-wide now points at
-// CLINIC_INFO.whatsapp (the new appointments-booking bot number) by design.
-const CONTACT_PAGE_WHATSAPP = "+91 86680 82140";
+// This section used to hold a local copy of the clinic's WhatsApp number,
+// because CLINIC_INFO.whatsapp then held the booking bot's number. That's
+// inverted now: CLINIC_INFO.whatsapp IS the clinic's number site-wide and the
+// bot lives in CLINIC_INFO.whatsappBot, reachable only via whatsAppBotHref().
 
 export const LocationMapSection: React.FC = () => {
   const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY || process.env.GOOGLE_MAPS_PLATFORM_KEY || "";
@@ -45,7 +45,15 @@ export const LocationMapSection: React.FC = () => {
                   <MapPin className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Address</p>
-                    <p className="mt-0.5">{CLINIC_INFO.address}, Coimbatore, Tamil Nadu - {CLINIC_INFO.pincode}</p>
+                    <a
+                      href={CLINIC_INFO.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open ${CLINIC_INFO.name}'s location in Google Maps (opens in a new tab)`}
+                      className="mt-0.5 block hover:text-brand-500 transition-colors"
+                    >
+                      {CLINIC_INFO.address}, Coimbatore, Tamil Nadu - {CLINIC_INFO.pincode}
+                    </a>
                   </div>
                 </div>
 
@@ -58,7 +66,7 @@ export const LocationMapSection: React.FC = () => {
                 </a>
 
                 <a
-                  href={`https://wa.me/${CONTACT_PAGE_WHATSAPP.replace(/[^0-9]/g, '')}`}
+                  href={clinicWhatsAppHref()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start gap-3 group"
@@ -66,7 +74,7 @@ export const LocationMapSection: React.FC = () => {
                   <MessageCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">WhatsApp Us</p>
-                    <p className="mt-0.5 group-hover:text-emerald-300 transition-colors">{CONTACT_PAGE_WHATSAPP}</p>
+                    <p className="mt-0.5 group-hover:text-emerald-300 transition-colors">{CLINIC_INFO.whatsapp}</p>
                   </div>
                 </a>
 
@@ -103,7 +111,7 @@ export const LocationMapSection: React.FC = () => {
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
               <a
-                href={`https://wa.me/${CONTACT_PAGE_WHATSAPP.replace(/[^0-9]/g, '')}`}
+                href={clinicWhatsAppHref()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"
@@ -111,6 +119,16 @@ export const LocationMapSection: React.FC = () => {
                 <MessageCircle className="w-4 h-4" />
                 <span>Chat on WhatsApp</span>
               </a>
+              {/* DPDP Act, 2023 §5 — notice at the point of collection. Starting
+                  a WhatsApp chat hands the clinic the patient's number, so the
+                  purpose and their rights are stated before they tap, not after. */}
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Messaging us on WhatsApp shares your phone number with the clinic so we can reply about your treatment or appointment.
+                You can ask us to access, correct or delete it at any time —{' '}
+                <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-brand-500">
+                  privacy policy
+                </a>.
+              </p>
             </div>
           </div>
 

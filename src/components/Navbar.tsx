@@ -9,7 +9,7 @@ import {
   X,
   MessageCircle
 } from 'lucide-react';
-import { CLINIC_INFO } from '../data/clinicData';
+import { CLINIC_INFO, clinicWhatsAppHref, whatsAppBotHref } from '../data/clinicData';
 
 // Updated to point to the public/images folder
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
@@ -42,9 +42,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'location', label: 'Contact & Map' },
   ];
 
-  const whatsappHref = `https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-    "Hi, I'd like to book a dental appointment at Vihana Dental Care."
-  )}`;
+  // "Book on WhatsApp" is a booking CTA, so it hands off to the automated
+  // assistant; the top-bar "WhatsApp Us" link below reaches the clinic itself.
+  const bookingBotHref = whatsAppBotHref("Hi, I'd like to book a dental appointment at Vihana Dental Care.");
 
   // Scroll-spy — only meaningful on the Home tab, where all sections are
   // stacked on one scrollable page (every other tab is a standalone single-
@@ -103,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-semibold">{CLINIC_INFO.phone}</span>
             </a>
             <a
-              href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+              href={clinicWhatsAppHref()}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 hover:text-emerald-300 transition-colors"
@@ -112,13 +112,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-semibold">WhatsApp Us</span>
             </a>
-            <div className="hidden md:flex items-center gap-1.5 text-slate-300">
+            <a
+              href={CLINIC_INFO.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open ${CLINIC_INFO.name}'s location in Google Maps (opens in a new tab)`}
+              className="hidden md:flex items-center gap-1.5 text-slate-300 hover:text-brand-500 transition-colors"
+              id="top-bar-address"
+            >
               <MapPin className="w-3.5 h-3.5 text-brand-600" />
               <span>{CLINIC_INFO.address}, {CLINIC_INFO.city}</span>
-            </div>
+            </a>
             <div className="hidden sm:flex items-center gap-1.5 text-slate-300">
               <Clock className="w-3.5 h-3.5 text-brand-600" />
-              <span>Mon-Sat: 9-1:30 & 5-8:30 PM</span>
+              <span>{CLINIC_INFO.workingHours.weekdaysShort}</span>
             </div>
           </div>
         </div>
@@ -226,7 +233,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             ))}
             <a
-              href={whatsappHref}
+              href={bookingBotHref}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setMobileMenuOpen(false)}

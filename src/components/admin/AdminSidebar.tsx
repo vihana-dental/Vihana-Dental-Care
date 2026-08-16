@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   LayoutGrid, IndianRupee, Video, Stethoscope, Users, Image as ImageIcon,
-  Newspaper, HelpCircle, Star, CalendarCheck2, LogOut, ShieldCheck, CalendarDays, CalendarRange, UserCog, CalendarOff
+  Newspaper, HelpCircle, Star, CalendarCheck2, LogOut, ShieldCheck, CalendarDays, CalendarRange, UserCog, CalendarOff, Award
 } from 'lucide-react';
 
 export type AdminSection =
   | 'overview' | 'appointments' | 'live-calendar' | 'schedule' | 'patients' | 'fees' | 'consults' | 'services' | 'team'
-  | 'gallery' | 'blog' | 'faqs' | 'reviews' | 'calendar';
+  | 'gallery' | 'certificates' | 'blog' | 'faqs' | 'reviews' | 'calendar';
 
 const NAV_ITEMS: { id: AdminSection; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
@@ -19,6 +19,7 @@ const NAV_ITEMS: { id: AdminSection; label: string; icon: React.ReactNode }[] = 
   { id: 'services', label: 'Services', icon: <Stethoscope className="w-4 h-4" /> },
   { id: 'team', label: 'Our Team', icon: <Users className="w-4 h-4" /> },
   { id: 'gallery', label: 'Gallery', icon: <ImageIcon className="w-4 h-4" /> },
+  { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" /> },
   { id: 'blog', label: 'Blog', icon: <Newspaper className="w-4 h-4" /> },
   { id: 'faqs', label: 'FAQs', icon: <HelpCircle className="w-4 h-4" /> },
   { id: 'reviews', label: 'Reviews', icon: <Star className="w-4 h-4" /> },

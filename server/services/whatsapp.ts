@@ -17,10 +17,13 @@ const META_WHATSAPP_PHONE_NUMBER_ID = process.env.META_WHATSAPP_PHONE_NUMBER_ID 
 const META_WHATSAPP_ACCESS_TOKEN = process.env.META_WHATSAPP_ACCESS_TOKEN || '';
 const META_WHATSAPP_VERIFY_TOKEN = process.env.META_WHATSAPP_VERIFY_TOKEN || '';
 const META_WHATSAPP_APP_SECRET = process.env.META_WHATSAPP_APP_SECRET || '';
-// The clinic's patient-facing WhatsApp number (digits only, no "+"), used to
-// build wa.me click-to-chat links. Set this to the real Meta-registered
-// display number once live; falls back to CLINIC_INFO.whatsapp so links
-// still work (opening a normal chat, not the bot) before that's configured.
+// The Meta-registered WhatsApp number the automated assistant answers on
+// (digits only, no "+"), used to build wa.me click-to-chat links that hand a
+// patient off to the bot. Set this to the real Meta display number once live;
+// callers pass CLINIC_INFO.whatsappBot as the fallback so those links still
+// reach the bot's number before that's configured. This is deliberately NOT
+// the clinic's public contact number (CLINIC_INFO.whatsapp) — the bot number
+// is never shown to patients as text, only ever used as a link target.
 const META_WHATSAPP_DISPLAY_NUMBER = process.env.META_WHATSAPP_DISPLAY_NUMBER || '';
 
 // Meta only allows free-form text messages (sendTextMessage) inside the 24h

@@ -11,6 +11,7 @@ import { ConsultsPanel } from './admin/panels/ConsultsPanel';
 import { ServicesPanel } from './admin/panels/ServicesPanel';
 import { TeamPanel } from './admin/panels/TeamPanel';
 import { GalleryPanel } from './admin/panels/GalleryPanel';
+import { CertificatesPanel } from './admin/panels/CertificatesPanel';
 import { BlogPanel } from './admin/panels/BlogPanel';
 import { FAQPanel } from './admin/panels/FAQPanel';
 import { ReviewsPanel } from './admin/panels/ReviewsPanel';
@@ -47,6 +48,7 @@ const SECTION_TITLES: Record<AdminSection, string> = {
   services: 'Services',
   team: 'Our Team',
   gallery: 'Gallery',
+  certificates: 'Certificates & Documents',
   blog: 'Blog',
   faqs: 'FAQs',
   reviews: 'Reviews',
@@ -189,6 +191,7 @@ export const DoctorAdminPage: React.FC = () => {
           {activeSection === 'services' && <ServicesPanel {...panelProps} />}
           {activeSection === 'team' && <TeamPanel {...panelProps} />}
           {activeSection === 'gallery' && <GalleryPanel {...panelProps} />}
+          {activeSection === 'certificates' && <CertificatesPanel {...panelProps} />}
           {activeSection === 'blog' && <BlogPanel {...panelProps} />}
           {activeSection === 'faqs' && <FAQPanel {...panelProps} />}
           {activeSection === 'reviews' && (

@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send, CheckCircle2, Clock, Sparkles, MessageCircle, AlertTriangle } from 'lucide-react';
-import { CLINIC_INFO, SERVICES } from '../data/clinicData';
+import { CLINIC_INFO, SERVICES, clinicWhatsAppHref } from '../data/clinicData';
+
+// DPDP Act, 2023 §5-6 — the notice a patient agrees to before we take their
+// contact details, kept as a constant so the exact wording shown can be
+// stored alongside the consent record on the server. Change the text here and
+// the stored record for future submissions changes with it; records already
+// written keep the wording that was actually displayed at the time.
+export const INQUIRY_CONSENT_TEXT =
+  'I consent to Vihana Dental Care storing my name, phone number and email to respond to this enquiry about dental treatment. ' +
+  'I understand I can ask for my details to be accessed, corrected or deleted at any time.';
 
 export const InquirySection: React.FC = () => {
   const [name, setName] = useState('');
@@ -8,12 +17,17 @@ export const InquirySection: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [service, setService] = useState(SERVICES[0].title);
   const [message, setMessage] = useState('');
+  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!consent) {
+      setError('Please tick the consent box so we may store your details to reply to you.');
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -21,7 +35,7 @@ export const InquirySection: React.FC = () => {
       const res = await fetch('/api/inquiries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, service, message })
+        body: JSON.stringify({ name, email, phone, service, message, consentGiven: consent, consentText: INQUIRY_CONSENT_TEXT })
       });
 
       const data = await res.json();
@@ -32,6 +46,7 @@ export const InquirySection: React.FC = () => {
         setPhone('');
         setMessage('');
         setService(SERVICES[0].title);
+        setConsent(false);
       } else {
         // The server rejects with { error } and no success flag — without this
         // branch the form silently did nothing at all on a validation failure,
@@ -79,7 +94,15 @@ export const InquirySection: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-slate-200">Address Location</p>
-                  <p className="text-xs text-slate-300 mt-0.5">{CLINIC_INFO.address}, {CLINIC_INFO.city} - {CLINIC_INFO.pincode}</p>
+                  <a
+                    href={CLINIC_INFO.googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open ${CLINIC_INFO.name}'s location in Google Maps (opens in a new tab)`}
+                    className="text-xs text-slate-300 mt-0.5 block hover:text-brand-500 transition-colors"
+                  >
+                    {CLINIC_INFO.address}, {CLINIC_INFO.city} - {CLINIC_INFO.pincode}
+                  </a>
                 </div>
               </div>
 
@@ -94,7 +117,7 @@ export const InquirySection: React.FC = () => {
               </a>
 
               <a
-                href={`https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+                href={clinicWhatsAppHref()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-start gap-4 group"
@@ -220,6 +243,23 @@ export const InquirySection: React.FC = () => {
                     placeholder="Tell us about your dental concern, preferred consultation timing..."
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-700 outline-none bg-white"
                   />
+                </div>
+
+                <div className="flex items-start gap-2.5 bg-white border border-slate-200 rounded-xl p-3">
+                  <input
+                    id="inquiry-consent"
+                    type="checkbox"
+                    required
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 shrink-0 accent-brand-800 cursor-pointer"
+                  />
+                  <label htmlFor="inquiry-consent" className="text-[11px] leading-relaxed text-slate-600 cursor-pointer">
+                    {INQUIRY_CONSENT_TEXT}{' '}
+                    <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="underline font-semibold hover:text-brand-800">
+                      Read our privacy policy
+                    </a>.
+                  </label>
                 </div>
 
                 {error && (

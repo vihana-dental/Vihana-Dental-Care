@@ -266,6 +266,35 @@ create table if not exists gallery_items (
   updated_at timestamptz not null default now()
 );
 
+-- ---------------- clinic_certificates ----------------
+-- Clinic licences, registrations and doctor qualifications, uploaded from
+-- /doctor-admin and listed publicly behind the footer's "Certifications"
+-- link. file_data holds the document as a base64 data: URI (same approach as
+-- blog_posts.image_url — no separate object store for a handful of small
+-- files); it is deliberately never selected by the list query, only by the
+-- single-file read route. Accepted types are PDF/JPEG/PNG, enforced in
+-- server/services/certificates.ts by declared MIME + extension + magic bytes
+-- together, and capped at 4MB.
+--
+-- These are practice credentials meant for publication, not patient data.
+-- uploaded_by records which admin account uploaded the document, which is
+-- what the DPDP-aligned audit trail is written against.
+create table if not exists clinic_certificates (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  file_name text not null,
+  mime_type text not null check (mime_type in ('application/pdf', 'image/jpeg', 'image/png')),
+  file_size_bytes bigint not null check (file_size_bytes > 0 and file_size_bytes <= 4194304),
+  file_data text not null,
+  display_order integer not null default 100,
+  uploaded_by text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists clinic_certificates_order_idx
+  on clinic_certificates (display_order asc, created_at asc);
+
 -- ---------------- reviews (curated) ----------------
 -- Hand-curated testimonials shown immediately in TestimonialsView while
 -- the live Google Places fetch (/api/google-reviews) loads, and kept as
@@ -303,4 +332,5 @@ alter table faqs enable row level security;
 alter table team_doctors enable row level security;
 alter table team_consultants enable row level security;
 alter table gallery_items enable row level security;
+alter table clinic_certificates enable row level security;
 alter table reviews enable row level security;

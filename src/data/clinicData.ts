@@ -42,14 +42,22 @@ export const CLINIC_INFO: ClinicInfo = {
   pincode: "641048",
   phone: "+91 98943 17823",
   alternatePhone: "098943 17823",
-  whatsapp: "+1 555 427 7090",
+  whatsapp: "+91 86680 82140",
+  whatsappBot: "+1 555 427 7090",
   email: "sanchunags@gmail.com",
   googleBusinessUrl: "https://share.google/DM4pZO0cneU667nxJ",
+  googleMapsUrl:
+    "https://www.google.com/maps/search/?api=1&query=" +
+    encodeURIComponent("Vihana Dental Care, No 77, Post Office Street, Kalapatti, Coimbatore, Tamil Nadu 641048"),
   rating: 4.9,
   totalReviews: 185,
   workingHours: {
     weekdays: "Monday - Saturday: 9:00 AM – 1:30 PM & 5:00 PM – 8:30 PM",
     sundays: "Sunday: 10:30 AM – 1:00 PM",
+    // Condensed form for the header bar, where the full sentence doesn't fit.
+    // Every time carries an explicit AM/PM — "9-1:30 & 5-8:30" reads as
+    // ambiguous to a patient scanning the bar for whether the clinic is open.
+    weekdaysShort: "Mon-Sat: 9:00 AM - 1:30 PM & 5:00 PM - 8:30 PM",
     emergency: "24/7 Emergency Care on Call"
   },
   location: {
@@ -57,6 +65,39 @@ export const CLINIC_INFO: ClinicInfo = {
     lng: 77.0264
   }
 };
+
+// ---------------- WhatsApp link helpers ----------------
+// Two numbers, two jobs, and the distinction is deliberate:
+//
+//  • CLINIC_INFO.whatsapp is the clinic's own line. It is the only WhatsApp
+//    number shown as text anywhere public, and it backs the "WhatsApp Us"
+//    contact entries (header, footer, contact card) where the patient is
+//    reaching a human at the clinic.
+//  • CLINIC_INFO.whatsappBot is the automated booking assistant. It is never
+//    rendered as text — it only ever appears as the wa.me target of a "Book
+//    on WhatsApp" CTA, because tapping that is what opens an automated
+//    conversation with the bot.
+//
+// Routing every link through these two helpers keeps that split honest:
+// nothing has to hand-roll `.replace(/[^0-9]/g, '')` against whichever
+// number a component happened to import, which is how the bot number leaked
+// into the header and footer in the first place.
+function waLink(number: string, message?: string): string {
+  const digits = number.replace(/[^0-9]/g, '');
+  return message
+    ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
+    : `https://wa.me/${digits}`;
+}
+
+/** Chat with the clinic directly — pairs with the visible number. */
+export function clinicWhatsAppHref(message?: string): string {
+  return waLink(CLINIC_INFO.whatsapp, message);
+}
+
+/** Start an automated booking conversation. Display the label, never the number. */
+export function whatsAppBotHref(message?: string): string {
+  return waLink(CLINIC_INFO.whatsappBot, message);
+}
 
 // ---------------- Structured Working Hours ----------------
 // Single source of truth for bookable windows, consumed by both the server

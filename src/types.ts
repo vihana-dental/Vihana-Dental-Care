@@ -26,13 +26,29 @@ export interface ClinicInfo {
   pincode: string;
   phone: string;
   alternatePhone: string;
+  /**
+   * The clinic's own WhatsApp number — the ONLY WhatsApp number that is ever
+   * rendered as visible text anywhere on the public site.
+   */
   whatsapp: string;
+  /**
+   * The automated booking bot's WhatsApp number. Deliberately NOT a display
+   * value: it exists solely as the wa.me target behind "Book on WhatsApp"
+   * CTAs, which is what starts an automated conversation with the bot. Never
+   * print this in a header, footer, contact card, or anywhere else — use
+   * `whatsapp` for anything a patient reads.
+   */
+  whatsappBot: string;
   email: string;
   googleBusinessUrl: string;
+  /** Deep link to the clinic pin on Google Maps (address/hours links point here). */
+  googleMapsUrl: string;
   rating: number;
   totalReviews: number;
   workingHours: {
     weekdays: string;
+    /** Condensed weekday hours for the header bar; still carries AM/PM. */
+    weekdaysShort: string;
     sundays: string;
     emergency: string;
   };
@@ -186,6 +202,37 @@ export interface Inquiry {
   status: 'new' | 'contacted' | 'resolved';
   createdAt: string;
   notes?: string;
+  /**
+   * DPDP Act, 2023 §6 — the notice-and-consent record for this submission.
+   * `consentGiven` is what the patient actually ticked; `consentText` stores
+   * the exact wording they were shown, and `consentedAt` when, so the record
+   * of consent stands on its own even after the form copy is reworded.
+   */
+  consentGiven?: boolean;
+  consentText?: string;
+  consentedAt?: string;
+}
+
+/**
+ * A clinic licence / registration / qualification document, uploaded by the
+ * doctor in the admin console and listed publicly behind the footer's
+ * "Certifications" link. These are practice credentials, not patient data —
+ * they are meant to be public — but uploads and deletions are still audited
+ * (see the DPDP notes on the certificates routes in server.ts).
+ */
+export interface ClinicCertificate {
+  id: string;
+  title: string;
+  /** Original filename as uploaded, kept for display and download naming. */
+  fileName: string;
+  /** One of the accepted document types: application/pdf, image/jpeg, image/png. */
+  mimeType: string;
+  fileSizeBytes: number;
+  /** Where the public gallery loads the document from. */
+  fileUrl: string;
+  /** Lower sorts first in the public list. */
+  displayOrder: number;
+  uploadedAt: string;
 }
 
 export interface VisitRecord {

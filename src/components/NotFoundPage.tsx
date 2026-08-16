@@ -1,16 +1,14 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Home, Calendar, MessageCircle } from 'lucide-react';
-import { CLINIC_INFO } from '../data/clinicData';
+import { whatsAppBotHref } from '../data/clinicData';
 
 interface NotFoundPageProps {
   onGoHome: () => void;
 }
 
 export const NotFoundPage: React.FC<NotFoundPageProps> = ({ onGoHome }) => {
-  const whatsappHref = `https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-    "Hi, I'd like to book a dental appointment at Vihana Dental Care."
-  )}`;
+  const whatsappHref = whatsAppBotHref("Hi, I'd like to book a dental appointment at Vihana Dental Care.");
 
   return (
     <div className="min-h-screen bg-[#F5F5F7] flex items-center justify-center px-4 py-16">

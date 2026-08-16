@@ -58,6 +58,15 @@ import {
   listConsultants, createConsultant, updateConsultant, deleteConsultant
 } from './server/services/team';
 import { listGalleryItems, createGalleryItem, updateGalleryItem, deleteGalleryItem } from './server/services/gallery';
+import {
+  listCertificates,
+  getCertificateFile,
+  createCertificate,
+  updateCertificate,
+  deleteCertificate,
+  validateCertificateFile,
+  MAX_CERTIFICATE_BYTES
+} from './server/services/certificates';
 import { listCuratedReviews, createCuratedReview, updateCuratedReview, deleteCuratedReview } from './server/services/reviews';
 import {
   getWebhookVerifyToken,
@@ -541,6 +550,34 @@ app.get('/api/faqs', async (req, res) => {
   res.json({ success: true, faqs });
 });
 
+// ---------------- CERTIFICATES (public reads) ----------------
+// Backs the footer's "Certifications" link. Metadata only — the actual
+// document bytes come from the file route below, one request per document
+// the visitor chooses to open, so loading the list never ships megabytes of
+// base64 nobody looked at.
+app.get('/api/certificates', async (req, res) => {
+  const certificates = await listCertificates();
+  res.json({ success: true, certificates });
+});
+
+app.get('/api/certificates/:id/file', async (req, res) => {
+  const file = await getCertificateFile(req.params.id);
+  if (!file) return res.status(404).json({ success: false, error: 'Certificate not found.' });
+
+  auditLog(req, `served certificate file ${req.params.id}`, 'certificate');
+
+  // Content-Type is the vetted type recorded at upload (declared MIME,
+  // extension and magic bytes all had to agree), and nosniff stops a browser
+  // second-guessing it. Content-Disposition is inline so PDFs and images
+  // open in the viewer's own tab rather than force-downloading; the filename
+  // is quote-escaped because it is doctor-supplied text.
+  res.setHeader('Content-Type', file.mimeType);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', `inline; filename="${file.fileName.replace(/["\\]/g, '')}"`);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(file.bytes);
+});
+
 app.get('/api/reviews/curated', async (req, res) => {
   const reviews = await listCuratedReviews();
   res.json({ success: true, reviews });
@@ -845,7 +882,7 @@ app.post('/api/payments/verify', publicApiLimiter, async (req, res) => {
       alreadyConfirmed: true,
       appointment,
       calendarSync: { synced: appointment.googleCalendarSynced, meetLink: appointment.videoRoomUrl, mock: !isRazorpayConfigured() },
-      whatsappLink: buildAppointmentWhatsAppLink(appointment.id, CLINIC_INFO.whatsapp)
+      whatsappLink: buildAppointmentWhatsAppLink(appointment.id, CLINIC_INFO.whatsappBot)
     });
   }
 
@@ -883,7 +920,7 @@ app.post('/api/payments/verify', publicApiLimiter, async (req, res) => {
     alreadyConfirmed: result.alreadyConfirmed,
     appointment: result.appointment,
     calendarSync: result.calendarSync || { synced: result.appointment.googleCalendarSynced, meetLink: result.appointment.videoRoomUrl, mock: mockMode },
-    whatsappLink: buildAppointmentWhatsAppLink(result.appointment.id, CLINIC_INFO.whatsapp)
+    whatsappLink: buildAppointmentWhatsAppLink(result.appointment.id, CLINIC_INFO.whatsappBot)
   });
 });
 
@@ -1058,7 +1095,7 @@ app.post('/api/razorpay/create-payment-link', publicApiLimiter, async (req, res)
     appointmentsStorage.unshift(pendingAppointment);
     await recordPendingAppointment(pendingAppointment);
 
-    res.json({ ...link, appointmentId: pendingAppointment.id, whatsappLink: buildAppointmentWhatsAppLink(pendingAppointment.id, CLINIC_INFO.whatsapp) });
+    res.json({ ...link, appointmentId: pendingAppointment.id, whatsappLink: buildAppointmentWhatsAppLink(pendingAppointment.id, CLINIC_INFO.whatsappBot) });
   } catch (error: any) {
     console.error('Razorpay payment link creation failed:', error?.message || error);
     res.status(502).json({ success: false, error: 'Could not generate a payment link right now. Please try again in a moment.' });
@@ -1087,7 +1124,7 @@ app.post('/api/payments/confirm-payment-link', publicApiLimiter, async (req, res
       alreadyConfirmed: true,
       appointment,
       calendarSync: { synced: appointment.googleCalendarSynced, meetLink: appointment.videoRoomUrl },
-      whatsappLink: buildAppointmentWhatsAppLink(appointment.id, CLINIC_INFO.whatsapp)
+      whatsappLink: buildAppointmentWhatsAppLink(appointment.id, CLINIC_INFO.whatsappBot)
     });
   }
 
@@ -1108,7 +1145,7 @@ app.post('/api/payments/confirm-payment-link', publicApiLimiter, async (req, res
       success: true,
       pending: true,
       message: "Payment not confirmed yet. We'll confirm automatically the moment Razorpay notifies us — you'll get a WhatsApp/email confirmation.",
-      whatsappLink: buildAppointmentWhatsAppLink(appointment.id, CLINIC_INFO.whatsapp)
+      whatsappLink: buildAppointmentWhatsAppLink(appointment.id, CLINIC_INFO.whatsappBot)
     });
   }
 
@@ -1118,7 +1155,7 @@ app.post('/api/payments/confirm-payment-link', publicApiLimiter, async (req, res
     alreadyConfirmed: result.alreadyConfirmed,
     appointment: result.appointment,
     calendarSync: result.calendarSync || { synced: result.appointment.googleCalendarSynced, meetLink: result.appointment.videoRoomUrl, mock: true },
-    whatsappLink: buildAppointmentWhatsAppLink(result.appointment.id, CLINIC_INFO.whatsapp)
+    whatsappLink: buildAppointmentWhatsAppLink(result.appointment.id, CLINIC_INFO.whatsappBot)
   });
 });
 
@@ -1753,7 +1790,7 @@ app.post('/api/appointments', publicApiLimiter, async (req, res) => {
     appointment: newAppointment,
     calendarSync,
     message: "Appointment confirmed successfully.",
-    whatsappLink: buildAppointmentWhatsAppLink(newAppointment.id, CLINIC_INFO.whatsapp)
+    whatsappLink: buildAppointmentWhatsAppLink(newAppointment.id, CLINIC_INFO.whatsappBot)
   });
 });
 
@@ -1792,7 +1829,7 @@ app.post('/api/admin/appointments/direct-book', requireAdminAuth, async (req, re
     appointment: newAppointment,
     calendarSync,
     message: 'Appointment booked directly — payment bypassed.',
-    whatsappLink: buildAppointmentWhatsAppLink(newAppointment.id, CLINIC_INFO.whatsapp)
+    whatsappLink: buildAppointmentWhatsAppLink(newAppointment.id, CLINIC_INFO.whatsappBot)
   });
 });
 
@@ -2133,10 +2170,21 @@ app.post('/api/admin/appointments/:id/reschedule', requireAdminAuth, async (req,
 // new work here is the read/delete routes and a minimal audit log of which
 // admin viewed/deleted patient data. This is a technical safeguard aligned
 // with DPDP principles, not a substitute for legal review.
-function auditLog(req: express.Request, action: string): void {
+// `category` separates the two audit streams that share this writer:
+// 'patient-data' (who viewed/erased a patient record) and 'certificate'
+// (who uploaded/renamed/deleted a credential document, and every public
+// read of one). Unauthenticated callers — the public certificate file
+// route — have no session, so they log as 'public'.
+function auditLog(req: express.Request, action: string, category: 'patient-data' | 'certificate' = 'patient-data'): void {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const email = adminSessions.get(token)?.email || 'unknown';
-  console.log(`[patient-data audit] ${email} — ${action} — ${new Date().toISOString()}`);
+  const actor = adminSessions.get(token)?.email || (token ? 'unknown' : 'public');
+  console.log(`[${category} audit] ${actor} — ${action} — ${new Date().toISOString()}`);
+}
+
+/** The admin email behind the current request, for audit fields on stored rows. */
+function currentAdminEmail(req: express.Request): string {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  return adminSessions.get(token)?.email || 'unknown';
 }
 
 app.get('/api/admin/patients', requireAdminAuth, async (req, res) => {
@@ -2629,6 +2677,65 @@ app.delete('/api/admin/gallery/:id', requireAdminAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// ---------------- CERTIFICATES (admin writes) ----------------
+// Uploads land here as a base64 data: URI in the JSON body, the same
+// mechanism the blog and gallery image uploads already use. Every write is
+// audited with the acting admin's email; the file itself is vetted by
+// validateCertificateFile (type + extension + magic bytes + size) before a
+// single byte is stored.
+app.get('/api/admin/certificates', requireAdminAuth, async (req, res) => {
+  const certificates = await listCertificates();
+  res.json({ success: true, certificates, maxFileBytes: MAX_CERTIFICATE_BYTES });
+});
+
+app.post('/api/admin/certificates', requireAdminAuth, async (req, res) => {
+  const { title, fileName, fileDataUri, displayOrder } = req.body;
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ success: false, error: 'A document title is required.' });
+  }
+
+  const validation = validateCertificateFile(fileDataUri, fileName);
+  if (!validation.ok) {
+    auditLog(req, `rejected certificate upload "${String(title).slice(0, 80)}" — ${validation.error}`, 'certificate');
+    return res.status(400).json({ success: false, error: validation.error });
+  }
+
+  const validated = validation.file!;
+  const result = await createCertificate({
+    title: title.trim(),
+    fileName: String(fileName).trim(),
+    file: validated,
+    displayOrder: typeof displayOrder === 'number' ? displayOrder : undefined,
+    uploadedBy: currentAdminEmail(req)
+  });
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save this certificate.' });
+
+  auditLog(req, `uploaded certificate ${result.certificate!.id} ("${result.certificate!.title}", ${validated.sizeBytes} bytes)`, 'certificate');
+  res.json({ success: true, certificate: result.certificate });
+});
+
+app.patch('/api/admin/certificates/:id', requireAdminAuth, async (req, res) => {
+  const { title, displayOrder } = req.body;
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ success: false, error: 'A document title is required.' });
+  }
+  const order = typeof displayOrder === 'number' && Number.isFinite(displayOrder) ? displayOrder : 100;
+
+  const result = await updateCertificate(req.params.id, { title: title.trim(), displayOrder: order });
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Certificate not found.' });
+
+  auditLog(req, `updated certificate ${req.params.id}`, 'certificate');
+  res.json({ success: true, certificate: result.certificate });
+});
+
+app.delete('/api/admin/certificates/:id', requireAdminAuth, async (req, res) => {
+  const result = await deleteCertificate(req.params.id);
+  if (!result.success) return res.status(404).json({ success: false, error: result.error || 'Certificate not found.' });
+
+  auditLog(req, `deleted certificate ${req.params.id}`, 'certificate');
+  res.json({ success: true });
+});
+
 // ---------------- CURATED REVIEWS (admin writes) ----------------
 app.get('/api/admin/reviews', requireAdminAuth, async (req, res) => {
   const reviews = await listCuratedReviews();
@@ -2815,13 +2922,23 @@ ${bodyHtml}
 
 // POST Inquiry
 app.post('/api/inquiries', (req, res) => {
-  const { name, email, phone, service, message } = req.body;
+  const { name, email, phone, service, message, consentGiven, consentText } = req.body;
   if (
     typeof name !== 'string' || !name.trim() ||
     typeof phone !== 'string' || !phone.trim() ||
     typeof message !== 'string' || !message.trim()
   ) {
     return res.status(400).json({ success: false, error: "Name, phone and message are required" });
+  }
+
+  // DPDP Act, 2023 §6 — consent has to be a free, specific and unambiguous
+  // affirmative action, so it is checked here and not only in the browser:
+  // a submission that reaches this route without it is refused rather than
+  // quietly stored. The wording the patient was actually shown is recorded
+  // with the record, so the consent stands on its own if the form copy is
+  // later reworded.
+  if (consentGiven !== true) {
+    return res.status(400).json({ success: false, error: 'We need your consent to store your details before we can reply to your enquiry.' });
   }
 
   const newInquiry: Inquiry = {
@@ -2832,7 +2949,10 @@ app.post('/api/inquiries', (req, res) => {
     service: service || 'General Consultation',
     message,
     status: 'new',
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    consentGiven: true,
+    consentText: typeof consentText === 'string' && consentText.trim() ? consentText.trim() : '(consent text not supplied by client)',
+    consentedAt: new Date().toISOString()
   };
 
   inquiriesStorage.unshift(newInquiry);
