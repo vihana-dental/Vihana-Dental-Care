@@ -61,6 +61,12 @@ export function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
   const [bookingServiceId, setBookingServiceId] = useState<string | undefined>(undefined);
+  // The hero opens on a single "Click Here" button; a floating "Scroll to
+  // Explore" hint alongside it would offer a competing instruction at the one
+  // moment the page is asking for a specific action. The hint appears once
+  // the hero's welcome copy has been revealed, which is when scrolling
+  // genuinely becomes the way forward.
+  const [heroRevealed, setHeroRevealed] = useState(false);
 
   const handleOpenBooking = (serviceId?: string) => {
     if (serviceId) setBookingServiceId(serviceId);
@@ -136,6 +142,7 @@ export function App() {
                   <Hero
                     onOpenBooking={() => handleOpenBooking()}
                     setActiveTab={setActiveTab}
+                    onRevealed={() => setHeroRevealed(true)}
                   />
                 </div>
 
@@ -185,9 +192,10 @@ export function App() {
       {/* Sticky High-Contrast Conversion CTAs */}
       <StickyCtaBar onOpenBooking={() => handleOpenBooking()} />
 
-      {/* Persistent "keep scrolling" hint — Home tab only, visible from the
-          first frame and across every stacked section, not just Hero. */}
-      {activeTab === 'home' && <ScrollExploreHint />}
+      {/* Persistent "keep scrolling" hint — Home tab only, and only once the
+          hero's own click-to-reveal has played, so it never competes with
+          that button for the patient's attention. */}
+      {activeTab === 'home' && heroRevealed && <ScrollExploreHint />}
 
       {/* Full in-chat AI Booking Assistant (Razorpay + Google Calendar, no
           redirects). Split out and mounted after first paint — the launcher
