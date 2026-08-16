@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface InitialLoaderProps {
@@ -31,6 +31,54 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
       clearTimeout(timer3);
     };
   }, [onComplete]);
+
+  // Lock the page underneath while this full-screen overlay is up. Nothing
+  // previously stopped the patient from scrolling/swiping the real page
+  // during the ~3.2s loader — on mobile, a swipe against a fixed-position
+  // overlay while the layout viewport is mid-scroll is a well-known source
+  // of exactly the kind of "loader drifts off-center" glitch this fixes:
+  // the overlay itself never moves, but letting the page move underneath it
+  // invites every mobile-browser fixed-position quirk there is. `position:
+  // fixed` on the body (rather than plain `overflow: hidden`) is used
+  // because iOS Safari in particular still allows rubber-band scrolling
+  // past a merely `overflow:hidden` body; pinning the body's own position
+  // and restoring both the style and the scroll offset once the loader
+  // finishes is the standard, cross-browser-reliable way to fully suspend
+  // page scroll for the duration.
+  //
+  // Locked once on mount rather than re-locking on every stage change: this
+  // component never actually unmounts (App.tsx renders it unconditionally
+  // and it returns null once done), so the unlock is driven by the `stage
+  // === 'done'` effect below rather than by this one's own cleanup, which
+  // would only fire on a real unmount that never happens.
+  const restoreScrollRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    const { style } = document.body;
+    const prevPosition = style.position;
+    const prevTop = style.top;
+    const prevWidth = style.width;
+
+    style.position = 'fixed';
+    style.top = `-${scrollY}px`;
+    style.width = '100%';
+
+    restoreScrollRef.current = () => {
+      style.position = prevPosition;
+      style.top = prevTop;
+      style.width = prevWidth;
+      window.scrollTo(0, scrollY);
+    };
+    // Defensive fallback — restores on a genuine unmount (HMR, future
+    // conditional rendering) even if the 'done' transition never runs.
+    return () => restoreScrollRef.current?.();
+  }, []);
+
+  useEffect(() => {
+    if (stage !== 'done') return;
+    restoreScrollRef.current?.();
+    restoreScrollRef.current = null;
+  }, [stage]);
 
   if (stage === 'done') return null;
 
