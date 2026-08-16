@@ -617,6 +617,41 @@ function findAppointmentById(id: string): Appointment | undefined {
 // throwing), so a Supabase or Sheets outage never breaks a confirmed
 // booking — this function itself also never throws, as a second layer of
 // the same guarantee.
+/**
+ * Persists a newly created, not-yet-paid appointment along with its patient.
+ *
+ * The patient record used to be written only by recordConfirmedAppointment,
+ * i.e. only once a booking reached 'confirmed'. But the appointment row is
+ * written the moment the booking is created, so any booking that stalled at
+ * 'pending' — the patient abandoned the payment page, or Razorpay's webhook
+ * never arrived — left the clinic looking at an appointment from a named
+ * person with a phone number who did not exist in the patient database at
+ * all. That gap is what "the patient database is not getting updated" looks
+ * like from the admin console.
+ *
+ * A patient record carries no payment semantics — it is just who they are and
+ * how to reach them — so there is no reason to withhold it until money moves.
+ * upsertPatient is idempotent and keyed on phone/email, so writing it here and
+ * again on confirmation converges on one row either way.
+ */
+async function recordPendingAppointment(appointment: Appointment): Promise<void> {
+  try {
+    await Promise.all([
+      persistAppointment(appointment),
+      upsertPatient({
+        name: appointment.patientName,
+        phone: appointment.patientPhone,
+        email: appointment.patientEmail,
+        sourceChannel: appointment.channel
+      })
+    ]);
+  } catch (error: any) {
+    // Same guarantee as recordConfirmedAppointment: bookkeeping must never
+    // take down the booking that produced it.
+    console.error(`recordPendingAppointment failed for appointment ${appointment.id}:`, error?.message || error);
+  }
+}
+
 async function recordConfirmedAppointment(appointment: Appointment): Promise<void> {
   try {
     const [patientResult, sheetsResult] = await Promise.all([
@@ -775,7 +810,7 @@ app.post('/api/payments/create-order', publicApiLimiter, async (req, res) => {
   pendingAppointment.razorpayOrderId = order.id;
 
   appointmentsStorage.unshift(pendingAppointment);
-  await persistAppointment(pendingAppointment);
+  await recordPendingAppointment(pendingAppointment);
 
   res.json({
     success: true,
@@ -1021,7 +1056,7 @@ app.post('/api/razorpay/create-payment-link', publicApiLimiter, async (req, res)
 
     pendingAppointment.razorpayPaymentLinkId = link.paymentLinkId;
     appointmentsStorage.unshift(pendingAppointment);
-    await persistAppointment(pendingAppointment);
+    await recordPendingAppointment(pendingAppointment);
 
     res.json({ ...link, appointmentId: pendingAppointment.id, whatsappLink: buildAppointmentWhatsAppLink(pendingAppointment.id, CLINIC_INFO.whatsapp) });
   } catch (error: any) {
@@ -1527,7 +1562,7 @@ async function handleIncomingWhatsAppMessage(from: string, text: string, contact
 
       pendingAppointment.razorpayPaymentLinkId = link.paymentLinkId;
       appointmentsStorage.unshift(pendingAppointment);
-      await persistAppointment(pendingAppointment);
+      await recordPendingAppointment(pendingAppointment);
 
       state.appointmentId = pendingAppointment.id;
       state.step = 'awaiting_payment';

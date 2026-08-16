@@ -171,7 +171,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-brand-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-700">
+                  {/* White, not brand-500: this pill sits on a translucent dark
+                      scrim over a photograph, so a mid-blue label had to fight
+                      both the scrim and whatever was behind it and read as
+                      washed out. White holds up against any image underneath. */}
+                  <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full border border-slate-700">
                     {service.category}
                   </div>
                 </div>
@@ -280,7 +284,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                   <X className="w-5 h-5" />
                 </button>
                 <div className="absolute bottom-4 left-6 right-6 text-white">
-                  <span className="bg-brand-700 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-full">
+                  {/* Near-black on brand-700 measured 2.5:1 — well under the
+                      4.5:1 minimum. White on the same fill is ~9:1. */}
+                  <span className="bg-brand-700 text-white text-xs font-bold px-2.5 py-1 rounded-full">
                     {selectedServiceModal.category}
                   </span>
                   <h3 className="text-2xl font-bold mt-2">{selectedServiceModal.title}</h3>

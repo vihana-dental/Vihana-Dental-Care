@@ -94,7 +94,9 @@ export const LocationMapSection: React.FC = () => {
                 href={CLINIC_INFO.googleBusinessUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-brand-800 hover:bg-brand-700 text-slate-950 font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"
+                // Was text-slate-950 on brand-800 — 1.70:1, effectively unreadable
+            // on a primary call-to-action. White gives ~11:1 here.
+            className="w-full bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"
               >
                 <Navigation className="w-4 h-4" />
                 <span>Open in Google Maps App</span>

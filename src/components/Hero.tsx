@@ -17,6 +17,29 @@ const REVEAL_OFFSETS = {
   rightColumn: { desktop: 400, mobile: 170, settleDesktop: 0, settleMobile: 0 }
 };
 
+/**
+ * Height of the scroll spacer the sticky content is pinned over. The reveal
+ * plays out across (height - 100vh), so this number *is* how much scrolling
+ * the patient must do before the headline is fully on screen.
+ *
+ * A phone swipe advances far less of the page than a desktop wheel spin or
+ * trackpad flick, so the single 480vh spacer that reads as cinematic on a
+ * desktop turned into roughly seven or eight swipes on a phone before any
+ * text arrived — long enough to read as a broken page rather than an effect.
+ * Mobile therefore gets a much shorter runway; desktop keeps the original
+ * pacing.
+ */
+const SECTION_HEIGHT_VH = { desktop: 480, mobile: 190 };
+
+/**
+ * How quickly the reveal fades in across `progress`. Text reaches full
+ * opacity at 1/RATE — so at 2.8 the copy has fully arrived by the time the
+ * patient is ~36% through the spacer, with the remainder left for the
+ * settle. Raised from 2.2 so the payoff lands early in the gesture on both
+ * form factors rather than near the end of it.
+ */
+const REVEAL_RATE = 2.8;
+
 function revealStyle(
   progress: number,
   isMobile: boolean,
@@ -30,7 +53,7 @@ function revealStyle(
     // visibly stutter on mobile browsers, especially alongside the fixed
     // background layer above it.
     transform: `translateX(${(1 - progress) * magnitude + settle}px) translateZ(0)`,
-    opacity: clamp(progress * 2.2, 0, 1),
+    opacity: clamp(progress * REVEAL_RATE, 0, 1),
     willChange: 'transform, opacity'
   };
 }
@@ -64,7 +87,7 @@ const whatsappBookingHref = `https://wa.me/${CLINIC_INFO.whatsapp.replace(/[^0-9
 // above it) — no dark scrim, no headline, no CTAs. The photo itself is a
 // `position: fixed` layer, completely decoupled from scroll — it never
 // translates. The foreground content sits in a separate sticky-pinned
-// block over a long (480vh) scroll spacer; as the user scrolls through
+// block over a long scroll spacer (see SECTION_HEIGHT_VH); as the user scrolls through
 // it, the left copy block and the right stat-card/CTA column slide in
 // from their respective sides while a navy gradient fades in over the
 // (still motionless) photo for legibility. Only once that reveal fully
@@ -103,7 +126,11 @@ export const Hero: React.FC<HeroProps> = ({
   // section because the pin is still holding.
   const sectionRef = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
+  // Seeded from the real viewport rather than defaulting to false: this now
+  // also decides the section's height, so starting wrong would render a
+  // 480vh spacer on a phone and then snap it to 190vh on the first measure,
+  // yanking the page under the patient before they had scrolled at all.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   // Once the pin releases (progress reaches 1), the now-unpinned content
   // block still has to scroll a full extra viewport-height past before
   // Services can occupy the screen — an unavoidable side effect of the
@@ -153,7 +180,11 @@ export const Hero: React.FC<HeroProps> = ({
   const ctaInteractive = progress > 0.04;
 
   return (
-    <section ref={sectionRef} className="relative w-full" style={{ height: '480vh' }}>
+    <section
+      ref={sectionRef}
+      className="relative w-full"
+      style={{ height: `${isMobile ? SECTION_HEIGHT_VH.mobile : SECTION_HEIGHT_VH.desktop}vh` }}
+    >
     {/* The full-bleed photo, as its own `fixed` layer — deliberately NOT
         part of the sticky-pinned content block below, so it never
         translates with scroll at all. It already carries the "Vihana
