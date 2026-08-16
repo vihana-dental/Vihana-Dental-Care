@@ -1,4 +1,5 @@
 import { ClinicInfo, DentalService, Doctor, ConsultantDoctor, GalleryItem, Review, PatientRecord, AuditLog, SlotUnavailableReason } from '../types';
+import { getClinicNow, parseSlotLabel } from '../lib/clinicTime';
 
 const vihanaDoctor = '/images/Dr.Sanchana.jpeg';
 const vihanaOperatory = '/images/vihana_operatory_1784918541912.jpg';
@@ -116,21 +117,26 @@ export function getTimeSlotsForDate(dateISO: string): string[] {
 }
 
 /**
- * True once a slot's start time has already passed. Uses the same local
- * Date-construction convention as parseSlotToISO in googleCalendar.ts (no
- * timezone library) so "now" and "slot time" are compared consistently with
- * how the rest of the booking system already reasons about clinic time.
+ * True once a slot's start time has already passed in the clinic's own
+ * timezone.
+ *
+ * Both sides of this comparison are deliberately kept as clinic wall-clock
+ * values rather than as instants. The previous version built the slot time
+ * with `new Date(...T00:00:00)` + `setHours`, which resolves in the *server's*
+ * timezone: on the UTC production host the cutoff landed 5h30m behind clinic
+ * time, so at 9pm IST the entire 5:00–8:00 PM block was still offered as
+ * bookable. Comparing date strings and minutes-since-midnight in a single
+ * named zone removes the host from the question entirely.
  */
 export function isSlotInPast(dateISO: string, timeSlot: string): boolean {
-  const [time, meridiem] = timeSlot.split(' ');
-  let [hours, minutes] = time.split(':').map(Number);
-  if (meridiem === 'PM' && hours !== 12) hours += 12;
-  if (meridiem === 'AM' && hours === 12) hours = 0;
+  const now = getClinicNow();
 
-  const slotStart = new Date(`${dateISO}T00:00:00`);
-  slotStart.setHours(hours, minutes, 0, 0);
+  // YYYY-MM-DD sorts lexicographically, so these compare as calendar dates.
+  if (dateISO < now.dateISO) return true;
+  if (dateISO > now.dateISO) return false;
 
-  return slotStart.getTime() <= Date.now();
+  const { hours, minutes } = parseSlotLabel(timeSlot);
+  return hours * 60 + minutes <= now.minutesSinceMidnight;
 }
 
 /**

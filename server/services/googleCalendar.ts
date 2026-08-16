@@ -25,6 +25,7 @@
 import { OAuth2Client } from 'google-auth-library';
 import { Appointment, AvailabilitySlot } from '../../src/types';
 import { getTimeSlotsForDate, isSlotInPast } from '../../src/data/clinicData';
+import { clinicWallTimeToUtc, parseSlotLabel } from '../../src/lib/clinicTime';
 import { isSlotBlockedForDoctor } from './scheduleOverrides';
 
 const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || '';
@@ -137,14 +138,14 @@ function friendlyErrorMessage(errorType: CalendarSyncResult['errorType']): strin
 }
 
 function parseSlotToISO(date: string, timeSlot: string): { startISO: string; endISO: string } {
-  // timeSlot format: "10:30 AM" — combine with date and the fixed appointment duration.
-  const [time, meridiem] = timeSlot.split(' ');
-  let [hours, minutes] = time.split(':').map(Number);
-  if (meridiem === 'PM' && hours !== 12) hours += 12;
-  if (meridiem === 'AM' && hours === 12) hours = 0;
+  // timeSlot format: "10:30 AM" — a wall-clock time at the clinic, resolved
+  // against the clinic's zone rather than the server's. Building this with
+  // setHours() on a UTC host wrote every appointment into Google Calendar
+  // 5h30m late (a 5:00 PM booking landed at 10:30 PM IST) and shifted the
+  // freebusy comparison below by the same amount.
+  const { hours, minutes } = parseSlotLabel(timeSlot);
 
-  const start = new Date(`${date}T00:00:00`);
-  start.setHours(hours, minutes, 0, 0);
+  const start = clinicWallTimeToUtc(date, hours, minutes);
   const end = new Date(start.getTime() + APPOINTMENT_DURATION_MINUTES * 60 * 1000);
 
   return { startISO: start.toISOString(), endISO: end.toISOString() };
@@ -170,8 +171,11 @@ export async function getFreeBusyForDate(dateISO: string): Promise<FreeBusyResul
     return { success: true, busy: [] };
   }
 
-  const dayStart = new Date(`${dateISO}T00:00:00`);
-  const dayEnd = new Date(`${dateISO}T23:59:59`);
+  // The clinic's own midnight-to-midnight, not the server's — otherwise the
+  // queried window slides by the UTC offset and misses the busy intervals at
+  // whichever end of the day falls outside it.
+  const dayStart = clinicWallTimeToUtc(dateISO, 0, 0);
+  const dayEnd = clinicWallTimeToUtc(dateISO, 23, 59);
 
   try {
     const res = await authorizedFetch('https://www.googleapis.com/calendar/v3/freeBusy', {
