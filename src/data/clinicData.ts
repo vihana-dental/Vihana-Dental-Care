@@ -459,7 +459,7 @@ export const DOCTORS: Doctor[] = [
     title: "Chief Consultant Orthodontist & Aligner Specialist",
     qualification: "MDS — Orthodontics & Dentofacial Orthopedics",
     specialization: "Invisalign & Clear Aligners, Jaw Bite Correction, Pediatric Braces & Smile Design",
-    experienceYears: 5,
+    experienceYears: 8,
     photo: vihanaDoctor,
     bio: "Dr. N. Sanchana, MDS is the Lead Orthodontist and Founder at Vihana Dental Care, Kalapatti, Coimbatore. Specializing in advanced clear aligners, adult & pediatric braces, microscopic root canals, and gentle jaw alignment treatments. Received Special Training at Coimbatore Medical College, Coimbatore.",
     availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],

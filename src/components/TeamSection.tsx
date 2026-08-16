@@ -119,7 +119,7 @@ export const TeamSection: React.FC = () => {
                     className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-4 left-4 bg-slate-900/90 text-brand-500 text-xs font-bold px-3.5 py-1.5 rounded-full border border-slate-700 shadow-lg backdrop-blur-md">
+                  <div className="absolute top-4 left-4 bg-slate-900/90 text-white text-xs font-bold px-3.5 py-1.5 rounded-full border border-slate-700 shadow-lg backdrop-blur-md">
                     {doc.experienceYears}+ Years Clinical Excellence
                   </div>
                 </div>

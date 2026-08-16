@@ -11,8 +11,17 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
   const [certsOpen, setCertsOpen] = useState(false);
 
+  // Bottom padding has to clear the floating CTAs, which are position:fixed
+  // and therefore sit over whatever occupies the bottom of the viewport — at
+  // full scroll that is this footer's last row, so the "Designed & Developed
+  // by The Paper Plane" credit was being covered by the WhatsApp button. The
+  // desktop WhatsApp pill is the tallest of them: bottom-24 (96px) plus its
+  // h-14 (56px) puts its top edge 152px above the viewport bottom, so the
+  // footer needs at least that much to stay clear — hence lg:pb-40 (160px).
+  // On mobile the root layout already adds pb-20 beneath the footer for the
+  // sticky bar, which together with pb-28 here clears the chat launcher.
   return (
-    <footer className="bg-slate-950 text-slate-300 pt-16 pb-28 lg:pb-24 border-t border-slate-800">
+    <footer className="bg-slate-950 text-slate-300 pt-16 pb-28 lg:pb-40 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Col 1: Brand Info */}
