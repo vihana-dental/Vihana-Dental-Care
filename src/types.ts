@@ -43,6 +43,7 @@ export interface ClinicInfo {
   googleBusinessUrl: string;
   /** Deep link to the clinic pin on Google Maps (address/hours links point here). */
   googleMapsUrl: string;
+  instagramUrl: string;
   rating: number;
   totalReviews: number;
   workingHours: {

@@ -46,6 +46,7 @@ export const CLINIC_INFO: ClinicInfo = {
   whatsappBot: "+1 555 427 7090",
   email: "sanchunags@gmail.com",
   googleBusinessUrl: "https://share.google/DM4pZO0cneU667nxJ",
+  instagramUrl: "https://www.instagram.com/vihanadental/",
   googleMapsUrl:
     "https://www.google.com/maps/search/?api=1&query=" +
     encodeURIComponent("Vihana Dental Care, No 77, Post Office Street, Kalapatti, Coimbatore, Tamil Nadu 641048"),

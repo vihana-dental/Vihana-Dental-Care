@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CLINIC_INFO, SERVICES, clinicWhatsAppHref } from '../data/clinicData';
-import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle, Mail, Award } from 'lucide-react';
+import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle, Mail, Award, Instagram } from 'lucide-react';
 import { CertificationsModal } from './CertificationsModal';
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
@@ -147,6 +147,17 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
             >
               <span>View Google My Business Profile</span>
               <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <a
+              href={CLINIC_INFO.instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Follow Vihana Dental Care on Instagram (opens in a new tab)"
+              className="flex items-center gap-2 text-slate-300 hover:text-pink-400 transition-colors pt-1"
+            >
+              <Instagram className="w-4 h-4 text-pink-400 shrink-0" />
+              <span>@vihanadental</span>
             </a>
           </div>
         </div>
