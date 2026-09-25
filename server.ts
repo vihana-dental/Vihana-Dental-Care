@@ -14,8 +14,8 @@ import {
   RECEPTIONIST_ACTIONS,
   generateWithFailover
 } from './server/services/receptionist';
-import { Appointment, Inquiry, DentalService, Doctor, ConsultantDoctor, GalleryItem } from './src/types';
-import { SERVICES as STATIC_SERVICES, DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS, CLINIC_INFO, getTimeSlotsForDate } from './src/data/clinicData';
+import { Appointment, Inquiry, DentalService, Doctor, ConsultantDoctor, GalleryItem, FeeConfig, DEFAULT_FEE_CONFIG, feeForType, normalizeFeeConfig } from './src/types';
+import { SERVICES as STATIC_SERVICES, DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS, CLINIC_INFO } from './src/data/clinicData';
 import {
   getPublicKeyId,
   createOrder,
@@ -39,7 +39,22 @@ import {
   updateCalendarEventNote
 } from './server/services/googleCalendar';
 import { upsertPatient, listPatients, deletePatient } from './server/services/supabase';
-import { loadScheduleOverrides, getBlockedSlots, setSlotBlocked, setDayBlocked } from './server/services/scheduleOverrides';
+import {
+  loadScheduleOverrides,
+  loadSlotChanges,
+  getBlockedSlots,
+  setSlotBlocked,
+  setDayBlocked,
+  getEffectiveSlots,
+  getRemovedDefaultSlots,
+  isCustomSlot,
+  dayHasOpenSlots,
+  normalizeSlotLabel,
+  addSlot,
+  removeSlot,
+  editSlot
+} from './server/services/scheduleOverrides';
+import { loadSetting, saveSetting } from './server/services/settingsStore';
 import {
   listBlogPosts,
   getBlogPostBySlug,
@@ -49,7 +64,7 @@ import {
   deleteBlogPost
 } from './server/services/blog';
 import { appendAppointmentRow, updateAppointmentRowById } from './server/services/googleSheets';
-import { persistAppointment, loadAllAppointments, isAppointmentsPersistenceConfigured } from './server/services/appointmentsStore';
+import { persistAppointment, loadAllAppointments, deleteAppointmentRow, isAppointmentsPersistenceConfigured } from './server/services/appointmentsStore';
 import { getServicePriceDisplay, getAllServicePriceDisplays, setServicePriceDisplay } from './server/services/pricing';
 import { listServices, getServiceById, createService, updateService, deleteService } from './server/services/services';
 import { listFAQs, createFAQ, updateFAQ, deleteFAQ } from './server/services/faqs';
@@ -161,12 +176,13 @@ app.use(express.json({
   }
 }));
 
-// Global Config for Separate In-Clinic & Online Consultation Fees
-let clinicFeeConfig = {
-  confirmationFeeEnabled: true,
-  inClinicFeeINR: 300, // Default ₹300 advance for in-clinic visits
-  onlineFeeINR: 500     // Default ₹500 advance for online video consults
-};
+// Booking fee config: the advance fee for an in-clinic visit and for an online
+// video consult each have their own on/off switch and amount. Applies to the
+// website and chat widget only — WhatsApp bookings never take a payment.
+// Persisted in Supabase (clinic_settings) and loaded at startup; the defaults
+// below are only what a brand-new install starts with.
+const FEE_CONFIG_SETTING_KEY = 'booking_fee_config';
+let clinicFeeConfig: FeeConfig = { ...DEFAULT_FEE_CONFIG };
 
 // ---------------- DOCTOR ADMIN AUTH (Google Sign-In, allowlisted emails) ----------------
 // Session mechanics are unchanged from the original PIN-based design — only
@@ -811,9 +827,7 @@ app.post('/api/payments/create-order', publicApiLimiter, async (req, res) => {
   }
 
   const isOnline = consultationType === 'online-video';
-  const fee = clinicFeeConfig.confirmationFeeEnabled
-    ? (isOnline ? clinicFeeConfig.onlineFeeINR : clinicFeeConfig.inClinicFeeINR)
-    : 0;
+  const fee = feeForType(clinicFeeConfig, isOnline);
 
   if (fee <= 0) {
     return res.status(400).json({ success: false, error: 'No advance fee is currently configured for this consultation type.' });
@@ -997,7 +1011,7 @@ app.post('/api/payments/webhook', async (req, res) => {
     if (appointment.channel === 'whatsapp' && !result.alreadyConfirmed) {
       await sendTextMessage(
         appointment.patientPhone,
-        `✅ Payment received! Your ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot} is confirmed. Reschedule/cancel code: ${appointment.rescheduleToken}`
+        `✅ Payment received! Your ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot} is confirmed. Reschedule/cancel code: ${appointment.rescheduleToken}\n\n${ENQUIRY_LINE}`
       );
     }
 
@@ -1057,9 +1071,7 @@ app.post('/api/razorpay/create-payment-link', publicApiLimiter, async (req, res)
   }
 
   const isOnline = consultationType === 'online-video';
-  const fee = clinicFeeConfig.confirmationFeeEnabled
-    ? (isOnline ? clinicFeeConfig.onlineFeeINR : clinicFeeConfig.inClinicFeeINR)
-    : 0;
+  const fee = feeForType(clinicFeeConfig, isOnline);
 
   if (fee <= 0) {
     return res.status(400).json({ success: false, error: 'No advance fee is currently configured for this consultation type.' });
@@ -1179,12 +1191,12 @@ app.post('/api/payments/confirm-payment-link', publicApiLimiter, async (req, res
 // to move to Supabase too — everything else here is already stateless.
 //
 // Booking is three taps: Book an appointment -> date (Today / Tomorrow / a
-// native calendar popup via a WhatsApp Flow) -> time -> Confirm & Pay.
+// native calendar popup via a WhatsApp Flow) -> time -> Confirm (no payment).
 // WhatsApp hard-caps list messages at 10 rows TOTAL, so a weekday's slots
 // are split into a morning/evening drill-down before the time list.
 
 interface WhatsAppConversationState {
-  step: 'awaiting_date' | 'awaiting_time_period' | 'awaiting_time' | 'awaiting_confirm' | 'awaiting_payment';
+  step: 'awaiting_date' | 'awaiting_time_period' | 'awaiting_time' | 'awaiting_confirm';
   contactName?: string;
   date?: string;
   timePeriod?: 'Morning' | 'Evening';
@@ -1326,8 +1338,12 @@ async function tryHandleAppointmentActionButton(from: string, interactiveReplyId
 // already-passed slots) at the moment slots are about to be shown, and once
 // more right before the payment link is created.
 
-const CLINIC_DOCTOR_DISPLAY_NAME = 'Dr. N. Sanchana';
 const WHATSAPP_SERVICE_LABEL = 'Dental Consultation';
+
+// Shown at the end of every appointment confirmation message so a patient who
+// needs to change or ask something knows exactly who to call.
+const CLINIC_ENQUIRY_PHONE = '+91 9894317823';
+const ENQUIRY_LINE = `For any enquiries, call ${CLINIC_ENQUIRY_PHONE}.`;
 const MAX_BOOKING_DAYS_AHEAD = 60;
 
 function getClinicDoctor(): { id: string; name: string } {
@@ -1373,7 +1389,7 @@ function parseDateInput(raw: unknown): string | undefined {
  * button that walks the same steps with in-chat buttons and lists.
  */
 async function sendWelcome(from: string): Promise<void> {
-  const body = `👋 Welcome to ${CLINIC_INFO.name}!\n\nBook your visit with ${CLINIC_DOCTOR_DISPLAY_NAME} in under a minute.`;
+  const body = `👋 Welcome to ${CLINIC_INFO.name}!\n\nBook your appointment with ${CLINIC_INFO.name} in under a minute.`;
 
   if (isDateFlowConfigured() && isFlowEndpointConfigured()) {
     const sent = await sendFlowMessage(from, body, 'Book an appointment');
@@ -1386,7 +1402,7 @@ async function sendWelcome(from: string): Promise<void> {
 /** Step 1 — pick the day. */
 async function sendDateChoice(from: string, contactName?: string): Promise<void> {
   whatsappConversations.set(from, { step: 'awaiting_date', contactName });
-  await sendReplyButtons(from, `When would you like to visit ${CLINIC_DOCTOR_DISPLAY_NAME}?`, [
+  await sendReplyButtons(from, `When would you like your appointment at ${CLINIC_INFO.name}?`, [
     { id: 'date:today', title: 'Today' },
     { id: 'date:tomorrow', title: 'Tomorrow' },
     { id: 'date:other', title: 'Pick a date' }
@@ -1403,7 +1419,7 @@ async function sendDatePicker(from: string): Promise<void> {
   const start = todayIST();
   for (let i = 0; i <= MAX_BOOKING_DAYS_AHEAD && rows.length < 10; i++) {
     const day = addDaysIST(start, i);
-    if (getTimeSlotsForDate(day).length > 0) rows.push({ id: `date:${day}`, title: formatDisplayDate(day) });
+    if (dayHasOpenSlots(getClinicDoctor().id, day)) rows.push({ id: `date:${day}`, title: formatDisplayDate(day) });
   }
   await sendListMessage(from, 'Choose a date:', 'Pick a date', [{ title: 'Open days', rows }]);
 }
@@ -1420,7 +1436,9 @@ function flowDateScreenData(extra: Record<string, unknown> = {}) {
   const closedDates: string[] = [];
   for (let i = 0; i <= MAX_BOOKING_DAYS_AHEAD; i++) {
     const day = addDaysIST(start, i);
-    if (getTimeSlotsForDate(day).length === 0) closedDates.push(day);
+    // Greyed out in the calendar: closed weekdays, doctor days off, and days
+    // whose slots the admin deleted — but a day with an added slot stays open.
+    if (!dayHasOpenSlots(getClinicDoctor().id, day)) closedDates.push(day);
   }
   return {
     screen: 'DATE',
@@ -1485,15 +1503,12 @@ async function handleFlowEndpointRequest(body: any) {
         return flowTimeScreen(dateStr, check.message || 'That time was just taken. Please choose another.');
       }
 
-      const deposit = clinicFeeConfig.confirmationFeeEnabled ? clinicFeeConfig.inClinicFeeINR : 0;
       return {
         screen: 'CONFIRM',
         data: {
           date: dateStr,
           time: String(time),
-          summary:
-            `Doctor: ${CLINIC_DOCTOR_DISPLAY_NAME}\nDate: ${formatDisplayDate(dateStr)}\nTime: ${time}\nPlace: ${CLINIC_INFO.name}, Kalapatti` +
-            (deposit > 0 ? `\n\nA refundable booking fee of ₹${deposit} confirms your slot. Your payment link arrives in this chat.` : '')
+          summary: `Date: ${formatDisplayDate(dateStr)}\nTime: ${time}\nPlace: ${CLINIC_INFO.name}, Kalapatti\n\nNo payment is needed. Tap confirm to book your appointment.`
         }
       };
     }
@@ -1590,7 +1605,7 @@ async function sendTimeList(from: string, state: WhatsAppConversationState, peri
   );
 }
 
-/** Step 3 — read the booking back, with one tap to confirm. */
+/** Step 3 (button fallback) — read the booking back, with one tap to confirm. */
 async function sendConfirmation(from: string, state: WhatsAppConversationState, timeSlot: string): Promise<void> {
   const check = await isSlotStillAvailable(state.date!, timeSlot, getClinicDoctor().id);
   if (!check.valid && !check.degraded) {
@@ -1601,26 +1616,41 @@ async function sendConfirmation(from: string, state: WhatsAppConversationState, 
 
   state.timeSlot = timeSlot;
   state.step = 'awaiting_confirm';
-  const deposit = clinicFeeConfig.confirmationFeeEnabled ? clinicFeeConfig.inClinicFeeINR : 0;
-  const feeLine = deposit > 0 ? `\n💳 Refundable booking fee: ₹${deposit}` : '';
 
   await sendReplyButtons(
     from,
-    `Please confirm your appointment:\n\n👩‍⚕️ ${CLINIC_DOCTOR_DISPLAY_NAME}\n📅 ${formatDisplayDate(state.date!)}\n🕐 ${timeSlot}\n📍 ${CLINIC_INFO.name}, Kalapatti${feeLine}`,
+    `Please confirm your appointment:\n\n📅 ${formatDisplayDate(state.date!)}\n🕐 ${timeSlot}\n📍 ${CLINIC_INFO.name}, Kalapatti\n\nNo payment is needed.`,
     [
-      { id: 'confirm:yes', title: 'Confirm & Pay' },
+      { id: 'confirm:yes', title: 'Confirm' },
       { id: 'confirm:change', title: 'Change time' }
     ]
   );
 }
 
-/** Creates the pending appointment and sends the existing Razorpay payment link. */
-async function createBookingAndSendPaymentLink(from: string, state: WhatsAppConversationState): Promise<void> {
+/** The confirmation a patient receives once an appointment is booked. */
+function buildWhatsAppBookingConfirmation(appointment: Appointment): string {
+  return (
+    `✅ Your appointment is confirmed!\n\n` +
+    `📅 ${formatDisplayDate(appointment.date)} at ${appointment.timeSlot}\n` +
+    `📍 ${CLINIC_INFO.name}, Kalapatti\n` +
+    `🆔 Appointment #${appointment.id}\n\n` +
+    `${ENQUIRY_LINE}`
+  );
+}
+
+/**
+ * Books the appointment straight away — there is no payment step on the
+ * WhatsApp channel. Goes through the same createConfirmedAppointment path as
+ * every other confirmed booking (Calendar sync, Sheets, Supabase, admin
+ * dashboard), recorded as fee-waived, then sends the confirmation with
+ * Reschedule / Cancel buttons.
+ */
+async function confirmBookingDirectly(from: string, state: WhatsAppConversationState): Promise<void> {
   const doctor = getClinicDoctor();
   const timeSlot = state.timeSlot!;
 
-  // Last-moment re-check: the doctor may have blocked the slot, or someone
-  // else may have taken it, while the patient was reading the summary.
+  // Last-moment re-check: the doctor may have blocked or removed the slot, or
+  // someone else may have taken it, while the patient was reading the summary.
   const slotCheck = await isSlotStillAvailable(state.date!, timeSlot, doctor.id);
   if (!slotCheck.valid && !slotCheck.degraded) {
     await sendTextMessage(from, `${slotCheck.message || 'Sorry, that slot was just taken.'} Please pick another time.`);
@@ -1628,62 +1658,32 @@ async function createBookingAndSendPaymentLink(from: string, state: WhatsAppConv
     return;
   }
 
-  const depositINR = clinicFeeConfig.confirmationFeeEnabled ? clinicFeeConfig.inClinicFeeINR : 0;
-  if (depositINR <= 0) {
-    await sendTextMessage(from, `Sorry, online booking is temporarily unavailable. Please call the clinic on ${CLINIC_INFO.phone}.`);
-    return;
-  }
-
-  const service = SERVICES_LIVE[0];
-  const patientName = state.contactName || `WhatsApp Patient ${from.slice(-4)}`;
-  const pendingAppointment: Appointment = {
-    id: generateDailyAppointmentId(),
-    patientName,
-    patientPhone: from,
-    patientEmail: '',
-    doctorId: doctor.id,
-    doctorName: doctor.name,
-    serviceId: service?.id || 'consultation',
-    serviceName: WHATSAPP_SERVICE_LABEL,
-    date: state.date!,
-    timeSlot,
-    notes: '',
-    status: 'pending',
-    googleCalendarSynced: false,
-    whatsappConfirmationSent: false,
-    whatsappReminderScheduled: false,
-    rescheduleToken: `RSC-${Math.floor(10000 + Math.random() * 90000)}`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    consultationType: 'in-clinic',
-    paymentStatus: 'pending',
-    feeAmount: depositINR,
-    patientVisited: false,
-    channel: 'whatsapp'
-  };
-
   try {
-    const link = await createPaymentLinkForAppointment(pendingAppointment, {
-      amountINR: depositINR,
-      description: `Vihana Dental Care — Appointment Deposit (${WHATSAPP_SERVICE_LABEL})`,
-      patientName,
-      patientPhone: from
+    const { appointment } = await createConfirmedAppointment({
+      patientName: state.contactName || `WhatsApp Patient ${from.slice(-4)}`,
+      patientPhone: from,
+      doctorId: doctor.id,
+      serviceId: SERVICES_LIVE[0]?.id,
+      serviceNameOverride: WHATSAPP_SERVICE_LABEL,
+      date: state.date!,
+      timeSlot,
+      consultationType: 'in-clinic',
+      paymentStatus: 'waived',
+      feeAmount: 0,
+      channel: 'whatsapp'
     });
 
-    pendingAppointment.razorpayPaymentLinkId = link.paymentLinkId;
-    appointmentsStorage.unshift(pendingAppointment);
-    await recordPendingAppointment(pendingAppointment);
+    // Booked — the conversation is over; the next "hi" starts a fresh one.
+    whatsappConversations.delete(from);
 
-    state.appointmentId = pendingAppointment.id;
-    state.step = 'awaiting_payment';
-
-    await sendTextMessage(
-      from,
-      `✅ Your slot is reserved!\n\n📅 ${formatDisplayDate(state.date!)} at ${timeSlot}\n👩‍⚕️ ${CLINIC_DOCTOR_DISPLAY_NAME}\n🆔 Appointment #${pendingAppointment.id}\n\nPay the refundable ₹${depositINR} booking fee to confirm it:\n${link.shortUrl}\n\nYou'll get your final confirmation here the moment payment is received.`
-    );
+    await sendTextMessage(from, buildWhatsAppBookingConfirmation(appointment));
+    await sendReplyButtons(from, 'Need to make a change?', [
+      { id: `reschedule:${appointment.id}`, title: 'Reschedule' },
+      { id: `cancel:${appointment.id}`, title: 'Cancel Appointment' }
+    ]);
   } catch (error: any) {
-    console.error('WhatsApp payment link creation failed:', error?.message || error);
-    await sendTextMessage(from, `Sorry, we couldn't generate a payment link right now. Please try again shortly or call the clinic on ${CLINIC_INFO.phone}.`);
+    console.error('WhatsApp booking failed:', error?.message || error);
+    await sendTextMessage(from, `Sorry, we couldn't complete your booking just now. Please try again in a moment or call us on ${CLINIC_ENQUIRY_PHONE}.`);
   }
 }
 
@@ -1701,7 +1701,7 @@ async function handleIncomingWhatsAppMessage(
   let state = whatsappConversations.get(from);
   if (state && contactName && !state.contactName) state.contactName = contactName;
 
-  // Booking popup completed (the patient tapped Confirm & Pay on its last screen).
+  // Booking popup completed (the patient tapped the confirm button on its last screen).
   if (flowResponse) {
     const dateStr = parseDateInput(flowResponse.date);
     const timeSlot = typeof flowResponse.time === 'string' ? flowResponse.time : undefined;
@@ -1711,7 +1711,7 @@ async function handleIncomingWhatsAppMessage(
     }
     state = { step: 'awaiting_confirm', contactName: contactName || state?.contactName, date: dateStr, timeSlot };
     whatsappConversations.set(from, state);
-    await createBookingAndSendPaymentLink(from, state);
+    await confirmBookingDirectly(from, state);
     return;
   }
 
@@ -1780,33 +1780,13 @@ async function handleIncomingWhatsAppMessage(
         await sendDateChoice(from, contactName);
         return;
       }
-      if (state.step === 'awaiting_payment') {
-        await sendTextMessage(from, 'Your payment link has already been sent above. Reply "retry" if you need a fresh one.');
-        return;
-      }
-      await createBookingAndSendPaymentLink(from, state);
+      await confirmBookingDirectly(from, state);
       return;
     }
   }
 
   // Free text from here on.
   const isGreeting = /\b(hi|hello|hey|hii|namaste|vanakkam)\b/.test(normalized) || normalized.includes('book') || normalized.includes('appointment');
-
-  if (state?.step === 'awaiting_payment') {
-    if (normalized === 'cancel') {
-      whatsappConversations.delete(from);
-      await sendTextMessage(from, 'No problem — booking cancelled. Send "hi" anytime to start again.');
-      return;
-    }
-    if (normalized === 'retry' && state.appointmentId) {
-      await retryWhatsAppPaymentLink(from, state.appointmentId);
-      return;
-    }
-    if (!isGreeting) {
-      await sendTextMessage(from, "We're still waiting for your payment to confirm this appointment. Complete the payment link sent above, reply \"retry\" for a fresh link, or \"cancel\" to start over.");
-      return;
-    }
-  }
 
   if (!state || isGreeting) {
     whatsappConversations.set(from, { step: 'awaiting_date', contactName });
@@ -1874,6 +1854,8 @@ interface CreateConfirmedAppointmentInput {
   patientEmail?: string;
   doctorId?: string;
   serviceId?: string;
+  /** Shown instead of the service's own title (e.g. WhatsApp bookings are a generic "Dental Consultation"). */
+  serviceNameOverride?: string;
   date: string;
   timeSlot: string;
   notes?: string;
@@ -1898,7 +1880,7 @@ async function createConfirmedAppointment(input: CreateConfirmedAppointmentInput
     doctorId: doctor.id,
     doctorName: doctor.name,
     serviceId: service.id,
-    serviceName: service.title,
+    serviceName: input.serviceNameOverride || service.title,
     date: input.date,
     timeSlot: input.timeSlot,
     notes: input.notes || '',
@@ -1959,9 +1941,7 @@ app.post('/api/appointments', publicApiLimiter, async (req, res) => {
   }
 
   const isOnline = consultationType === 'online-video';
-  const feeAmount = clinicFeeConfig.confirmationFeeEnabled
-    ? (isOnline ? clinicFeeConfig.onlineFeeINR : clinicFeeConfig.inClinicFeeINR)
-    : 0;
+  const feeAmount = feeForType(clinicFeeConfig, isOnline);
 
   if (feeAmount > 0) {
     return res.status(400).json({
@@ -2065,11 +2045,11 @@ app.get('/api/admin/appointments', requireAdminAuth, (req, res) => {
 // matches what the automated on-booking send already uses elsewhere in
 // this file, rather than drifting out of sync with a second copy.
 function buildConfirmationMessage(appointment: Appointment): string {
-  return `✅ Your ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care is confirmed. Reschedule/cancel code: ${appointment.rescheduleToken}`;
+  return `✅ Your ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care is confirmed. Reschedule/cancel code: ${appointment.rescheduleToken}\n\n${ENQUIRY_LINE}`;
 }
 
 function buildReminderMessage(appointment: Appointment): string {
-  return `⏰ Reminder: you have a ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care. Reply if you need to reschedule (code: ${appointment.rescheduleToken}).`;
+  return `⏰ Reminder: you have a ${appointment.serviceName} appointment on ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care. Reply if you need to reschedule (code: ${appointment.rescheduleToken}).\n\n${ENQUIRY_LINE}`;
 }
 
 // Centralized "make this change everywhere" helper for the toggle switches
@@ -2238,6 +2218,62 @@ app.post('/api/admin/appointments/:id/send-custom-message', requireAdminAuth, as
   res.json({ success: true, mock: result.mock });
 });
 
+// Cancel vs. delete are deliberately two different actions. Cancelling is the
+// everyday one: the booking stays on record as "cancelled", its calendar slot
+// is freed, and the patient is told over WhatsApp. Deleting removes the record
+// outright (test bookings, duplicates, mistakes) and is irreversible, so the
+// console asks for confirmation first.
+app.post('/api/admin/appointments/:id/cancel', requireAdminAuth, async (req, res) => {
+  const appointment = findAppointmentById(req.params.id);
+  if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+  if (appointment.status === 'cancelled') return res.status(409).json({ success: false, error: 'This appointment is already cancelled.' });
+
+  const notify = req.body?.notify !== false;
+  const result = await cancelAppointmentById(appointment.id);
+  if (!result) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+
+  await updateAppointmentRowById(appointment.id, { status: 'cancelled' });
+  auditLog(req, `cancelled appointment ${appointment.id}`);
+
+  let notified = false;
+  if (notify) {
+    const sent = await sendTextMessage(
+      appointment.patientPhone,
+      `Your appointment at ${CLINIC_INFO.name} on ${formatDisplayDate(appointment.date)} at ${appointment.timeSlot} has been cancelled.\n\nTo book a new one, just send "hi" here.\n\n${ENQUIRY_LINE}`
+    );
+    notified = sent.success;
+  }
+
+  res.json({ success: true, appointment: result.appointment, notified });
+});
+
+app.delete('/api/admin/appointments/:id', requireAdminAuth, async (req, res) => {
+  const index = appointmentsStorage.findIndex((a) => a.id === req.params.id);
+  if (index === -1) return res.status(404).json({ success: false, error: 'Appointment not found.' });
+  const appointment = appointmentsStorage[index];
+
+  // Free the calendar slot first; a Calendar hiccup must not stop the delete.
+  if (appointment.googleCalendarEventId) {
+    try {
+      await cancelCalendarEvent(appointment.googleCalendarEventId);
+    } catch (error: any) {
+      console.error(`Calendar cleanup failed while deleting appointment ${appointment.id}:`, error?.message || error);
+    }
+  }
+
+  const removed = await deleteAppointmentRow(appointment.id);
+  if (!removed.success) {
+    // Leave it in place rather than have it reappear after the next restart.
+    return res.status(502).json({ success: false, error: removed.error || 'Could not delete the appointment from the database.' });
+  }
+
+  appointmentsStorage.splice(index, 1);
+  await updateAppointmentRowById(appointment.id, { status: 'deleted' });
+  auditLog(req, `deleted appointment ${appointment.id} (${appointment.date} ${appointment.timeSlot})`);
+
+  res.json({ success: true });
+});
+
 const ACTIVE_APPOINTMENT_STATUSES = new Set(['pending', 'pending_approval', 'confirmed', 'rescheduled']);
 
 function findActiveAppointment(doctorId: string, date: string, timeSlot: string): Appointment | undefined {
@@ -2257,17 +2293,25 @@ app.get('/api/admin/doctor-schedule', requireAdminAuth, (req, res) => {
   }
 
   const blocked = getBlockedSlots(doctorId, date);
-  const slots = getTimeSlotsForDate(date).map((time) => {
+  const slots = getEffectiveSlots(doctorId, date).map((time) => {
     const appointment = findActiveAppointment(doctorId, date, time);
     return {
       time,
       blocked: blocked.has(time),
+      // true for a slot the admin added (vs. one from the default weekly hours)
+      custom: isCustomSlot(doctorId, date, time),
       appointmentId: appointment?.id,
       patientName: appointment?.patientName
     };
   });
 
-  res.json({ success: true, date, slots });
+  res.json({
+    success: true,
+    date,
+    slots,
+    // Default slots the admin deleted from this day — offered back as "restore".
+    removedSlots: getRemovedDefaultSlots(doctorId, date)
+  });
 });
 
 app.post('/api/admin/doctor-schedule/toggle', requireAdminAuth, async (req, res) => {
@@ -2288,13 +2332,78 @@ app.post('/api/admin/doctor-schedule/toggle', requireAdminAuth, async (req, res)
   });
 });
 
+// Add / edit / delete a slot on one date. A slot the admin adds becomes
+// bookable on every channel immediately (computeAvailability reads the same
+// list); deleting or moving one that already has a booking still goes ahead,
+// and the response carries that booking as `conflict` so the console can
+// prompt an immediate reschedule — the same contract as blocking a slot.
+function parseSlotRequest(source: any): { doctorId: string; date: string; timeSlot: string } | { error: string } {
+  const { doctorId, date } = source || {};
+  const timeSlot = normalizeSlotLabel(source?.timeSlot);
+  if (typeof doctorId !== 'string' || !doctorId || typeof date !== 'string' || !DATE_RE.test(date)) {
+    return { error: 'doctorId and a valid date (YYYY-MM-DD) are required.' };
+  }
+  if (!timeSlot) return { error: 'Enter a valid time, e.g. 5:30 PM.' };
+  return { doctorId, date, timeSlot };
+}
+
+app.post('/api/admin/doctor-schedule/slot', requireAdminAuth, async (req, res) => {
+  const parsed = parseSlotRequest(req.body);
+  if ('error' in parsed) return res.status(400).json({ success: false, error: parsed.error });
+  if (parsed.date < todayIST()) return res.status(400).json({ success: false, error: "Slots can't be added to a date that has already passed." });
+
+  const result = await addSlot(parsed.doctorId, parsed.date, parsed.timeSlot);
+  if (!result.success) {
+    return res.status(result.code === 'exists' ? 409 : 502).json({ success: false, error: result.error || 'Could not add the slot.' });
+  }
+  auditLog(req, `added slot ${parsed.timeSlot} on ${parsed.date} for ${parsed.doctorId}`);
+  res.json({ success: true, timeSlot: parsed.timeSlot });
+});
+
+app.patch('/api/admin/doctor-schedule/slot', requireAdminAuth, async (req, res) => {
+  const parsed = parseSlotRequest(req.body);
+  if ('error' in parsed) return res.status(400).json({ success: false, error: parsed.error });
+  const newTimeSlot = normalizeSlotLabel(req.body?.newTimeSlot);
+  if (!newTimeSlot) return res.status(400).json({ success: false, error: 'Enter a valid new time, e.g. 5:30 PM.' });
+  if (parsed.date < todayIST()) return res.status(400).json({ success: false, error: "Slots on a date that has already passed can't be changed." });
+
+  const conflict = findActiveAppointment(parsed.doctorId, parsed.date, parsed.timeSlot);
+  const result = await editSlot(parsed.doctorId, parsed.date, parsed.timeSlot, newTimeSlot);
+  if (!result.success) {
+    return res.status(result.code === 'exists' ? 409 : result.code === 'missing' ? 404 : 502).json({ success: false, error: result.error || 'Could not change the slot.' });
+  }
+  auditLog(req, `moved slot ${parsed.timeSlot} to ${newTimeSlot} on ${parsed.date} for ${parsed.doctorId}`);
+  res.json({
+    success: true,
+    timeSlot: newTimeSlot,
+    conflict: conflict ? { appointmentId: conflict.id, patientName: conflict.patientName } : undefined
+  });
+});
+
+app.delete('/api/admin/doctor-schedule/slot', requireAdminAuth, async (req, res) => {
+  const parsed = parseSlotRequest(req.query);
+  if ('error' in parsed) return res.status(400).json({ success: false, error: parsed.error });
+  if (parsed.date < todayIST()) return res.status(400).json({ success: false, error: "Slots on a date that has already passed can't be changed." });
+
+  const conflict = findActiveAppointment(parsed.doctorId, parsed.date, parsed.timeSlot);
+  const result = await removeSlot(parsed.doctorId, parsed.date, parsed.timeSlot);
+  if (!result.success) {
+    return res.status(result.code === 'missing' ? 404 : 502).json({ success: false, error: result.error || 'Could not delete the slot.' });
+  }
+  auditLog(req, `deleted slot ${parsed.timeSlot} on ${parsed.date} for ${parsed.doctorId}`);
+  res.json({
+    success: true,
+    conflict: conflict ? { appointmentId: conflict.id, patientName: conflict.patientName } : undefined
+  });
+});
+
 app.post('/api/admin/doctor-schedule/day', requireAdminAuth, async (req, res) => {
   const { doctorId, date, blocked } = req.body;
   if (typeof doctorId !== 'string' || !doctorId || typeof date !== 'string' || !DATE_RE.test(date) || typeof blocked !== 'boolean') {
     return res.status(400).json({ success: false, error: 'doctorId, date, and blocked (boolean) are required.' });
   }
 
-  const timeSlots = getTimeSlotsForDate(date);
+  const timeSlots = getEffectiveSlots(doctorId, date);
   const result = await setDayBlocked(doctorId, date, timeSlots, blocked);
   if (!result.success && !result.mock) {
     return res.status(502).json({ success: false, error: result.error || 'Could not update the schedule.' });
@@ -2309,7 +2418,6 @@ app.post('/api/admin/doctor-schedule/day', requireAdminAuth, async (req, res) =>
 
   res.json({ success: true, conflicts });
 });
-
 // Doctor manually picks a new date/time for an existing appointment — the
 // slot-block conflict flow's resolution path. Re-syncs Calendar by
 // cancelling the old event and creating a fresh one (simpler and more
@@ -2355,7 +2463,7 @@ app.post('/api/admin/appointments/:id/reschedule', requireAdminAuth, async (req,
 
   const result = await sendTextMessage(
     appointment.patientPhone,
-    `📅 Your ${appointment.serviceName} appointment has been rescheduled from ${previousDate} ${previousTimeSlot} to ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care. Reply if this doesn't work for you (code: ${appointment.rescheduleToken}).`
+    `📅 Your ${appointment.serviceName} appointment has been rescheduled from ${previousDate} ${previousTimeSlot} to ${appointment.date} at ${appointment.timeSlot} at Vihana Dental Care. Reply if this doesn't work for you (code: ${appointment.rescheduleToken}).\n\n${ENQUIRY_LINE}`
   );
   if (!result.success && !result.mock) {
     console.error('Appointment rescheduled but WhatsApp notice failed:', result.error);
@@ -2505,25 +2613,38 @@ app.get('/api/admin/fee-config', requireAdminAuth, (req, res) => {
   res.json({ success: true, feeConfig: clinicFeeConfig });
 });
 
-app.patch('/api/admin/fee-config', requireAdminAuth, (req, res) => {
-  const { confirmationFeeEnabled, inClinicFeeINR, onlineFeeINR } = req.body;
+app.patch('/api/admin/fee-config', requireAdminAuth, async (req, res) => {
+  const { confirmationFeeEnabled, inClinicFeeEnabled, inClinicFeeINR, onlineFeeEnabled, onlineFeeINR } = req.body;
 
-  if (inClinicFeeINR !== undefined && (typeof inClinicFeeINR !== 'number' || inClinicFeeINR < 0)) {
-    return res.status(400).json({ success: false, error: 'inClinicFeeINR must be a non-negative number' });
+  if (inClinicFeeINR !== undefined && (typeof inClinicFeeINR !== 'number' || !Number.isFinite(inClinicFeeINR) || inClinicFeeINR < 0)) {
+    return res.status(400).json({ success: false, error: 'In-clinic fee must be a non-negative number.' });
   }
-  if (onlineFeeINR !== undefined && (typeof onlineFeeINR !== 'number' || onlineFeeINR < 0)) {
-    return res.status(400).json({ success: false, error: 'onlineFeeINR must be a non-negative number' });
+  if (onlineFeeINR !== undefined && (typeof onlineFeeINR !== 'number' || !Number.isFinite(onlineFeeINR) || onlineFeeINR < 0)) {
+    return res.status(400).json({ success: false, error: 'Online consult fee must be a non-negative number.' });
   }
 
-  clinicFeeConfig = {
-    confirmationFeeEnabled: confirmationFeeEnabled !== undefined ? Boolean(confirmationFeeEnabled) : clinicFeeConfig.confirmationFeeEnabled,
+  // An older client that only knows the single master switch flips both.
+  const legacyMaster = confirmationFeeEnabled !== undefined ? Boolean(confirmationFeeEnabled) : undefined;
+
+  const next = normalizeFeeConfig({
+    inClinicFeeEnabled: inClinicFeeEnabled !== undefined ? Boolean(inClinicFeeEnabled) : legacyMaster ?? clinicFeeConfig.inClinicFeeEnabled,
     inClinicFeeINR: inClinicFeeINR !== undefined ? inClinicFeeINR : clinicFeeConfig.inClinicFeeINR,
+    onlineFeeEnabled: onlineFeeEnabled !== undefined ? Boolean(onlineFeeEnabled) : legacyMaster ?? clinicFeeConfig.onlineFeeEnabled,
     onlineFeeINR: onlineFeeINR !== undefined ? onlineFeeINR : clinicFeeConfig.onlineFeeINR
-  };
+  });
 
-  res.json({ success: true, feeConfig: clinicFeeConfig });
+  clinicFeeConfig = next;
+  const saved = await saveSetting(FEE_CONFIG_SETTING_KEY, next);
+  auditLog(req, `updated booking fees (in-clinic ${next.inClinicFeeEnabled ? `₹${next.inClinicFeeINR}` : 'off'}, online ${next.onlineFeeEnabled ? `₹${next.onlineFeeINR}` : 'off'})`);
+
+  res.json({
+    success: true,
+    feeConfig: clinicFeeConfig,
+    // The new fees are live immediately either way; this only says whether
+    // they will also survive the next restart.
+    persisted: saved.success
+  });
 });
-
 // ---------------- SERVICE PRICING (admin, Supabase-backed) ----------------
 // DISPLAY ONLY — the treatment cost range shown on the public website and in
 // the WhatsApp bot's "estimated cost" line. Never charged through any route;
@@ -3336,6 +3457,15 @@ async function startServer() {
   console.log(`Loaded ${SERVICES_LIVE.length} service(s), ${DOCTORS_LIVE.length} doctor(s), and ${CONSULTANTS_LIVE.length} consultant(s) from Supabase.`);
 
   await loadScheduleOverrides();
+  await loadSlotChanges();
+
+  // Fee settings are admin-editable, so they're persisted; without this every
+  // deploy/restart silently reset them to the defaults.
+  const storedFees = await loadSetting<Partial<FeeConfig>>(FEE_CONFIG_SETTING_KEY);
+  if (storedFees) {
+    clinicFeeConfig = normalizeFeeConfig(storedFees);
+    console.log('Loaded booking fee settings from Supabase.');
+  }
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Loader2, Plus, Search, X, ChevronDown, MessageCircleMore, BellRing, Video, PhoneForwarded, CheckCircle2, Send, ExternalLink } from 'lucide-react';
+import { CalendarDays, Loader2, Plus, Search, X, ChevronDown, MessageCircleMore, BellRing, Video, PhoneForwarded, CheckCircle2, Send, ExternalLink, Download, Trash2, Ban, CalendarClock, Phone, Check } from 'lucide-react';
 import { Appointment, Doctor, DentalService } from '../../../types';
-import { PanelCard, PanelHeader, LoadingRow, ErrorBanner, SuccessBanner, inputClass, labelClass, primaryButtonClass, ghostButtonClass, ToggleSwitch } from '../shared';
+import {
+  PanelCard, PanelHeader, LoadingRow, ErrorBanner, SuccessBanner, ConfirmDialog,
+  inputClass, labelClass, primaryButtonClass, ghostButtonClass, dangerButtonClass, ToggleSwitch,
+  clinicToday, formatShortDate, slotMinutes, APPOINTMENT_TAB_HANDOFF_KEY
+} from '../shared';
 
 interface Props {
   authedFetch: (url: string, options?: RequestInit) => Promise<Response>;
@@ -27,6 +31,61 @@ export const PAYMENT_BADGE: Record<string, string> = {
   failed: 'bg-rose-100 text-rose-700'
 };
 
+/** Human wording for the payment column — a fee-waived booking with no fee reads "No fee", not a mysterious "waived". */
+export const paymentLabel = (a: Pick<Appointment, 'paymentStatus' | 'feeAmount'>): string =>
+  a.paymentStatus === 'waived' ? (a.feeAmount ? 'waived' : 'no fee') : a.paymentStatus;
+
+type ViewTab = 'today' | 'upcoming' | 'action' | 'past' | 'all';
+
+const VIEW_TABS: { id: ViewTab; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: 'upcoming', label: 'Upcoming' },
+  { id: 'action', label: 'Needs action' },
+  { id: 'past', label: 'Past' },
+  { id: 'all', label: 'All' }
+];
+
+const isLive = (a: Appointment) => a.status !== 'cancelled' && a.status !== 'completed';
+const needsAction = (a: Appointment) =>
+  a.status === 'pending_approval' ||
+  a.status === 'payment_failed' ||
+  (a.status === 'pending' && (a.feeAmount ?? 0) > 0);
+
+const belongsToTab = (a: Appointment, tab: ViewTab, today: string): boolean => {
+  switch (tab) {
+    case 'today': return a.date === today && a.status !== 'cancelled';
+    case 'upcoming': return a.date >= today && isLive(a);
+    case 'action': return needsAction(a);
+    case 'past': return a.date < today || a.status === 'completed';
+    default: return true;
+  }
+};
+
+const byTimeAsc = (a: Appointment, b: Appointment) => a.date.localeCompare(b.date) || slotMinutes(a.timeSlot) - slotMinutes(b.timeSlot);
+
+const csvCell = (value: unknown): string => {
+  const s = value === undefined || value === null ? '' : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+const exportAppointmentsCsv = (rows: Appointment[]) => {
+  const header = ['ID', 'Patient', 'Phone', 'Date', 'Time', 'Service', 'Doctor', 'Type', 'Status', 'Payment', 'Fee (INR)', 'Channel', 'Visited', 'Notes'];
+  const lines = rows.map((a) => [
+    a.id, a.patientName, a.patientPhone, a.date, a.timeSlot, a.serviceName, a.doctorName, a.consultationType,
+    a.status, paymentLabel(a), a.feeAmount ?? 0, a.channel, a.patientVisited ? 'Yes' : 'No', a.notes ?? ''
+  ].map(csvCell).join(','));
+  // The BOM makes Excel read the file as UTF-8 (patient names, ₹, etc.).
+  const blob = new Blob(['﻿' + [header.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `vihana-appointments-${clinicToday()}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
 // This is an additive tracking layer only — it reads appointment data that
 // Google Calendar and Google Sheets already receive through the existing
 // booking flows; nothing here writes to or replaces either integration.
@@ -35,13 +94,24 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
 
+  // A dashboard tile can pre-select a tab; read it once, then clear it.
+  const [tab, setTab] = useState<ViewTab | null>(() => {
+    try {
+      const handed = sessionStorage.getItem(APPOINTMENT_TAB_HANDOFF_KEY);
+      sessionStorage.removeItem(APPOINTMENT_TAB_HANDOFF_KEY);
+      return VIEW_TABS.some((v) => v.id === handed) ? (handed as ViewTab) : null;
+    } catch {
+      return null;
+    }
+  });
   const [statusFilter, setStatusFilter] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState('');
   const [channelFilter, setChannelFilter] = useState('');
   const [query, setQuery] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const today = clinicToday();
 
   const load = async () => {
     setLoading(true);
@@ -67,12 +137,34 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
     setAppointments((prev) => prev && prev.map((a) => a.id === updated.id ? updated : a));
   };
 
+  const removeLocalAppointment = (id: string) => {
+    setAppointments((prev) => prev && prev.filter((a) => a.id !== id));
+    setExpandedId(null);
+  };
+
+  const counts = useMemo(() => {
+    const result: Record<ViewTab, number> = { today: 0, upcoming: 0, action: 0, past: 0, all: 0 };
+    for (const a of appointments || []) {
+      for (const t of VIEW_TABS) if (belongsToTab(a, t.id, today)) result[t.id]++;
+    }
+    return result;
+  }, [appointments, today]);
+
+  // Land on what the doctor most likely wants: today's list if there is one,
+  // otherwise what's coming up, otherwise everything.
+  useEffect(() => {
+    if (tab !== null || !appointments) return;
+    setTab(counts.today > 0 ? 'today' : counts.upcoming > 0 ? 'upcoming' : 'all');
+  }, [appointments, counts, tab]);
+
+  const activeTab: ViewTab = tab ?? 'today';
+
   const filtered = useMemo(() => {
     if (!appointments) return [];
     const needle = query.trim().toLowerCase();
-    return appointments.filter((a) => {
+    const rows = appointments.filter((a) => {
+      if (!belongsToTab(a, activeTab, today)) return false;
       if (statusFilter && a.status !== statusFilter) return false;
-      if (paymentFilter && a.paymentStatus !== paymentFilter) return false;
       if (channelFilter && a.channel !== channelFilter) return false;
       if (needle && !(
         a.patientName.toLowerCase().includes(needle) ||
@@ -81,15 +173,20 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
       )) return false;
       return true;
     });
-  }, [appointments, statusFilter, paymentFilter, channelFilter, query]);
+    // Forward-looking views read top-to-bottom in time order; history newest-first.
+    const forward = activeTab === 'today' || activeTab === 'upcoming' || activeTab === 'action';
+    return rows.sort((a, b) => (forward ? byTimeAsc(a, b) : byTimeAsc(b, a)));
+  }, [appointments, activeTab, statusFilter, channelFilter, query, today]);
+
+  const hasFilters = Boolean(statusFilter || channelFilter || query);
 
   return (
     <div className="space-y-4">
       <PanelCard>
         <PanelHeader
           icon={<CalendarDays className="w-5 h-5" />}
-          title="Appointments & Payments"
-          subtitle="Every booking across website, WhatsApp, and chat — an additional tracking layer, Calendar and Sheets stay exactly as they are"
+          title="Appointments"
+          subtitle="Every booking from the website, WhatsApp and chat, in one place"
           action={
             <button onClick={() => setShowForm((v) => !v)} className={primaryButtonClass}>
               {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -106,42 +203,82 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
           />
         )}
 
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
+          <div className="flex items-center gap-1.5 overflow-x-auto scroll-thin -mx-1 px-1 pb-1" role="tablist" aria-label="Appointment views">
+            {VIEW_TABS.map((t) => {
+              const selected = activeTab === t.id;
+              const attention = t.id === 'action' && counts.action > 0;
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => { setTab(t.id); setExpandedId(null); }}
+                  className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-bold transition-colors ${
+                    selected ? 'bg-brand-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>{t.label}</span>
+                  <span className={`min-w-[1.25rem] text-center rounded-full px-1.5 py-0.5 text-[10px] ${
+                    selected ? 'bg-white/20 text-white' : attention ? 'bg-amber-200 text-amber-900' : 'bg-white text-slate-500'
+                  }`}>{counts[t.id]}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="relative col-span-2 sm:col-span-1">
+            <div className="relative col-span-2">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name, phone, or ID"
+                placeholder="Search name, phone or ID"
                 className={inputClass + ' pl-8 text-xs'}
               />
             </div>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={inputClass + ' text-xs'}>
-              <option value="">All statuses</option>
+              <option value="">Any status</option>
               {['pending', 'pending_approval', 'confirmed', 'rescheduled', 'completed', 'cancelled', 'payment_failed'].map((s) => (
                 <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
               ))}
             </select>
-            <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className={inputClass + ' text-xs'}>
-              <option value="">All payments</option>
-              {['pending', 'paid', 'waived', 'failed'].map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
             <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} className={inputClass + ' text-xs'}>
-              <option value="">All channels</option>
+              <option value="">Any channel</option>
               {['website_cta', 'whatsapp', 'chatbot', 'admin_direct'].map((s) => (
                 <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
               ))}
             </select>
           </div>
 
+          <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+            <p>
+              {appointments ? `${filtered.length} appointment${filtered.length === 1 ? '' : 's'}` : ''}
+              {hasFilters && <button onClick={() => { setQuery(''); setStatusFilter(''); setChannelFilter(''); }} className="ml-2 underline font-semibold text-brand-900">Clear filters</button>}
+            </p>
+            <button
+              onClick={() => exportAppointmentsCsv(filtered)}
+              disabled={filtered.length === 0}
+              className={ghostButtonClass + ' text-xs py-1.5 px-3 disabled:opacity-40'}
+              title="Download the list below as a spreadsheet"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+          </div>
+
           {loading && <LoadingRow label="Loading appointments..." />}
           {loadError && <ErrorBanner message={loadError} onRetry={load} />}
 
           {appointments && !loading && filtered.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-8">No appointments match these filters.</p>
+            <div className="text-center py-10 space-y-1">
+              <p className="text-sm font-semibold text-slate-600">
+                {hasFilters ? 'No appointments match these filters.' : activeTab === 'today' ? 'No appointments today.' : activeTab === 'action' ? 'Nothing needs your attention. 🎉' : 'No appointments here yet.'}
+              </p>
+              {!hasFilters && activeTab === 'today' && counts.upcoming > 0 && (
+                <button onClick={() => setTab('upcoming')} className="text-xs underline font-semibold text-brand-900">See {counts.upcoming} upcoming</button>
+              )}
+            </div>
           )}
 
           {filtered.length > 0 && (
@@ -149,9 +286,9 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
               <table className="w-full text-xs min-w-[720px]">
                 <thead>
                   <tr className="text-left text-slate-400 uppercase tracking-wide text-[10px]">
+                    <th className="px-2 py-2">When</th>
                     <th className="px-2 py-2">Patient</th>
                     <th className="px-2 py-2">Doctor / Service</th>
-                    <th className="px-2 py-2">When</th>
                     <th className="px-2 py-2">Status</th>
                     <th className="px-2 py-2">Payment</th>
                     <th className="px-2 py-2">Channel</th>
@@ -162,9 +299,13 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
                   {filtered.map((a) => (
                     <React.Fragment key={a.id}>
                       <tr
-                        className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
+                        className={`border-t border-slate-100 hover:bg-slate-50 cursor-pointer ${a.status === 'cancelled' ? 'opacity-60' : ''}`}
                         onClick={() => setExpandedId((prev) => prev === a.id ? null : a.id)}
                       >
+                        <td className="px-2 py-2.5 whitespace-nowrap">
+                          <p className="font-bold text-slate-900">{a.timeSlot}</p>
+                          <p className="text-slate-400">{a.date === today ? 'Today' : formatShortDate(a.date)}</p>
+                        </td>
                         <td className="px-2 py-2.5">
                           <p className="font-bold text-slate-900">{a.patientName}</p>
                           <p className="text-slate-400 font-mono text-[10px]">{a.patientPhone} · #{a.id}</p>
@@ -172,10 +313,6 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
                         <td className="px-2 py-2.5">
                           <p className="text-slate-700">{a.doctorName}</p>
                           <p className="text-slate-400">{a.serviceName}</p>
-                        </td>
-                        <td className="px-2 py-2.5 whitespace-nowrap">
-                          <p className="text-slate-700">{a.date}</p>
-                          <p className="text-slate-400">{a.timeSlot}</p>
                         </td>
                         <td className="px-2 py-2.5">
                           <span className={`inline-block px-2 py-0.5 rounded-full font-bold ${STATUS_BADGE[a.status] || 'bg-slate-100 text-slate-600'}`}>
@@ -189,7 +326,7 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
                         </td>
                         <td className="px-2 py-2.5">
                           <span className={`inline-block px-2 py-0.5 rounded-full font-bold ${PAYMENT_BADGE[a.paymentStatus] || 'bg-slate-100 text-slate-600'}`}>
-                            {a.paymentStatus}
+                            {paymentLabel(a)}
                           </span>
                           {typeof a.feeAmount === 'number' && a.feeAmount > 0 && (
                             <span className="text-slate-400 ml-1">₹{a.feeAmount}</span>
@@ -208,6 +345,7 @@ export const AppointmentsPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
                               authedFetch={authedFetch}
                               onSessionExpired={onSessionExpired}
                               onUpdated={patchLocalAppointment}
+                              onDeleted={removeLocalAppointment}
                             />
                           </td>
                         </tr>
@@ -237,9 +375,83 @@ export const AppointmentDetailPanel: React.FC<{
   authedFetch: Props['authedFetch'];
   onSessionExpired: () => void;
   onUpdated: (updated: Appointment) => void;
-}> = ({ appointment: a, authedFetch, onSessionExpired, onUpdated }) => {
+  /** Called after the appointment is permanently deleted, so the parent list can drop the row. */
+  onDeleted?: (id: string) => void;
+}> = ({ appointment: a, authedFetch, onSessionExpired, onUpdated, onDeleted }) => {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState<'cancel' | 'delete' | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+  const [notifyPatient, setNotifyPatient] = useState(true);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState(a.date);
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleSlots, setRescheduleSlots] = useState<{ time: string; blocked: boolean; appointmentId?: string }[]>([]);
+  const [rescheduleBusy, setRescheduleBusy] = useState(false);
+
+  const isCancelled = a.status === 'cancelled';
+  const isFinished = a.status === 'completed';
+
+  // Open slots for the chosen date, for the inline reschedule picker.
+  useEffect(() => {
+    if (!showReschedule || !rescheduleDate) return;
+    let cancelled = false;
+    authedFetch(`/api/admin/doctor-schedule?doctorId=${encodeURIComponent(a.doctorId)}&date=${rescheduleDate}`)
+      .then((res) => (res.status === 401 ? onSessionExpired() : res.json()))
+      .then((data) => { if (!cancelled && data?.success) setRescheduleSlots(data.slots); })
+      .catch(() => { if (!cancelled) setRescheduleSlots([]); });
+    setRescheduleTime('');
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showReschedule, rescheduleDate]);
+
+  const submitReschedule = async () => {
+    if (!rescheduleDate || !rescheduleTime) return;
+    setRescheduleBusy(true);
+    setError('');
+    try {
+      const res = await authedFetch(`/api/admin/appointments/${encodeURIComponent(a.id)}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: rescheduleDate, timeSlot: rescheduleTime })
+      });
+      if (res.status === 401) return onSessionExpired();
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Could not reschedule.');
+      onUpdated(data.appointment);
+      setShowReschedule(false);
+    } catch (err: any) {
+      setError(err?.message || 'Could not reschedule.');
+    } finally {
+      setRescheduleBusy(false);
+    }
+  };
+
+  const runConfirmed = async () => {
+    if (!confirming) return;
+    setConfirmBusy(true);
+    setConfirmError('');
+    try {
+      const isDelete = confirming === 'delete';
+      const res = await authedFetch(
+        `/api/admin/appointments/${encodeURIComponent(a.id)}${isDelete ? '' : '/cancel'}`,
+        isDelete
+          ? { method: 'DELETE' }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notify: notifyPatient }) }
+      );
+      if (res.status === 401) return onSessionExpired();
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'That did not go through.');
+      setConfirming(null);
+      if (isDelete) onDeleted?.(a.id);
+      else onUpdated(data.appointment);
+    } catch (err: any) {
+      setConfirmError(err?.message || 'That did not go through.');
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
   const [customMessage, setCustomMessage] = useState('');
   const [customResult, setCustomResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -308,6 +520,98 @@ export const AppointmentDetailPanel: React.FC<{
   return (
     <div className="space-y-4">
       {error && <ErrorBanner message={error} />}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <a href={`tel:${a.patientPhone.replace(/[^0-9+]/g, '')}`} className={ghostButtonClass + ' text-[11px] py-2 px-3'}>
+          <Phone className="w-3.5 h-3.5" />
+          <span>Call {a.patientPhone}</span>
+        </a>
+        {!isCancelled && !isFinished && (
+          <button onClick={() => patchField('status', 'completed')} disabled={busyKey === 'status'} className={ghostButtonClass + ' text-[11px] py-2 px-3'}>
+            <Check className="w-3.5 h-3.5" />
+            <span>Mark completed</span>
+          </button>
+        )}
+        {!isCancelled && !isFinished && (
+          <button onClick={() => setShowReschedule((v) => !v)} className={ghostButtonClass + ' text-[11px] py-2 px-3'}>
+            <CalendarClock className="w-3.5 h-3.5" />
+            <span>{showReschedule ? 'Close reschedule' : 'Reschedule'}</span>
+          </button>
+        )}
+        {!isCancelled && (
+          <button onClick={() => { setConfirmError(''); setConfirming('cancel'); }} className={dangerButtonClass + ' text-[11px] py-2 px-3'}>
+            <Ban className="w-3.5 h-3.5" />
+            <span>Cancel appointment</span>
+          </button>
+        )}
+        <button onClick={() => { setConfirmError(''); setConfirming('delete'); }} className={dangerButtonClass + ' text-[11px] py-2 px-3 ml-auto'}>
+          <Trash2 className="w-3.5 h-3.5" />
+          <span>Delete</span>
+        </button>
+      </div>
+
+      {showReschedule && (
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3">
+          <p className="text-xs font-bold text-slate-700">Move this appointment</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <div>
+              <label className={labelClass}>New date</label>
+              <input type="date" value={rescheduleDate} min={clinicToday()} onChange={(e) => setRescheduleDate(e.target.value)} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>New time</label>
+              <select value={rescheduleTime} onChange={(e) => setRescheduleTime(e.target.value)} className={inputClass}>
+                <option value="">{rescheduleSlots.length === 0 ? 'No slots on this date' : 'Select a time'}</option>
+                {rescheduleSlots.filter((s) => !s.blocked && !s.appointmentId).map((s) => <option key={s.time} value={s.time}>{s.time}</option>)}
+              </select>
+            </div>
+            <button onClick={submitReschedule} disabled={rescheduleBusy || !rescheduleTime} className={primaryButtonClass}>
+              {rescheduleBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
+              <span>{rescheduleBusy ? 'Moving...' : 'Reschedule & notify'}</span>
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400">The patient gets a WhatsApp message with the new time, and the calendar event moves with it.</p>
+        </div>
+      )}
+
+      {confirming === 'cancel' && (
+        <ConfirmDialog
+          title={`Cancel ${a.patientName}'s appointment?`}
+          tone="danger"
+          message={
+            <div className="space-y-2.5">
+              <p>{formatShortDate(a.date)} at {a.timeSlot}. The slot is freed for other patients and the booking stays on record as cancelled.</p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={notifyPatient} onChange={(e) => setNotifyPatient(e.target.checked)} className="w-4 h-4 accent-brand-800" />
+                <span className="font-medium text-slate-700">Tell the patient on WhatsApp</span>
+              </label>
+            </div>
+          }
+          confirmLabel="Cancel appointment"
+          busy={confirmBusy}
+          error={confirmError}
+          onConfirm={runConfirmed}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
+
+      {confirming === 'delete' && (
+        <ConfirmDialog
+          title="Delete this appointment permanently?"
+          tone="danger"
+          message={
+            <p>
+              <span className="font-semibold">{a.patientName}</span> · {formatShortDate(a.date)} at {a.timeSlot} (#{a.id}) will be erased from the console and database and its calendar event removed. This can't be undone. To keep a record, use <span className="font-semibold">Cancel appointment</span> instead.
+            </p>
+          }
+          requirePhrase="delete"
+          confirmLabel="Delete forever"
+          busy={confirmBusy}
+          error={confirmError}
+          onConfirm={runConfirmed}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3.5 py-2.5">

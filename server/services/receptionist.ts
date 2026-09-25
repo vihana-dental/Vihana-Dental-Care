@@ -16,7 +16,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { CLINIC_INFO, WEEKLY_SCHEDULE } from '../../src/data/clinicData';
-import { DentalService, Doctor, ConsultantDoctor, FAQ } from '../../src/types';
+import { DentalService, Doctor, ConsultantDoctor, FAQ, FeeConfig, feeForType } from '../../src/types';
 
 /**
  * Models tried in order for every request.
@@ -104,7 +104,7 @@ export interface ClinicSnapshot {
   doctors: Doctor[];
   consultants: ConsultantDoctor[];
   faqs: FAQ[];
-  feeConfig: { confirmationFeeEnabled: boolean; inClinicFeeINR: number; onlineFeeINR: number };
+  feeConfig: FeeConfig;
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -165,10 +165,14 @@ export function buildKnowledgeBase(snapshot: ClinicSnapshot): string {
     ? faqs.map((f) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n')
     : '(No FAQs are currently published on the site.)';
 
-  const feeBlock = feeConfig.confirmationFeeEnabled
-    ? `A refundable advance booking fee is charged to hold a slot: ₹${feeConfig.inClinicFeeINR} for in-clinic visits and ₹${feeConfig.onlineFeeINR} for online video consultations. This is only a slot-holding deposit, NOT the treatment cost.`
+  const inClinicFee = feeForType(feeConfig, false);
+  const onlineFee = feeForType(feeConfig, true);
+  const feeParts: string[] = [];
+  if (inClinicFee > 0) feeParts.push(`₹${inClinicFee} for in-clinic visits`);
+  if (onlineFee > 0) feeParts.push(`₹${onlineFee} for online video consultations`);
+  const feeBlock = feeParts.length
+    ? `A refundable advance booking fee is charged on the website to hold a slot: ${feeParts.join(' and ')}.${inClinicFee === 0 || onlineFee === 0 ? ` (The other consultation type has no advance fee.)` : ''} This is only a slot-holding deposit, NOT the treatment cost. Appointments booked on WhatsApp need no advance payment.`
     : 'No advance booking fee is currently being charged to hold a slot.';
-
   return `## CLINIC
 Name: ${CLINIC_INFO.name}
 Tagline: ${CLINIC_INFO.tagline}

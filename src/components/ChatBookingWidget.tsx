@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { SERVICES, CLINIC_INFO, slotDisabledLabel } from '../data/clinicData';
-import { AvailabilitySlot, BookingDraft, ChatBubble, ChatFlowStep, FeeConfig } from '../types';
+import { AvailabilitySlot, BookingDraft, ChatBubble, ChatFlowStep, FeeConfig, DEFAULT_FEE_CONFIG, feeForType } from '../types';
 import {
   Bot,
   X,
@@ -78,7 +78,7 @@ export const ChatBookingWidget: React.FC = () => {
   const [category, setCategory] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [nlLoading, setNlLoading] = useState(false);
-  const [feeConfig, setFeeConfig] = useState<FeeConfig>({ confirmationFeeEnabled: true, inClinicFeeINR: 300, onlineFeeINR: 500 });
+  const [feeConfig, setFeeConfig] = useState<FeeConfig>(DEFAULT_FEE_CONFIG);
   const [paymentLink, setPaymentLink] = useState<{ shortUrl: string; qrImageUrl: string; amount: number } | null>(null);
   const [paymentAppointmentId, setPaymentAppointmentId] = useState<string | null>(null);
   const [paymentGenLoading, setPaymentGenLoading] = useState(false);
@@ -210,8 +210,8 @@ export const ChatBookingWidget: React.FC = () => {
       setCheckingSlot(false);
     }
 
-    const fee = draft.consultationType === 'online-video' ? feeConfig.onlineFeeINR : feeConfig.inClinicFeeINR;
-    if (feeConfig.confirmationFeeEnabled && fee > 0) {
+    const fee = feeForType(feeConfig, draft.consultationType === 'online-video');
+    if (fee > 0) {
       pushBot(`Thanks! There's a refundable advance booking fee of ₹${fee}. Generate a secure payment link below to pay without leaving this chat.`);
       setStep('payment');
     } else {

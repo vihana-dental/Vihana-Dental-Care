@@ -123,6 +123,23 @@ export async function persistAppointment(appointment: Appointment): Promise<void
   }
 }
 
+/** Permanently removes one appointment row. Returns success:false (never throws) if Supabase rejects it. */
+export async function deleteAppointmentRow(id: string): Promise<{ success: boolean; error?: string }> {
+  if (!isAppointmentsPersistenceConfigured()) return { success: true };
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/appointments?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: supabaseHeaders({ Prefer: 'return=minimal' })
+    });
+    if (!res.ok) throw new Error(`Supabase appointment delete failed: ${res.status} ${await res.text()}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`Supabase deleteAppointmentRow failed for ${id}:`, error?.message || error);
+    return { success: false, error: error?.message || 'Unknown Supabase error' };
+  }
+}
+
 /** Rehydrates the in-memory appointment list at server startup. Returns [] (never throws) when unconfigured or on error. */
 export async function loadAllAppointments(): Promise<Appointment[]> {
   if (!isAppointmentsPersistenceConfigured()) return [];

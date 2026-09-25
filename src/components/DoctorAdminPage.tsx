@@ -181,7 +181,7 @@ export const DoctorAdminPage: React.FC = () => {
             <h1 className="text-xl font-extrabold text-slate-900">{SECTION_TITLES[activeSection]}</h1>
           </div>
 
-          {activeSection === 'overview' && <OverviewPanel onNavigate={setActiveSection} />}
+          {activeSection === 'overview' && <OverviewPanel onNavigate={setActiveSection} {...panelProps} />}
           {activeSection === 'appointments' && <AppointmentsPanel {...panelProps} />}
           {activeSection === 'live-calendar' && <LiveCalendarPanel {...panelProps} />}
           {activeSection === 'schedule' && <SchedulePanel {...panelProps} />}

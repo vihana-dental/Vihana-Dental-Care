@@ -334,3 +334,30 @@ alter table team_consultants enable row level security;
 alter table gallery_items enable row level security;
 alter table clinic_certificates enable row level security;
 alter table reviews enable row level security;
+
+-- ---------------- doctor_slot_changes ----------------
+-- Per-doctor, per-date custom slots. 'added' puts an extra slot on a date (a
+-- special session, or a whole extra day on a normally-closed weekday);
+-- 'removed' takes a slot from the default weekly hours off that date entirely.
+-- Different from doctor_schedule_overrides, where a row means a slot still
+-- exists but is switched off ("unavailable").
+create table if not exists doctor_slot_changes (
+  doctor_id text not null,
+  date text not null,
+  time_slot text not null,
+  kind text not null check (kind in ('added', 'removed')),
+  created_at timestamptz not null default now(),
+  primary key (doctor_id, date, time_slot)
+);
+
+-- ---------------- clinic_settings ----------------
+-- Small key/value store for admin-editable settings that must survive a
+-- restart (currently: 'booking_fee_config').
+create table if not exists clinic_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table doctor_slot_changes enable row level security;
+alter table clinic_settings enable row level security;

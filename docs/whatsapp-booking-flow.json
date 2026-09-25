@@ -18,7 +18,7 @@
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextHeading", "text": "Book with Dr. N. Sanchana" },
+          { "type": "TextHeading", "text": "Book your appointment with Vihana Dental Care" },
           { "type": "TextBody", "text": "Pick the day you'd like to visit. Open times for that day are shown next." },
           {
             "type": "DatePicker",
@@ -92,7 +92,7 @@
       "data": {
         "date": { "type": "string", "__example__": "2026-09-26" },
         "time": { "type": "string", "__example__": "10:00 AM" },
-        "summary": { "type": "string", "__example__": "Doctor: Dr. N. Sanchana\nDate: Sat, 26 Sept 2026\nTime: 10:00 AM" }
+        "summary": { "type": "string", "__example__": "Date: Sat, 26 Sept 2026\nTime: 10:00 AM\nPlace: Vihana Dental Care, Kalapatti" }
       },
       "layout": {
         "type": "SingleColumnLayout",
@@ -101,7 +101,7 @@
           { "type": "TextBody", "text": "${data.summary}" },
           {
             "type": "Footer",
-            "label": "Confirm & Pay",
+            "label": "Confirm Appointment",
             "on-click-action": {
               "name": "complete",
               "payload": { "date": "${data.date}", "time": "${data.time}" }

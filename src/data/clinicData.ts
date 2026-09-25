@@ -128,7 +128,7 @@ export const WEEKLY_SCHEDULE: TimeWindow[][] = [
 const SLOT_INTERVAL_MINUTES = 30;
 const APPOINTMENT_DURATION_MINUTES = 30;
 
-function formatSlotLabel(hours: number, minutes: number): string {
+export function formatSlotLabel(hours: number, minutes: number): string {
   const meridiem = hours >= 12 ? 'PM' : 'AM';
   const displayHour = hours % 12 === 0 ? 12 : hours % 12;
   return `${displayHour}:${String(minutes).padStart(2, '0')} ${meridiem}`;

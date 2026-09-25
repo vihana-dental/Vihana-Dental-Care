@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { CalendarOff, AlertTriangle, X } from 'lucide-react';
-import { PanelCard, PanelHeader, LoadingRow, ErrorBanner, ToggleSwitch, inputClass, labelClass, primaryButtonClass, ghostButtonClass } from '../shared';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarOff, AlertTriangle, X, Plus, Pencil, Trash2, Check, ChevronLeft, ChevronRight, RotateCcw, Sparkles } from 'lucide-react';
+import {
+  PanelCard, PanelHeader, LoadingRow, ErrorBanner, ToggleSwitch, ConfirmDialog,
+  inputClass, labelClass, primaryButtonClass, ghostButtonClass,
+  clinicToday, shiftDate, formatShortDate
+} from '../shared';
 
 interface Props {
   authedFetch: (url: string, options?: RequestInit) => Promise<Response>;
@@ -16,6 +20,8 @@ interface DoctorOption {
 interface ScheduleSlot {
   time: string;
   blocked: boolean;
+  /** true for a slot the admin added (not part of the default weekly hours) */
+  custom?: boolean;
   appointmentId?: string;
   patientName?: string;
 }
@@ -26,30 +32,55 @@ interface ConflictInfo {
   timeSlot: string;
 }
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+/** "2:30 PM" -> "14:30", the value an <input type="time"> expects. */
+const toTimeInput = (label: string): string => {
+  const m = label.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return '';
+  let h = Number(m[1]) % 12;
+  if (m[3].toUpperCase() === 'PM') h += 12;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+};
 
-// Per-doctor day-off / slot-off schedule editor. A slot is bookable by
-// default — toggling it off here is what makes it unavailable across every
-// booking channel (website, chat widget, WhatsApp bot), since they all read
-// through the same computeAvailability() check on the server. If a slot
-// being blocked already has a live appointment on it, this surfaces a
-// reschedule prompt right there rather than silently leaving a booked
-// patient on a slot the doctor just said they can't make.
+// Per-doctor schedule editor for one date at a time. Everything here applies
+// instantly across the website, chat widget and WhatsApp booking, because they
+// all read the same availability check on the server.
+//
+// Three different actions on a slot, which are easy to confuse:
+//   • Turn OFF (the switch)  — the slot stays on the day but shows as
+//     unavailable. Use it for "I can't make this one" — it's one tap to undo.
+//   • Edit (pencil)          — move the slot to a different time that day.
+//   • Delete (bin)           — the slot no longer exists on that date. A slot
+//     from the default weekly hours can be restored; one you added is gone.
+// Adding a slot on a normally-closed day (e.g. a special Sunday session) opens
+// that day for booking.
 export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) => {
   const [doctors, setDoctors] = useState<DoctorOption[] | null>(null);
   const [doctorId, setDoctorId] = useState('');
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(clinicToday());
   const [slots, setSlots] = useState<ScheduleSlot[] | null>(null);
+  const [removedSlots, setRemovedSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [dayBusy, setDayBusy] = useState(false);
+
+  const [newTime, setNewTime] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<{ time: string; value: string } | null>(null);
+  const [deleting, setDeleting] = useState<ScheduleSlot | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('');
   const [rescheduleSlots, setRescheduleSlots] = useState<ScheduleSlot[]>([]);
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState('');
+
+  const today = clinicToday();
+  const isPast = date < today;
 
   useEffect(() => {
     fetch('/api/bookable-doctors')
@@ -62,9 +93,9 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
       .catch(() => setDoctors([]));
   }, []);
 
-  const loadSchedule = async () => {
+  const loadSchedule = async (opts: { quiet?: boolean } = {}) => {
     if (!doctorId) return;
-    setLoading(true);
+    if (!opts.quiet) setLoading(true);
     setLoadError('');
     try {
       const res = await authedFetch(`/api/admin/doctor-schedule?doctorId=${encodeURIComponent(doctorId)}&date=${date}`);
@@ -72,6 +103,7 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Failed to load schedule.');
       setSlots(data.slots);
+      setRemovedSlots(data.removedSlots || []);
     } catch (err: any) {
       setLoadError(err?.message || 'Could not load schedule.');
       setSlots(null);
@@ -80,30 +112,43 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
     }
   };
 
-  useEffect(() => { loadSchedule(); }, [doctorId, date]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setEditing(null);
+    setActionError('');
+    loadSchedule();
+  }, [doctorId, date]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openConflict = (info: ConflictInfo) => {
+    setConflict(info);
+    setRescheduleDate(date);
+    setRescheduleTime('');
+    setRescheduleError('');
+  };
+
+  // One place for the "call an endpoint, then refresh the list" pattern.
+  const callSlotApi = async (path: string, init: RequestInit): Promise<any> => {
+    const res = await authedFetch(path, init);
+    if (res.status === 401) { onSessionExpired(); return null; }
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'That change could not be saved.');
+    return data;
+  };
 
   const toggleSlot = async (slot: ScheduleSlot) => {
     const nextBlocked = !slot.blocked;
     setBusySlot(slot.time);
+    setActionError('');
     try {
-      const res = await authedFetch('/api/admin/doctor-schedule/toggle', {
+      const data = await callSlotApi('/api/admin/doctor-schedule/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ doctorId, date, timeSlot: slot.time, blocked: nextBlocked })
       });
-      if (res.status === 401) return onSessionExpired();
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Could not update this slot.');
-
+      if (!data) return;
       setSlots((prev) => prev && prev.map((s) => (s.time === slot.time ? { ...s, blocked: nextBlocked } : s)));
-
-      if (data.conflict) {
-        setConflict({ appointmentId: data.conflict.appointmentId, patientName: data.conflict.patientName, timeSlot: slot.time });
-        setRescheduleDate(date);
-        setRescheduleTime('');
-      }
+      if (data.conflict) openConflict({ appointmentId: data.conflict.appointmentId, patientName: data.conflict.patientName, timeSlot: slot.time });
     } catch (err: any) {
-      setLoadError(err?.message || 'Could not update this slot.');
+      setActionError(err?.message || 'Could not update this slot.');
     } finally {
       setBusySlot(null);
     }
@@ -111,29 +156,86 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
 
   const toggleDay = async (blocked: boolean) => {
     setDayBusy(true);
-    setLoadError('');
+    setActionError('');
     try {
-      const res = await authedFetch('/api/admin/doctor-schedule/day', {
+      const data = await callSlotApi('/api/admin/doctor-schedule/day', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ doctorId, date, blocked })
       });
-      if (res.status === 401) return onSessionExpired();
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Could not update the day.');
-
+      if (!data) return;
       setSlots((prev) => prev && prev.map((s) => ({ ...s, blocked })));
-
       if (blocked && data.conflicts?.length > 0) {
         const first = data.conflicts[0];
-        setConflict({ appointmentId: first.appointmentId, patientName: first.patientName, timeSlot: first.timeSlot });
-        setRescheduleDate(date);
-        setRescheduleTime('');
+        openConflict({ appointmentId: first.appointmentId, patientName: first.patientName, timeSlot: first.timeSlot });
       }
     } catch (err: any) {
-      setLoadError(err?.message || 'Could not update the day.');
+      setActionError(err?.message || 'Could not update the day.');
     } finally {
       setDayBusy(false);
+    }
+  };
+
+  const addSlot = async (timeValue: string) => {
+    if (!timeValue) return;
+    setAdding(true);
+    setActionError('');
+    try {
+      const data = await callSlotApi('/api/admin/doctor-schedule/slot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctorId, date, timeSlot: timeValue })
+      });
+      if (!data) return;
+      setNewTime('');
+      await loadSchedule({ quiet: true });
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not add the slot.');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setBusySlot(editing.time);
+    setActionError('');
+    try {
+      const data = await callSlotApi('/api/admin/doctor-schedule/slot', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctorId, date, timeSlot: editing.time, newTimeSlot: editing.value })
+      });
+      if (!data) return;
+      const wasBooked = data.conflict;
+      setEditing(null);
+      await loadSchedule({ quiet: true });
+      if (wasBooked) openConflict({ appointmentId: wasBooked.appointmentId, patientName: wasBooked.patientName, timeSlot: editing.time });
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not change the slot.');
+    } finally {
+      setBusySlot(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setDeleteError('');
+    try {
+      const data = await callSlotApi(
+        `/api/admin/doctor-schedule/slot?doctorId=${encodeURIComponent(doctorId)}&date=${date}&timeSlot=${encodeURIComponent(deleting.time)}`,
+        { method: 'DELETE' }
+      );
+      if (!data) return;
+      const removed = deleting;
+      setDeleting(null);
+      await loadSchedule({ quiet: true });
+      if (data.conflict) openConflict({ appointmentId: data.conflict.appointmentId, patientName: data.conflict.patientName, timeSlot: removed.time });
+    } catch (err: any) {
+      setDeleteError(err?.message || 'Could not delete the slot.');
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -161,6 +263,7 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Could not reschedule this appointment.');
       setConflict(null);
+      loadSchedule({ quiet: true });
     } catch (err: any) {
       setRescheduleError(err?.message || 'Could not reschedule this appointment.');
     } finally {
@@ -168,7 +271,17 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
     }
   };
 
-  const conflictSlots = rescheduleSlots.filter((s) => !s.blocked);
+  const conflictSlots = rescheduleSlots.filter((s) => !s.blocked && !s.appointmentId);
+
+  const summary = useMemo(() => {
+    const list = slots || [];
+    return {
+      total: list.length,
+      booked: list.filter((s) => s.appointmentId).length,
+      off: list.filter((s) => s.blocked).length,
+      open: list.filter((s) => !s.blocked && !s.appointmentId).length
+    };
+  }, [slots]);
 
   return (
     <div className="space-y-4">
@@ -176,10 +289,10 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
         <PanelHeader
           icon={<CalendarOff className="w-5 h-5" />}
           title="Doctor Schedule"
-          subtitle="Turn off individual slots or a whole day when a doctor is unavailable — applies instantly across the website, chat, and WhatsApp booking"
+          subtitle="Add, move, delete or switch off slots — applies instantly to website, chat and WhatsApp booking"
         />
 
-        <div className="p-4 sm:p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Doctor / Consultant</label>
@@ -191,34 +304,195 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
             </div>
             <div>
               <label className={labelClass}>Date</label>
-              <input type="date" value={date} min={todayISO()} onChange={(e) => setDate(e.target.value)} className={inputClass} />
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => setDate((d) => shiftDate(d, -1))} disabled={date <= today} className={ghostButtonClass + ' px-2.5 shrink-0 disabled:opacity-40'} aria-label="Previous day">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <input type="date" value={date} min={today} onChange={(e) => e.target.value && setDate(e.target.value)} className={inputClass} />
+                <button type="button" onClick={() => setDate((d) => shiftDate(d, 1))} className={ghostButtonClass + ' px-2.5 shrink-0'} aria-label="Next day">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button onClick={() => toggleDay(true)} disabled={dayBusy} className={ghostButtonClass}>Block whole day</button>
-            <button onClick={() => toggleDay(false)} disabled={dayBusy} className={ghostButtonClass}>Unblock whole day</button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-900">{formatShortDate(date)}{date === today ? ' · Today' : ''}</p>
+              {slots && (
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {summary.total === 0
+                    ? 'No slots on this day'
+                    : `${summary.total} slot${summary.total === 1 ? '' : 's'} · ${summary.booked} booked · ${summary.open} open${summary.off ? ` · ${summary.off} switched off` : ''}`}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {date !== today && <button type="button" onClick={() => setDate(today)} className={ghostButtonClass + ' text-xs py-2'}>Jump to today</button>}
+              <button onClick={() => toggleDay(true)} disabled={dayBusy || isPast || summary.total === 0} className={ghostButtonClass + ' text-xs py-2'}>Turn off whole day</button>
+              <button onClick={() => toggleDay(false)} disabled={dayBusy || isPast || summary.total === 0} className={ghostButtonClass + ' text-xs py-2'}>Turn on whole day</button>
+            </div>
           </div>
 
           {loading && <LoadingRow label="Loading schedule..." />}
-          {loadError && <ErrorBanner message={loadError} onRetry={loadSchedule} />}
+          {loadError && <ErrorBanner message={loadError} onRetry={() => loadSchedule()} />}
+          {actionError && <ErrorBanner message={actionError} />}
 
           {!loading && !loadError && slots && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {slots.map((slot) => (
-                <div key={slot.time} className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border ${slot.appointmentId ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'}`}>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 truncate">{slot.time}</p>
-                    {slot.patientName && <p className="text-[10px] text-amber-700 truncate">{slot.patientName}</p>}
-                  </div>
-                  <ToggleSwitch checked={!slot.blocked} onChange={() => toggleSlot(slot)} disabled={busySlot === slot.time} />
+            <>
+              {slots.length === 0 ? (
+                <div className="border border-dashed border-slate-300 rounded-2xl p-6 text-center bg-slate-50">
+                  <p className="text-sm font-semibold text-slate-700">The clinic is closed on this day</p>
+                  <p className="text-xs text-slate-500 mt-1">Add a slot below to open it for a special session — patients can then book it on every channel.</p>
                 </div>
-              ))}
-              {slots.length === 0 && <p className="col-span-full text-sm text-slate-400 py-6 text-center">Clinic is closed this day.</p>}
-            </div>
+              ) : (
+                <ul className="space-y-2">
+                  {slots.map((slot) => {
+                    const isEditing = editing?.time === slot.time;
+                    const busy = busySlot === slot.time;
+                    return (
+                      <li
+                        key={slot.time}
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${
+                          slot.appointmentId ? 'border-amber-200 bg-amber-50' : slot.blocked ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'
+                        }`}
+                      >
+                        <div className="w-24 shrink-0">
+                          {isEditing ? (
+                            <input
+                              type="time"
+                              autoFocus
+                              value={editing!.value}
+                              onChange={(e) => setEditing({ time: slot.time, value: e.target.value })}
+                              className={inputClass + ' py-1.5 text-xs'}
+                            />
+                          ) : (
+                            <p className={`text-sm font-bold ${slot.blocked ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{slot.time}</p>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
+                          {slot.appointmentId && (
+                            <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5 truncate max-w-full">Booked · {slot.patientName}</span>
+                          )}
+                          {!slot.appointmentId && slot.blocked && (
+                            <span className="text-[11px] font-semibold text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">Switched off</span>
+                          )}
+                          {!slot.appointmentId && !slot.blocked && (
+                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">Open for booking</span>
+                          )}
+                          {slot.custom && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-900 bg-brand-200 rounded-full px-2 py-0.5">
+                              <Sparkles className="w-3 h-3" /> Added
+                            </span>
+                          )}
+                        </div>
+
+                        {isEditing ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button type="button" onClick={saveEdit} disabled={busy || !editing!.value} className={primaryButtonClass + ' px-2.5 py-1.5'} aria-label="Save time">
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button type="button" onClick={() => setEditing(null)} className={ghostButtonClass + ' px-2.5 py-1.5'} aria-label="Cancel edit">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setEditing({ time: slot.time, value: toTimeInput(slot.time) })}
+                              disabled={isPast}
+                              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                              aria-label={`Change time of ${slot.time}`}
+                              title="Change time"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setDeleteError(''); setDeleting(slot); }}
+                              disabled={isPast}
+                              className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40"
+                              aria-label={`Delete ${slot.time}`}
+                              title="Delete slot"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            <div className="pl-1.5" title={slot.blocked ? 'Switch on' : 'Switch off'}>
+                              <ToggleSwitch checked={!slot.blocked} onChange={() => toggleSlot(slot)} disabled={busy || isPast} />
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {!isPast && (
+                <form
+                  onSubmit={(e) => { e.preventDefault(); addSlot(newTime); }}
+                  className="flex flex-col sm:flex-row sm:items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-3.5"
+                >
+                  <div className="flex-1">
+                    <label className={labelClass}>Add a slot on {formatShortDate(date)}</label>
+                    <input type="time" required value={newTime} onChange={(e) => setNewTime(e.target.value)} className={inputClass} />
+                  </div>
+                  <button type="submit" disabled={adding || !newTime} className={primaryButtonClass + ' sm:min-w-[140px]'}>
+                    <Plus className="w-4 h-4" />
+                    <span>{adding ? 'Adding...' : 'Add slot'}</span>
+                  </button>
+                </form>
+              )}
+
+              {removedSlots.length > 0 && !isPast && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-600">Deleted from this day's default hours</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {removedSlots.map((time) => (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => addSlot(time)}
+                        disabled={adding}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-white border border-dashed border-slate-300 hover:border-brand-400 hover:text-brand-900 rounded-full px-3 py-1.5 transition-colors"
+                        title="Restore this slot"
+                      >
+                        <RotateCcw className="w-3 h-3" /> {time}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {isPast && <p className="text-xs text-slate-400">This date has passed — its schedule is read-only.</p>}
+            </>
           )}
         </div>
       </PanelCard>
+
+      {deleting && (
+        <ConfirmDialog
+          title={`Delete the ${deleting.time} slot?`}
+          message={
+            deleting.appointmentId ? (
+              <>
+                <span className="font-semibold">{deleting.patientName}</span> is booked at this time. The slot will be removed from {formatShortDate(date)} and you'll be asked to reschedule them right away.
+              </>
+            ) : deleting.custom ? (
+              <>This slot was added by you, so it will be removed for good. You can add it again anytime.</>
+            ) : (
+              <>It will disappear from {formatShortDate(date)} only. You can restore it from "Deleted from this day's default hours".</>
+            )
+          }
+          confirmLabel="Delete slot"
+          busy={deleteBusy}
+          error={deleteError}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
 
       {conflict && (
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50">
@@ -240,7 +514,7 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
 
             <div>
               <label className={labelClass}>New date</label>
-              <input type="date" value={rescheduleDate} min={todayISO()} onChange={(e) => setRescheduleDate(e.target.value)} className={inputClass} />
+              <input type="date" value={rescheduleDate} min={today} onChange={(e) => setRescheduleDate(e.target.value)} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>New time</label>

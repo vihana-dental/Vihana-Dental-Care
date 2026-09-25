@@ -386,9 +386,51 @@ export interface BookingBotIntentResponse {
 }
 
 export interface FeeConfig {
+  /**
+   * Legacy master flag — true when either fee below is switched on. Kept in
+   * the payload (and always derived, never edited directly) so an older
+   * cached client keeps reading a sensible value.
+   */
   confirmationFeeEnabled: boolean;
+  /** Advance fee to confirm an in-clinic visit booked on the website / chat widget. */
+  inClinicFeeEnabled: boolean;
   inClinicFeeINR: number;
+  /** Advance fee to confirm an online video consult booked on the website / chat widget. */
+  onlineFeeEnabled: boolean;
   onlineFeeINR: number;
+}
+
+export const DEFAULT_FEE_CONFIG: FeeConfig = {
+  confirmationFeeEnabled: true,
+  inClinicFeeEnabled: true,
+  inClinicFeeINR: 300,
+  onlineFeeEnabled: true,
+  onlineFeeINR: 500
+};
+
+/** The amount actually charged for a booking type: 0 when that type's fee is switched off. */
+export function feeForType(config: Partial<FeeConfig> | null | undefined, isOnline: boolean): number {
+  if (!config) return 0;
+  const enabled = isOnline
+    ? config.onlineFeeEnabled ?? config.confirmationFeeEnabled ?? true
+    : config.inClinicFeeEnabled ?? config.confirmationFeeEnabled ?? true;
+  const amount = isOnline ? config.onlineFeeINR : config.inClinicFeeINR;
+  return enabled && typeof amount === 'number' && amount > 0 ? amount : 0;
+}
+
+/** Fills gaps (older stored/legacy shapes) and re-derives the legacy master flag. */
+export function normalizeFeeConfig(raw: Partial<FeeConfig> | null | undefined): FeeConfig {
+  const legacyEnabled = raw?.confirmationFeeEnabled ?? DEFAULT_FEE_CONFIG.confirmationFeeEnabled;
+  const inClinicFeeEnabled = raw?.inClinicFeeEnabled ?? legacyEnabled;
+  const onlineFeeEnabled = raw?.onlineFeeEnabled ?? legacyEnabled;
+  const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback);
+  return {
+    confirmationFeeEnabled: inClinicFeeEnabled || onlineFeeEnabled,
+    inClinicFeeEnabled,
+    inClinicFeeINR: num(raw?.inClinicFeeINR, DEFAULT_FEE_CONFIG.inClinicFeeINR),
+    onlineFeeEnabled,
+    onlineFeeINR: num(raw?.onlineFeeINR, DEFAULT_FEE_CONFIG.onlineFeeINR)
+  };
 }
 
 /**

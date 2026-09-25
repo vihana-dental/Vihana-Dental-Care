@@ -24,9 +24,9 @@
 
 import { OAuth2Client } from 'google-auth-library';
 import { Appointment, AvailabilitySlot } from '../../src/types';
-import { getTimeSlotsForDate, isSlotInPast } from '../../src/data/clinicData';
+import { isSlotInPast } from '../../src/data/clinicData';
 import { clinicWallTimeToUtc, parseSlotLabel } from '../../src/lib/clinicTime';
-import { isSlotBlockedForDoctor } from './scheduleOverrides';
+import { isSlotBlockedForDoctor, getEffectiveSlots } from './scheduleOverrides';
 
 const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || '';
 const GOOGLE_OAUTH_CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET || '';
@@ -248,7 +248,9 @@ export const SLOT_LAPSED_MESSAGE =
  * so. `dayLapsed` distinguishes "today is over" from "closed today".
  */
 export async function computeAvailability(dateISO: string, doctorId?: string): Promise<AvailabilityResult> {
-  const allSlots = getTimeSlotsForDate(dateISO);
+  // Default weekly hours adjusted by any slots the admin added or deleted for
+  // this doctor on this date (see scheduleOverrides.ts).
+  const allSlots = getEffectiveSlots(doctorId, dateISO);
 
   if (allSlots.length === 0) {
     return { success: true, slots: [], dayFullyBooked: true, dayLapsed: false, degraded: false, message: 'Clinic is closed on this day.' };

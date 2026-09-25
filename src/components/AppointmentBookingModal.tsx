@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SERVICES, slotDisabledLabel } from '../data/clinicData';
 import { loadRazorpayCheckout } from '../lib/razorpayLoader';
-import { Appointment, AvailabilitySlot } from '../types';
+import { Appointment, AvailabilitySlot, FeeConfig, DEFAULT_FEE_CONFIG, feeForType } from '../types';
 import {
   X,
   Bell,
@@ -65,7 +65,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const [pendingRetry, setPendingRetry] = useState<(() => void) | null>(null);
 
   // Fee Config state fetched from backend (mirrors server's dual in-clinic/online fee shape)
-  const [feeConfig, setFeeConfig] = useState({ confirmationFeeEnabled: true, inClinicFeeINR: 300, onlineFeeINR: 500 });
+  const [feeConfig, setFeeConfig] = useState<FeeConfig>(DEFAULT_FEE_CONFIG);
 
   // Live availability for the selected date, synced against Google Calendar.
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
@@ -119,7 +119,8 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
 
   if (!isOpen) return null;
 
-  const activeFeeAmount = consultationType === 'online-video' ? feeConfig.onlineFeeINR : feeConfig.inClinicFeeINR;
+  // 0 when the fee for this consultation type is switched off in the admin console.
+  const activeFeeAmount = feeForType(feeConfig, consultationType === 'online-video');
 
   // Free/waived bookings only — no payment to verify, so this goes straight
   // to appointment creation. Paid bookings never call this; they go through
@@ -229,7 +230,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     }
     setLoading(false);
 
-    if (!(feeConfig.confirmationFeeEnabled && activeFeeAmount > 0)) {
+    if (!(activeFeeAmount > 0)) {
       handleExecuteFreeBooking();
       return;
     }
@@ -654,7 +655,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
               </div>
 
               {/* Razorpay Fee Banner Note */}
-              {feeConfig.confirmationFeeEnabled && activeFeeAmount > 0 && (
+              {activeFeeAmount > 0 && (
                 <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-amber-900">
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-4 h-4 text-amber-700 shrink-0" />
@@ -712,7 +713,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>{feeConfig.confirmationFeeEnabled ? `Pay ₹${activeFeeAmount} & Confirm` : 'Confirm Appointment'}</span>
+                      <span>{activeFeeAmount > 0 ? `Pay ₹${activeFeeAmount} & Confirm` : 'Confirm Appointment'}</span>
                     </>
                   )}
                 </button>
