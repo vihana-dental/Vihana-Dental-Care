@@ -3403,7 +3403,11 @@ async function startServer() {
           const setupFlowId = (process.env.META_FLOW_SETUP_ID || '').trim();
           const setupAppId = (process.env.META_APP_ID || '').trim();
           if (result.success && setupFlowId && setupAppId) {
-            const endpointUri = (process.env.FLOW_ENDPOINT_URI || 'https://vihanadental.in/api/whatsapp/flow').trim();
+            // Prefer the hosting platform's own address: the custom domain sits
+            // behind Cloudflare, which answers Meta's server-to-server calls
+            // with a 403 ("Edge IP Restricted"), so the health check fails there.
+            const platformUrl = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+            const endpointUri = (process.env.FLOW_ENDPOINT_URI || (platformUrl ? `${platformUrl}/api/whatsapp/flow` : 'https://vihanadental.in/api/whatsapp/flow')).trim();
             configureFlowEndpoint(setupFlowId, setupAppId, endpointUri).then((r) => {
               console.log(`[whatsapp] Flow endpoint setup for flow ${setupFlowId}: ${r.success ? 'ok' : 'FAILED'} — ${r.detail}`);
             });
