@@ -27,6 +27,23 @@ export function isFlowEndpointConfigured(): boolean {
   return loadPrivateKeyPem().includes('PRIVATE KEY');
 }
 
+/**
+ * Shape of the configured key for the startup log — lengths and yes/no flags
+ * only, never any key material — so a bad paste in the hosting dashboard
+ * (truncated, quoted, wrong file, empty) can be told apart at a glance.
+ */
+export function describeFlowKey(): string {
+  const raw = process.env.FLOW_PRIVATE_KEY || '';
+  const pem = loadPrivateKeyPem();
+  let parses = false;
+  try {
+    parses = Boolean(pem) && crypto.createPrivateKey(pem).asymmetricKeyType === 'rsa';
+  } catch {
+    parses = false;
+  }
+  return `rawLength=${raw.length} begin=${pem.includes('-----BEGIN')} end=${pem.includes('-----END')} lines=${pem.split('\n').length} parses=${parses}`;
+}
+
 export function getFlowPublicKeyPem(): string | null {
   const pem = loadPrivateKeyPem();
   if (!pem) return null;

@@ -89,6 +89,7 @@ import {
   decryptFlowRequest,
   encryptFlowResponse,
   isFlowEndpointConfigured,
+  describeFlowKey,
   getFlowPublicKeyPem
 } from './server/services/whatsappFlowCrypto';
 
@@ -3384,7 +3385,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Vihana Dental Care App server running on http://localhost:${PORT}`);
-    console.log(`[whatsapp] config ${describeWhatsAppConfig()} flowEndpointKey=${isFlowEndpointConfigured() ? 'set' : 'unset'}`);
+    console.log(`[whatsapp] config ${describeWhatsAppConfig()} flowEndpointKey=${isFlowEndpointConfigured() ? 'set' : 'unset'} (${describeFlowKey()})`);
 
     // Meta needs the public half of the Flow endpoint key registered against
     // the phone number before it will call /api/whatsapp/flow.
