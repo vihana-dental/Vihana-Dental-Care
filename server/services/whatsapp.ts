@@ -49,6 +49,16 @@ export function getWebhookVerifyToken(): string {
   return META_WHATSAPP_VERIFY_TOKEN;
 }
 
+/** Log-safe summary of an outgoing message: type and masked recipient only, never the body (patient data). */
+export function maskPhone(phone: unknown): string {
+  return `***${String(phone ?? '').slice(-4)}`;
+}
+
+function describeOutgoing(payload: Record<string, unknown>): string {
+  const interactiveType = (payload.interactive as any)?.type;
+  return `type=${payload.type}${interactiveType ? `/${interactiveType}` : ''} to=${maskPhone(payload.to)}`;
+}
+
 async function graphApiSend(payload: Record<string, unknown>): Promise<{ success: boolean; mock: boolean; error?: string }> {
   if (!isWhatsAppConfigured()) {
     console.log('[whatsapp mock] Would send:', JSON.stringify(payload));
@@ -69,9 +79,10 @@ async function graphApiSend(payload: Record<string, unknown>): Promise<{ success
       throw new Error(`WhatsApp Graph API error: ${res.status} ${await res.text()}`);
     }
 
+    console.log(`[whatsapp] sent ${describeOutgoing(payload)} ok`);
     return { success: true, mock: false };
   } catch (error: any) {
-    console.error('WhatsApp send failed (conversation continues):', error?.message || error);
+    console.error(`WhatsApp send failed (${describeOutgoing(payload)}; conversation continues):`, error?.message || error);
     return { success: false, mock: false, error: error?.message || 'Unknown WhatsApp error' };
   }
 }
@@ -219,7 +230,9 @@ export function sendReplyButtons(to: string, bodyText: string, buttons: ReplyBut
 // The published WhatsApp Flow that shows the native calendar popup (see
 // docs/whatsapp-date-flow.json). Optional: without it the "Pick a date" button
 // falls back to asking for a typed date.
-const META_WHATSAPP_DATE_FLOW_ID = process.env.META_WHATSAPP_DATE_FLOW_ID || '';
+// Quotes and stray whitespace are stripped: dashboards such as Render keep
+// quote characters literally, and Meta then rejects the id as invalid.
+const META_WHATSAPP_DATE_FLOW_ID = (process.env.META_WHATSAPP_DATE_FLOW_ID || '').trim().replace(/^["']+|["']+$/g, '').trim();
 
 export function isDateFlowConfigured(): boolean {
   return Boolean(META_WHATSAPP_DATE_FLOW_ID);

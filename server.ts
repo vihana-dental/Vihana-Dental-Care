@@ -75,6 +75,7 @@ import {
   sendReplyButtons,
   sendFlowMessage,
   isDateFlowConfigured,
+  maskPhone,
   sendConfirmationMessage,
   sendReminderMessage,
   sendMeetLinkMessage,
@@ -1212,6 +1213,11 @@ app.post('/api/whatsapp/webhook', async (req, res) => {
   try {
     const messages = parseIncomingMessages(req.body);
     for (const msg of messages) {
+      // Body text is deliberately not logged (patient data); the tapped id and
+      // step are enough to trace where a conversation stopped.
+      console.log(
+        `[whatsapp] in from=${maskPhone(msg.from)} kind=${msg.flowResponse ? 'flow' : msg.interactiveReplyId ? 'tap' : 'text'} id=${msg.interactiveReplyId || '-'} step=${whatsappConversations.get(msg.from)?.step || 'none'}`
+      );
       await handleIncomingWhatsAppMessage(msg.from, msg.text, msg.contactName, msg.interactiveReplyId, msg.flowResponse);
     }
   } catch (error: any) {
@@ -1382,11 +1388,17 @@ async function sendDatePicker(from: string): Promise<void> {
     if (getTimeSlotsForDate(day).length === 0) closedDates.push(day);
   }
 
-  await sendFlowMessage(from, 'Tap below to choose your date from the calendar.', 'Open calendar', 'DATE', {
+  const sent = await sendFlowMessage(from, 'Tap below to choose your date from the calendar.', 'Open calendar', 'DATE', {
     min_date: start,
     max_date: addDaysIST(start, MAX_BOOKING_DAYS_AHEAD),
     unavailable_dates: closedDates
   });
+
+  // If Meta rejects the Flow (bad id, unpublished, wrong account), never
+  // leave the patient with silence — fall back to a typed date.
+  if (!sent.success) {
+    await sendTextMessage(from, 'Please type your preferred date, e.g. 25-09-2026.');
+  }
 }
 
 /** Step 2 — live availability for the chosen date, then the time list. */
