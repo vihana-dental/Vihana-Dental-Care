@@ -75,6 +75,8 @@ import {
   sendReplyButtons,
   sendFlowMessage,
   isDateFlowConfigured,
+  describeWhatsAppConfig,
+  registerFlowEncryptionKey,
   maskPhone,
   sendConfirmationMessage,
   sendReminderMessage,
@@ -83,6 +85,12 @@ import {
   verifyWebhookSignature as verifyWhatsAppWebhookSignature,
   parseIncomingMessages
 } from './server/services/whatsapp';
+import {
+  decryptFlowRequest,
+  encryptFlowResponse,
+  isFlowEndpointConfigured,
+  getFlowPublicKeyPem
+} from './server/services/whatsappFlowCrypto';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -1356,12 +1364,21 @@ function parseDateInput(raw: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * The welcome message IS the booking button: when the Flow is set up it opens
+ * the date -> time -> confirm popup directly. If the Flow isn't configured, or
+ * Meta rejects the send, it degrades to a plain "Book an appointment" reply
+ * button that walks the same steps with in-chat buttons and lists.
+ */
 async function sendWelcome(from: string): Promise<void> {
-  await sendReplyButtons(
-    from,
-    `👋 Welcome to ${CLINIC_INFO.name}!\n\nBook your visit with ${CLINIC_DOCTOR_DISPLAY_NAME} in under a minute.`,
-    [{ id: 'book', title: 'Book an appointment' }]
-  );
+  const body = `👋 Welcome to ${CLINIC_INFO.name}!\n\nBook your visit with ${CLINIC_DOCTOR_DISPLAY_NAME} in under a minute.`;
+
+  if (isDateFlowConfigured() && isFlowEndpointConfigured()) {
+    const sent = await sendFlowMessage(from, body, 'Book an appointment');
+    if (sent.success) return;
+  }
+
+  await sendReplyButtons(from, body, [{ id: 'book', title: 'Book an appointment' }]);
 }
 
 /** Step 1 — pick the day. */
@@ -1374,32 +1391,146 @@ async function sendDateChoice(from: string, contactName?: string): Promise<void>
   ]);
 }
 
-/** Opens the native calendar popup (a WhatsApp Flow), or asks for a typed date when no Flow is configured yet. */
+/**
+ * "Pick a date" in the button fallback: the next open days as a tap-to-select
+ * list (never a typed date). Only reached when the booking popup Flow isn't
+ * available — normally the popup's own calendar does this.
+ */
 async function sendDatePicker(from: string): Promise<void> {
-  if (!isDateFlowConfigured()) {
-    await sendTextMessage(from, 'Please type your preferred date, e.g. 25-09-2026.');
-    return;
+  const rows: { id: string; title: string }[] = [];
+  const start = todayIST();
+  for (let i = 0; i <= MAX_BOOKING_DAYS_AHEAD && rows.length < 10; i++) {
+    const day = addDaysIST(start, i);
+    if (getTimeSlotsForDate(day).length > 0) rows.push({ id: `date:${day}`, title: formatDisplayDate(day) });
   }
+  await sendListMessage(from, 'Choose a date:', 'Pick a date', [{ title: 'Open days', rows }]);
+}
 
+// ---- Flow endpoint: the popup screens (date -> time -> confirm) ----
+//
+// WhatsApp calls this after every screen of the booking Flow and shows
+// whatever screen we answer with, so availability is always computed live at
+// the moment the patient is looking at it: Calendar busy time, the doctor's
+// own day-off/slot-off overrides, and already-passed slots.
+
+function flowDateScreenData(extra: Record<string, unknown> = {}) {
   const start = todayIST();
   const closedDates: string[] = [];
   for (let i = 0; i <= MAX_BOOKING_DAYS_AHEAD; i++) {
     const day = addDaysIST(start, i);
     if (getTimeSlotsForDate(day).length === 0) closedDates.push(day);
   }
-
-  const sent = await sendFlowMessage(from, 'Tap below to choose your date from the calendar.', 'Open calendar', 'DATE', {
-    min_date: start,
-    max_date: addDaysIST(start, MAX_BOOKING_DAYS_AHEAD),
-    unavailable_dates: closedDates
-  });
-
-  // If Meta rejects the Flow (bad id, unpublished, wrong account), never
-  // leave the patient with silence — fall back to a typed date.
-  if (!sent.success) {
-    await sendTextMessage(from, 'Please type your preferred date, e.g. 25-09-2026.');
-  }
+  return {
+    screen: 'DATE',
+    data: { min_date: start, max_date: addDaysIST(start, MAX_BOOKING_DAYS_AHEAD), unavailable_dates: closedDates, ...extra }
+  };
 }
+
+async function flowTimeScreen(dateStr: string, errorMessage?: string) {
+  const availability = await computeAvailability(dateStr, getClinicDoctor().id);
+  const open = availability.slots.filter((s) => s.available);
+
+  if (open.length === 0) {
+    const reason = availability.dayLapsed
+      ? "Today's booking window has closed. Please choose another date."
+      : availability.slots.length === 0
+      ? 'The clinic is closed that day. Please choose another date.'
+      : 'That day is fully booked. Please choose another date.';
+    return flowDateScreenData({ error_message: reason });
+  }
+
+  return {
+    screen: 'TIME',
+    data: {
+      date: dateStr,
+      date_label: formatDisplayDate(dateStr),
+      // Radio groups allow at most 20 options.
+      slots: open.slice(0, 20).map((s) => ({ id: s.time, title: s.time })),
+      ...(errorMessage ? { error_message: errorMessage } : {})
+    }
+  };
+}
+
+async function handleFlowEndpointRequest(body: any) {
+  const action = body?.action;
+
+  if (action === 'ping') return { data: { status: 'active' } };
+  // Error notifications from WhatsApp only need acknowledging.
+  if (body?.data?.error) return { data: { acknowledged: true } };
+
+  if (action === 'INIT') return flowDateScreenData();
+
+  if (action === 'BACK') {
+    if (body.screen === 'TIME' && body.data?.date) return flowTimeScreen(body.data.date);
+    return flowDateScreenData();
+  }
+
+  if (action === 'data_exchange') {
+    const { date, time } = body.data || {};
+    const dateStr = parseDateInput(date);
+
+    if (body.screen === 'DATE') {
+      if (!dateStr || dateStr < todayIST()) return flowDateScreenData({ error_message: 'Please choose today or a later date.' });
+      return flowTimeScreen(dateStr);
+    }
+
+    if (body.screen === 'TIME') {
+      if (!dateStr) return flowDateScreenData({ error_message: 'Please choose a date first.' });
+      if (!time) return flowTimeScreen(dateStr, 'Please choose a time.');
+
+      const check = await isSlotStillAvailable(dateStr, String(time), getClinicDoctor().id);
+      if (!check.valid && !check.degraded) {
+        return flowTimeScreen(dateStr, check.message || 'That time was just taken. Please choose another.');
+      }
+
+      const deposit = clinicFeeConfig.confirmationFeeEnabled ? clinicFeeConfig.inClinicFeeINR : 0;
+      return {
+        screen: 'CONFIRM',
+        data: {
+          date: dateStr,
+          time: String(time),
+          summary:
+            `Doctor: ${CLINIC_DOCTOR_DISPLAY_NAME}\nDate: ${formatDisplayDate(dateStr)}\nTime: ${time}\nPlace: ${CLINIC_INFO.name}, Kalapatti` +
+            (deposit > 0 ? `\n\nA refundable booking fee of ₹${deposit} confirms your slot. Your payment link arrives in this chat.` : '')
+        }
+      };
+    }
+  }
+
+  return flowDateScreenData();
+}
+
+app.post('/api/whatsapp/flow', async (req, res) => {
+  const signature = req.headers['x-hub-signature-256'] as string | undefined;
+  if (req.rawBody && !verifyWhatsAppWebhookSignature(req.rawBody, signature)) {
+    console.error('[whatsapp-flow] signature verification failed.');
+    return res.sendStatus(432);
+  }
+
+  let decrypted;
+  try {
+    decrypted = decryptFlowRequest(req.body);
+  } catch (error: any) {
+    // 421 tells WhatsApp to re-fetch our public key and retry.
+    console.error('[whatsapp-flow] decrypt failed:', error?.message || error);
+    return res.sendStatus(421);
+  }
+
+  try {
+    const response = await handleFlowEndpointRequest(decrypted.body);
+    console.log(`[whatsapp-flow] ${decrypted.body?.action}${decrypted.body?.screen ? `@${decrypted.body.screen}` : ''} -> ${(response as any).screen || 'data'}`);
+    res.type('text/plain').send(encryptFlowResponse({ version: '3.0', ...response }, decrypted.aesKey, decrypted.iv));
+  } catch (error: any) {
+    console.error('[whatsapp-flow] handler failed:', error?.message || error);
+    res.type('text/plain').send(
+      encryptFlowResponse(
+        { version: '3.0', ...flowDateScreenData({ error_message: 'Something went wrong. Please try again.' }) },
+        decrypted.aesKey,
+        decrypted.iv
+      )
+    );
+  }
+});
 
 /** Step 2 — live availability for the chosen date, then the time list. */
 async function showTimesForDate(from: string, state: WhatsAppConversationState, dateStr: string): Promise<void> {
@@ -1546,7 +1677,7 @@ async function createBookingAndSendPaymentLink(from: string, state: WhatsAppConv
 
     await sendTextMessage(
       from,
-      `Almost done! 🦷\n\n📅 ${formatDisplayDate(state.date!)} at ${timeSlot}\n👩‍⚕️ ${CLINIC_DOCTOR_DISPLAY_NAME}\nAppointment ID: #${pendingAppointment.id}\n\nPay the refundable ₹${depositINR} booking fee to lock your slot:\n${link.shortUrl}\n\nYou'll get a confirmation here the moment payment is received.`
+      `✅ Your slot is reserved!\n\n📅 ${formatDisplayDate(state.date!)} at ${timeSlot}\n👩‍⚕️ ${CLINIC_DOCTOR_DISPLAY_NAME}\n🆔 Appointment #${pendingAppointment.id}\n\nPay the refundable ₹${depositINR} booking fee to confirm it:\n${link.shortUrl}\n\nYou'll get your final confirmation here the moment payment is received.`
     );
   } catch (error: any) {
     console.error('WhatsApp payment link creation failed:', error?.message || error);
@@ -1568,16 +1699,17 @@ async function handleIncomingWhatsAppMessage(
   let state = whatsappConversations.get(from);
   if (state && contactName && !state.contactName) state.contactName = contactName;
 
-  // Calendar popup submitted.
+  // Booking popup completed (the patient tapped Confirm & Pay on its last screen).
   if (flowResponse) {
-    const dateStr = parseDateInput(flowResponse.date ?? flowResponse.selected_date);
-    if (!dateStr) {
+    const dateStr = parseDateInput(flowResponse.date);
+    const timeSlot = typeof flowResponse.time === 'string' ? flowResponse.time : undefined;
+    if (!dateStr || !timeSlot) {
       await sendDateChoice(from, contactName || state?.contactName);
       return;
     }
-    state = state || { step: 'awaiting_date', contactName };
+    state = { step: 'awaiting_confirm', contactName: contactName || state?.contactName, date: dateStr, timeSlot };
     whatsappConversations.set(from, state);
-    await showTimesForDate(from, state, dateStr);
+    await createBookingAndSendPaymentLink(from, state);
     return;
   }
 
@@ -1597,8 +1729,10 @@ async function handleIncomingWhatsAppMessage(
       }
       state = state || { step: 'awaiting_date', contactName };
       whatsappConversations.set(from, state);
-      const offset = interactiveReplyId === 'date:tomorrow' ? 1 : 0;
-      await showTimesForDate(from, state, addDaysIST(todayIST(), offset));
+      const picked = /^date:\d{4}-\d{2}-\d{2}$/.test(interactiveReplyId)
+        ? interactiveReplyId.slice('date:'.length)
+        : addDaysIST(todayIST(), interactiveReplyId === 'date:tomorrow' ? 1 : 0);
+      await showTimesForDate(from, state, picked);
       return;
     }
 
@@ -1682,7 +1816,7 @@ async function handleIncomingWhatsAppMessage(
   if (state.step === 'awaiting_date') {
     const dateStr = parseDateInput(text);
     if (!dateStr) {
-      await sendTextMessage(from, 'Please tap Today, Tomorrow or Pick a date above — or type a date like 25-09-2026.');
+      await sendTextMessage(from, 'Please tap Today, Tomorrow or Pick a date above.');
       return;
     }
     await showTimesForDate(from, state, dateStr);
@@ -3250,6 +3384,16 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Vihana Dental Care App server running on http://localhost:${PORT}`);
+    console.log(`[whatsapp] config ${describeWhatsAppConfig()} flowEndpointKey=${isFlowEndpointConfigured() ? 'set' : 'unset'}`);
+
+    // Meta needs the public half of the Flow endpoint key registered against
+    // the phone number before it will call /api/whatsapp/flow.
+    const publicKey = getFlowPublicKeyPem();
+    if (publicKey) {
+      registerFlowEncryptionKey(publicKey).then((result) => {
+        console.log(result.success ? '[whatsapp] Flow encryption key registered with Meta.' : `[whatsapp] Flow key registration failed: ${result.error}`);
+      });
+    }
   });
 }
 

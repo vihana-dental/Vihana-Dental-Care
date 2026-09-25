@@ -239,12 +239,13 @@ export function isDateFlowConfigured(): boolean {
 }
 
 /**
- * Sends a WhatsApp Flow as a tappable button message. The Flow opens as a
- * native full-screen form inside WhatsApp; `data` seeds the first screen
- * (here: the calendar's min/max/closed dates) via a navigate action, so the
- * Flow needs no data endpoint of its own.
+ * Sends the booking WhatsApp Flow as a tappable button message. The Flow opens
+ * as native full-screen popup screens inside WhatsApp (date -> time -> confirm).
+ * It is an endpoint Flow: WhatsApp calls POST /api/whatsapp/flow after each
+ * screen, which is where live availability is computed — so this message
+ * carries no data of its own (`data_exchange` action).
  */
-export function sendFlowMessage(to: string, bodyText: string, ctaLabel: string, screen: string, data: Record<string, unknown>) {
+export function sendFlowMessage(to: string, bodyText: string, ctaLabel: string) {
   return graphApiSend({
     to,
     type: 'interactive',
@@ -256,13 +257,39 @@ export function sendFlowMessage(to: string, bodyText: string, ctaLabel: string, 
         parameters: {
           flow_message_version: '3',
           flow_id: META_WHATSAPP_DATE_FLOW_ID,
+          flow_token: `vihana-booking-${Date.now()}`,
           flow_cta: ctaLabel.slice(0, 30),
-          flow_action: 'navigate',
-          flow_action_payload: { screen, data }
+          flow_action: 'data_exchange'
         }
       }
     }
   });
+}
+
+/** Non-secret identifiers, logged at startup so a wrong phone-number/Flow id is obvious from the logs. */
+export function describeWhatsAppConfig(): string {
+  return `phoneNumberId=${META_WHATSAPP_PHONE_NUMBER_ID || '(unset)'} flowId=${META_WHATSAPP_DATE_FLOW_ID || '(unset)'} token=${META_WHATSAPP_ACCESS_TOKEN ? 'set' : 'unset'}`;
+}
+
+/**
+ * Registers the public half of the Flow endpoint's RSA key with Meta for this
+ * phone number. WhatsApp encrypts every request it sends to the Flow endpoint
+ * with this key; without it registered, the endpoint can't be used. Safe to
+ * call on every boot — re-registering the same key is a no-op on Meta's side.
+ */
+export async function registerFlowEncryptionKey(publicKeyPem: string): Promise<{ success: boolean; error?: string }> {
+  if (!isWhatsAppConfigured()) return { success: false, error: 'WhatsApp credentials not configured' };
+  try {
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${META_WHATSAPP_PHONE_NUMBER_ID}/whatsapp_business_encryption`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${META_WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ business_public_key: publicKeyPem }).toString()
+    });
+    if (!res.ok) return { success: false, error: `${res.status} ${await res.text()}` };
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' };
+  }
 }
 
 /**

@@ -1,0 +1,114 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "DATE": ["TIME"],
+    "TIME": ["CONFIRM"],
+    "CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "DATE",
+      "title": "Choose your date",
+      "data": {
+        "min_date": { "type": "string", "__example__": "2026-09-25" },
+        "max_date": { "type": "string", "__example__": "2026-11-24" },
+        "unavailable_dates": { "type": "array", "items": { "type": "string" }, "__example__": ["2026-09-27"] }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Book with Dr. N. Sanchana" },
+          { "type": "TextBody", "text": "Pick the day you'd like to visit. Open times for that day are shown next." },
+          {
+            "type": "DatePicker",
+            "name": "date",
+            "label": "Appointment date",
+            "required": true,
+            "min-date": "${data.min_date}",
+            "max-date": "${data.max_date}",
+            "unavailable-dates": "${data.unavailable_dates}"
+          },
+          {
+            "type": "Footer",
+            "label": "Show available times",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "date": "${form.date}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TIME",
+      "title": "Choose your time",
+      "data": {
+        "date": { "type": "string", "__example__": "2026-09-26" },
+        "date_label": { "type": "string", "__example__": "Sat, 26 Sept 2026" },
+        "slots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "10:00 AM", "title": "10:00 AM" },
+            { "id": "10:30 AM", "title": "10:30 AM" }
+          ]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Available times" },
+          { "type": "TextBody", "text": "${data.date_label}" },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "time",
+            "label": "Pick a time",
+            "required": true,
+            "data-source": "${data.slots}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "date": "${data.date}", "time": "${form.time}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CONFIRM",
+      "title": "Confirm appointment",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "date": { "type": "string", "__example__": "2026-09-26" },
+        "time": { "type": "string", "__example__": "10:00 AM" },
+        "summary": { "type": "string", "__example__": "Doctor: Dr. N. Sanchana\nDate: Sat, 26 Sept 2026\nTime: 10:00 AM" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Confirm your appointment" },
+          { "type": "TextBody", "text": "${data.summary}" },
+          {
+            "type": "Footer",
+            "label": "Confirm & Pay",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "date": "${data.date}", "time": "${data.time}" }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
