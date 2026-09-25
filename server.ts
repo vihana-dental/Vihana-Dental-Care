@@ -73,6 +73,8 @@ import {
   sendTextMessage,
   sendListMessage,
   sendReplyButtons,
+  sendFlowMessage,
+  isDateFlowConfigured,
   sendConfirmationMessage,
   sendReminderMessage,
   sendMeetLinkMessage,
@@ -1165,52 +1167,21 @@ app.post('/api/payments/confirm-payment-link', publicApiLimiter, async (req, res
 // needs to survive a server restart, this Map is the one thing that'd need
 // to move to Supabase too — everything else here is already stateless.
 //
-// Uses WhatsApp's native interactive List/Button messages instead of
-// free-text parsing wherever there's more than a couple of options — no more
-// "type the exact time as shown" friction. WhatsApp hard-caps list messages
-// at 10 rows TOTAL (not per section), so with 13 services and up to 16 time
-// slots on a weekday, both need a drill-down instead of one flat list:
-// category -> service, and morning/evening -> time.
+// Booking is three taps: Book an appointment -> date (Today / Tomorrow / a
+// native calendar popup via a WhatsApp Flow) -> time -> Confirm & Pay.
+// WhatsApp hard-caps list messages at 10 rows TOTAL, so a weekday's slots
+// are split into a morning/evening drill-down before the time list.
 
 interface WhatsAppConversationState {
-  step: 'awaiting_category' | 'awaiting_service' | 'awaiting_doctor' | 'awaiting_date' | 'awaiting_time_period' | 'awaiting_time' | 'awaiting_payment';
+  step: 'awaiting_date' | 'awaiting_time_period' | 'awaiting_time' | 'awaiting_confirm' | 'awaiting_payment';
   contactName?: string;
-  category?: string;
-  serviceId?: string;
-  doctorId?: string;
   date?: string;
   timePeriod?: 'Morning' | 'Evening';
+  timeSlot?: string;
   appointmentId?: string;
 }
 
 const whatsappConversations = new Map<string, WhatsAppConversationState>();
-
-const SERVICE_CATEGORIES = Array.from(new Set(SERVICES_LIVE.map((s) => s.category)));
-
-/**
- * Resolves a tapped list/button reply OR a typed fallback (numeric index or
- * fuzzy label match) against a set of options — so the flow works whether
- * the patient taps the menu or just types, without maintaining two separate
- * code paths per step.
- */
-function resolveSelection<T extends { id: string; label: string }>(
-  msg: { text: string; interactiveReplyId?: string },
-  options: T[]
-): T | undefined {
-  if (msg.interactiveReplyId) {
-    const byId = options.find((o) => o.id === msg.interactiveReplyId);
-    if (byId) return byId;
-  }
-  const normalized = msg.text.trim().toLowerCase();
-  if (/^\d+$/.test(normalized)) {
-    const index = parseInt(normalized, 10) - 1;
-    if (index >= 0 && index < options.length) return options[index];
-  }
-  return (
-    options.find((o) => o.label.toLowerCase() === normalized) ||
-    options.find((o) => o.label.toLowerCase().includes(normalized))
-  );
-}
 
 // GET — Meta's one-time webhook verification handshake, performed when you
 // register this URL in the Meta App Dashboard (Webhooks > Configure).
@@ -1241,7 +1212,7 @@ app.post('/api/whatsapp/webhook', async (req, res) => {
   try {
     const messages = parseIncomingMessages(req.body);
     for (const msg of messages) {
-      await handleIncomingWhatsAppMessage(msg.from, msg.text, msg.contactName, msg.interactiveReplyId);
+      await handleIncomingWhatsAppMessage(msg.from, msg.text, msg.contactName, msg.interactiveReplyId, msg.flowResponse);
     }
   } catch (error: any) {
     console.error('WhatsApp webhook message processing failed:', error?.message || error);
@@ -1323,313 +1294,395 @@ async function tryHandleAppointmentActionButton(from: string, interactiveReplyId
     }
     await sendTextMessage(from, `No problem — appointment #${result.appointment.id} has been released. Let's pick a new time.`);
     whatsappConversations.delete(from);
-    await handleIncomingWhatsAppMessage(from, 'hi');
+    await sendDateChoice(from);
     return true;
   }
 
   return false;
 }
 
-async function handleIncomingWhatsAppMessage(from: string, text: string, contactName?: string, interactiveReplyId?: string): Promise<void> {
+// ---- Single-doctor, three-step booking: Date -> Time -> Confirm & pay ----
+//
+// The clinic has one doctor, so there is no department/treatment/doctor
+// picking at all. Every booking is a "Dental Consultation" with Dr. N.
+// Sanchana; the treatment is decided at the visit. Availability is always
+// computed live (Calendar + the doctor's own day-off/slot-off overrides +
+// already-passed slots) at the moment slots are about to be shown, and once
+// more right before the payment link is created.
+
+const CLINIC_DOCTOR_DISPLAY_NAME = 'Dr. N. Sanchana';
+const WHATSAPP_SERVICE_LABEL = 'Dental Consultation';
+const MAX_BOOKING_DAYS_AHEAD = 60;
+
+function getClinicDoctor(): { id: string; name: string } {
+  const lead = DOCTORS_LIVE.find((d) => /sanchana/i.test(d.name)) || DOCTORS_LIVE[0];
+  return { id: lead.id, name: lead.name };
+}
+
+function todayIST(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+function addDaysIST(dateISO: string, days: number): string {
+  const d = new Date(`${dateISO}T00:00:00+05:30`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+function formatDisplayDate(dateISO: string): string {
+  return new Date(`${dateISO}T00:00:00+05:30`).toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata'
+  });
+}
+
+const isMorningSlot = (time: string) => time.includes('AM') || time.startsWith('12:00 PM');
+
+/** Accepts YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY (typed fallback) or an epoch-ms value (Flow calendar). */
+function parseDateInput(raw: unknown): string | undefined {
+  if (typeof raw === 'number' || (typeof raw === 'string' && /^\d{11,}$/.test(raw))) {
+    return new Date(Number(raw)).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  }
+  if (typeof raw !== 'string') return undefined;
+  const value = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const dmy = value.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  return undefined;
+}
+
+async function sendWelcome(from: string): Promise<void> {
+  await sendReplyButtons(
+    from,
+    `👋 Welcome to ${CLINIC_INFO.name}!\n\nBook your visit with ${CLINIC_DOCTOR_DISPLAY_NAME} in under a minute.`,
+    [{ id: 'book', title: 'Book an appointment' }]
+  );
+}
+
+/** Step 1 — pick the day. */
+async function sendDateChoice(from: string, contactName?: string): Promise<void> {
+  whatsappConversations.set(from, { step: 'awaiting_date', contactName });
+  await sendReplyButtons(from, `When would you like to visit ${CLINIC_DOCTOR_DISPLAY_NAME}?`, [
+    { id: 'date:today', title: 'Today' },
+    { id: 'date:tomorrow', title: 'Tomorrow' },
+    { id: 'date:other', title: 'Pick a date' }
+  ]);
+}
+
+/** Opens the native calendar popup (a WhatsApp Flow), or asks for a typed date when no Flow is configured yet. */
+async function sendDatePicker(from: string): Promise<void> {
+  if (!isDateFlowConfigured()) {
+    await sendTextMessage(from, 'Please type your preferred date, e.g. 25-09-2026.');
+    return;
+  }
+
+  const start = todayIST();
+  const closedDates: string[] = [];
+  for (let i = 0; i <= MAX_BOOKING_DAYS_AHEAD; i++) {
+    const day = addDaysIST(start, i);
+    if (getTimeSlotsForDate(day).length === 0) closedDates.push(day);
+  }
+
+  await sendFlowMessage(from, 'Tap below to choose your date from the calendar.', 'Open calendar', 'DATE', {
+    min_date: start,
+    max_date: addDaysIST(start, MAX_BOOKING_DAYS_AHEAD),
+    unavailable_dates: closedDates
+  });
+}
+
+/** Step 2 — live availability for the chosen date, then the time list. */
+async function showTimesForDate(from: string, state: WhatsAppConversationState, dateStr: string): Promise<void> {
+  if (dateStr < todayIST()) {
+    await sendTextMessage(from, "That date has already passed — let's pick another.");
+    await sendDateChoice(from, state.contactName);
+    return;
+  }
+
+  const doctor = getClinicDoctor();
+  const availability = await computeAvailability(dateStr, doctor.id);
+  const openSlots = availability.slots.filter((s) => s.available);
+
+  if (openSlots.length === 0) {
+    // "Fully booked", "closed" and "today is over" are three different facts —
+    // saying the wrong one sends the patient off to call about a slot that was
+    // never on offer.
+    const reason = availability.dayLapsed
+      ? "today's booking window has closed"
+      : availability.slots.length === 0
+      ? "the clinic is closed that day"
+      : "that day is fully booked";
+    await sendTextMessage(from, `Sorry, ${reason}. Please choose another date.`);
+    await sendDateChoice(from, state.contactName);
+    return;
+  }
+
+  state.date = dateStr;
+  state.timeSlot = undefined;
+
+  const morning = openSlots.filter((s) => isMorningSlot(s.time));
+  const evening = openSlots.filter((s) => !isMorningSlot(s.time));
+
+  if (morning.length > 0 && evening.length > 0) {
+    state.step = 'awaiting_time_period';
+    await sendReplyButtons(from, `Great — ${formatDisplayDate(dateStr)}. Which part of the day suits you?`, [
+      { id: 'period:Morning', title: `Morning (${morning.length} slots)` },
+      { id: 'period:Evening', title: `Evening (${evening.length} slots)` }
+    ]);
+    return;
+  }
+
+  await sendTimeList(from, state, morning.length > 0 ? 'Morning' : 'Evening', openSlots.map((s) => s.time));
+}
+
+async function sendTimeList(from: string, state: WhatsAppConversationState, period: 'Morning' | 'Evening', times: string[]): Promise<void> {
+  state.timePeriod = period;
+  state.step = 'awaiting_time';
+  await sendListMessage(
+    from,
+    `Available times on ${formatDisplayDate(state.date!)}:`,
+    'Choose time',
+    // WhatsApp caps a list at 10 rows in total.
+    [{ title: period, rows: times.slice(0, 10).map((t) => ({ id: `time:${t}`, title: t })) }]
+  );
+}
+
+/** Step 3 — read the booking back, with one tap to confirm. */
+async function sendConfirmation(from: string, state: WhatsAppConversationState, timeSlot: string): Promise<void> {
+  const check = await isSlotStillAvailable(state.date!, timeSlot, getClinicDoctor().id);
+  if (!check.valid && !check.degraded) {
+    await sendTextMessage(from, `${check.message || 'Sorry, that slot was just taken.'}`);
+    await showTimesForDate(from, state, state.date!);
+    return;
+  }
+
+  state.timeSlot = timeSlot;
+  state.step = 'awaiting_confirm';
+  const deposit = clinicFeeConfig.confirmationFeeEnabled ? clinicFeeConfig.inClinicFeeINR : 0;
+  const feeLine = deposit > 0 ? `\n💳 Refundable booking fee: ₹${deposit}` : '';
+
+  await sendReplyButtons(
+    from,
+    `Please confirm your appointment:\n\n👩‍⚕️ ${CLINIC_DOCTOR_DISPLAY_NAME}\n📅 ${formatDisplayDate(state.date!)}\n🕐 ${timeSlot}\n📍 ${CLINIC_INFO.name}, Kalapatti${feeLine}`,
+    [
+      { id: 'confirm:yes', title: 'Confirm & Pay' },
+      { id: 'confirm:change', title: 'Change time' }
+    ]
+  );
+}
+
+/** Creates the pending appointment and sends the existing Razorpay payment link. */
+async function createBookingAndSendPaymentLink(from: string, state: WhatsAppConversationState): Promise<void> {
+  const doctor = getClinicDoctor();
+  const timeSlot = state.timeSlot!;
+
+  // Last-moment re-check: the doctor may have blocked the slot, or someone
+  // else may have taken it, while the patient was reading the summary.
+  const slotCheck = await isSlotStillAvailable(state.date!, timeSlot, doctor.id);
+  if (!slotCheck.valid && !slotCheck.degraded) {
+    await sendTextMessage(from, `${slotCheck.message || 'Sorry, that slot was just taken.'} Please pick another time.`);
+    await showTimesForDate(from, state, state.date!);
+    return;
+  }
+
+  const depositINR = clinicFeeConfig.confirmationFeeEnabled ? clinicFeeConfig.inClinicFeeINR : 0;
+  if (depositINR <= 0) {
+    await sendTextMessage(from, `Sorry, online booking is temporarily unavailable. Please call the clinic on ${CLINIC_INFO.phone}.`);
+    return;
+  }
+
+  const service = SERVICES_LIVE[0];
+  const patientName = state.contactName || `WhatsApp Patient ${from.slice(-4)}`;
+  const pendingAppointment: Appointment = {
+    id: generateDailyAppointmentId(),
+    patientName,
+    patientPhone: from,
+    patientEmail: '',
+    doctorId: doctor.id,
+    doctorName: doctor.name,
+    serviceId: service?.id || 'consultation',
+    serviceName: WHATSAPP_SERVICE_LABEL,
+    date: state.date!,
+    timeSlot,
+    notes: '',
+    status: 'pending',
+    googleCalendarSynced: false,
+    whatsappConfirmationSent: false,
+    whatsappReminderScheduled: false,
+    rescheduleToken: `RSC-${Math.floor(10000 + Math.random() * 90000)}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    consultationType: 'in-clinic',
+    paymentStatus: 'pending',
+    feeAmount: depositINR,
+    patientVisited: false,
+    channel: 'whatsapp'
+  };
+
+  try {
+    const link = await createPaymentLinkForAppointment(pendingAppointment, {
+      amountINR: depositINR,
+      description: `Vihana Dental Care — Appointment Deposit (${WHATSAPP_SERVICE_LABEL})`,
+      patientName,
+      patientPhone: from
+    });
+
+    pendingAppointment.razorpayPaymentLinkId = link.paymentLinkId;
+    appointmentsStorage.unshift(pendingAppointment);
+    await recordPendingAppointment(pendingAppointment);
+
+    state.appointmentId = pendingAppointment.id;
+    state.step = 'awaiting_payment';
+
+    await sendTextMessage(
+      from,
+      `Almost done! 🦷\n\n📅 ${formatDisplayDate(state.date!)} at ${timeSlot}\n👩‍⚕️ ${CLINIC_DOCTOR_DISPLAY_NAME}\nAppointment ID: #${pendingAppointment.id}\n\nPay the refundable ₹${depositINR} booking fee to lock your slot:\n${link.shortUrl}\n\nYou'll get a confirmation here the moment payment is received.`
+    );
+  } catch (error: any) {
+    console.error('WhatsApp payment link creation failed:', error?.message || error);
+    await sendTextMessage(from, `Sorry, we couldn't generate a payment link right now. Please try again shortly or call the clinic on ${CLINIC_INFO.phone}.`);
+  }
+}
+
+async function handleIncomingWhatsAppMessage(
+  from: string,
+  text: string,
+  contactName?: string,
+  interactiveReplyId?: string,
+  flowResponse?: Record<string, any>
+): Promise<void> {
   if (await tryHandleAppointmentActionButton(from, interactiveReplyId)) return;
   if (await tryHandleShowAppointmentIntent(from, text)) return;
 
   const normalized = text.trim().toLowerCase();
   let state = whatsappConversations.get(from);
-  const msg = { text, interactiveReplyId };
+  if (state && contactName && !state.contactName) state.contactName = contactName;
 
-  const isGreeting = /\b(hi|hello|hey)\b/.test(normalized) || normalized.includes('book') || normalized.includes('appointment');
-
-  if (!state || isGreeting) {
-    state = { step: 'awaiting_category', contactName };
+  // Calendar popup submitted.
+  if (flowResponse) {
+    const dateStr = parseDateInput(flowResponse.date ?? flowResponse.selected_date);
+    if (!dateStr) {
+      await sendDateChoice(from, contactName || state?.contactName);
+      return;
+    }
+    state = state || { step: 'awaiting_date', contactName };
     whatsappConversations.set(from, state);
-    await sendListMessage(
-      from,
-      "👋 Welcome to Vihana Dental Care! What kind of treatment are you looking for?",
-      'Choose Category',
-      [{ title: 'Treatment Categories', rows: SERVICE_CATEGORIES.map((c) => ({ id: `cat:${c}`, title: c })) }]
-    );
+    await showTimesForDate(from, state, dateStr);
     return;
   }
 
-  if (state.step === 'awaiting_category') {
-    const options = SERVICE_CATEGORIES.map((c) => ({ id: `cat:${c}`, label: c }));
-    const picked = resolveSelection(msg, options);
-    if (!picked) {
-      await sendTextMessage(from, "Sorry, I didn't catch that — please tap one of the categories above.");
+  // Button/list taps are routed by id, independent of the current step, so a
+  // stale button from earlier in the chat still does something sensible
+  // instead of being mistaken for a greeting (its title contains "book").
+  if (interactiveReplyId) {
+    if (interactiveReplyId === 'book') {
+      await sendDateChoice(from, contactName || state?.contactName);
       return;
     }
-    const category = picked.id.replace('cat:', '');
-    const servicesInCategory = SERVICES_LIVE.filter((s) => s.category === category);
 
-    state.category = category;
-    state.step = 'awaiting_service';
-    await sendListMessage(
-      from,
-      `${category} treatments — which one?`,
-      'Choose Treatment',
-      [{ title: category, rows: servicesInCategory.map((s) => ({ id: `svc:${s.id}`, title: s.title, description: s.shortDescription })) }]
-    );
-    return;
+    if (interactiveReplyId.startsWith('date:')) {
+      if (interactiveReplyId === 'date:other') {
+        await sendDatePicker(from);
+        return;
+      }
+      state = state || { step: 'awaiting_date', contactName };
+      whatsappConversations.set(from, state);
+      const offset = interactiveReplyId === 'date:tomorrow' ? 1 : 0;
+      await showTimesForDate(from, state, addDaysIST(todayIST(), offset));
+      return;
+    }
+
+    if (interactiveReplyId.startsWith('period:')) {
+      if (!state?.date) {
+        await sendDateChoice(from, contactName);
+        return;
+      }
+      const period = interactiveReplyId === 'period:Morning' ? 'Morning' : 'Evening';
+      const availability = await computeAvailability(state.date, getClinicDoctor().id);
+      const times = availability.slots
+        .filter((s) => s.available && (period === 'Morning') === isMorningSlot(s.time))
+        .map((s) => s.time);
+      if (times.length === 0) {
+        await sendTextMessage(from, `No ${period.toLowerCase()} slots left on ${formatDisplayDate(state.date)}.`);
+        await showTimesForDate(from, state, state.date);
+        return;
+      }
+      await sendTimeList(from, state, period, times);
+      return;
+    }
+
+    if (interactiveReplyId.startsWith('time:')) {
+      if (!state?.date) {
+        await sendDateChoice(from, contactName);
+        return;
+      }
+      await sendConfirmation(from, state, interactiveReplyId.slice('time:'.length));
+      return;
+    }
+
+    if (interactiveReplyId === 'confirm:change') {
+      if (!state?.date) {
+        await sendDateChoice(from, contactName);
+        return;
+      }
+      await showTimesForDate(from, state, state.date);
+      return;
+    }
+
+    if (interactiveReplyId === 'confirm:yes') {
+      if (!state?.date || !state.timeSlot) {
+        await sendDateChoice(from, contactName);
+        return;
+      }
+      if (state.step === 'awaiting_payment') {
+        await sendTextMessage(from, 'Your payment link has already been sent above. Reply "retry" if you need a fresh one.');
+        return;
+      }
+      await createBookingAndSendPaymentLink(from, state);
+      return;
+    }
   }
 
-  if (state.step === 'awaiting_service') {
-    const servicesInCategory = SERVICES_LIVE.filter((s) => s.category === state!.category);
-    const options = servicesInCategory.map((s) => ({ id: `svc:${s.id}`, label: s.title }));
-    const picked = resolveSelection(msg, options);
-    if (!picked) {
-      await sendTextMessage(from, "Sorry, I didn't catch that — please tap one of the treatments above.");
-      return;
-    }
-    const service = servicesInCategory.find((s) => `svc:${s.id}` === picked.id)!;
+  // Free text from here on.
+  const isGreeting = /\b(hi|hello|hey|hii|namaste|vanakkam)\b/.test(normalized) || normalized.includes('book') || normalized.includes('appointment');
 
-    state.serviceId = service.id;
-    state.step = 'awaiting_doctor';
-    const bookable = getBookableDoctors();
-    await sendListMessage(
-      from,
-      `Great choice — ${service.title}. Which doctor would you like to see?`,
-      'Choose Doctor',
-      [{ title: 'Available Doctors', rows: bookable.map((d) => ({ id: `doc:${d.id}`, title: d.name, description: d.displayTitle })) }]
-    );
-    return;
-  }
-
-  if (state.step === 'awaiting_doctor') {
-    // Re-validate against the CURRENT bookable list, not a snapshot taken
-    // when this step started — a doctor could get toggled off mid-
-    // conversation in the admin console between the list being sent and
-    // the patient replying.
-    const bookable = getBookableDoctors();
-    const options = bookable.map((d) => ({ id: `doc:${d.id}`, label: d.name }));
-    const picked = resolveSelection(msg, options);
-    if (!picked) {
-      await sendTextMessage(from, "Sorry, I didn't catch that — please tap one of the doctors above.");
-      return;
-    }
-    const doctor = bookable.find((d) => `doc:${d.id}` === picked.id);
-    if (!doctor) {
-      // Toggled off between list send and reply — refresh and re-ask
-      // instead of booking them into someone no longer available.
-      const refreshed = getBookableDoctors();
-      state.step = 'awaiting_doctor';
-      await sendListMessage(
-        from,
-        "Sorry, that doctor is no longer available for booking — please pick from the current list.",
-        'Choose Doctor',
-        [{ title: 'Available Doctors', rows: refreshed.map((d) => ({ id: `doc:${d.id}`, title: d.name, description: d.displayTitle })) }]
-      );
-      return;
-    }
-
-    state.doctorId = doctor.id;
-    state.step = 'awaiting_date';
-    await sendReplyButtons(
-      from,
-      `${doctor.name} — when would you like to come in?`,
-      [
-        { id: 'date:today', title: 'Today' },
-        { id: 'date:tomorrow', title: 'Tomorrow' },
-        { id: 'date:other', title: 'Pick a date' }
-      ]
-    );
-    return;
-  }
-
-  if (state.step === 'awaiting_date') {
-    let dateStr: string | undefined;
-
-    if (interactiveReplyId === 'date:today') {
-      dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    } else if (interactiveReplyId === 'date:tomorrow') {
-      dateStr = new Date(Date.now() + 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    } else if (interactiveReplyId === 'date:other') {
-      await sendTextMessage(from, 'Sure — reply with the date as YYYY-MM-DD, e.g. 2026-08-20.');
-      return;
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-      dateStr = normalized;
-    } else {
-      await sendTextMessage(from, 'Please send the date as YYYY-MM-DD, e.g. 2026-08-20, or tap one of the options above.');
-      return;
-    }
-
-    const availability = await computeAvailability(dateStr, state.doctorId);
-    const availableSlots = availability.slots.filter((s) => s.available);
-    if (availableSlots.length === 0) {
-      // "Fully booked", "closed today" and "today is already over" are three
-      // different facts — saying the wrong one sends the patient off to call
-      // the clinic about a slot that was never on offer in the first place.
-      const reason = availability.dayLapsed
-        ? "today's booking window has closed — slots are disabled once their start time has passed"
-        : availability.slots.length === 0
-        ? "we're closed that day"
-        : "we're fully booked that day";
-      await sendTextMessage(from, `Sorry, ${reason}. Please try a different date (reply YYYY-MM-DD).`);
-      return;
-    }
-
-    state.date = dateStr;
-
-    // Split into Morning (before noon) / Evening so the time list always
-    // fits WhatsApp's 10-row cap — skip straight to the list if only one
-    // half has slots (e.g. Sundays only run a morning window).
-    const morning = availableSlots.filter((s) => s.time.includes('AM') || s.time.startsWith('12:00 PM'));
-    const evening = availableSlots.filter((s) => !morning.includes(s));
-
-    if (morning.length > 0 && evening.length > 0) {
-      state.step = 'awaiting_time_period';
-      await sendReplyButtons(from, `Available on ${dateStr}. Morning or evening?`, [
-        { id: 'period:Morning', title: 'Morning' },
-        { id: 'period:Evening', title: 'Evening' }
-      ]);
-      return;
-    }
-
-    state.timePeriod = morning.length > 0 ? 'Morning' : 'Evening';
-    state.step = 'awaiting_time';
-    await sendListMessage(
-      from,
-      `Available times on ${dateStr}:`,
-      'Choose Time',
-      [{ title: state.timePeriod, rows: availableSlots.map((s) => ({ id: `time:${s.time}`, title: s.time })) }]
-    );
-    return;
-  }
-
-  if (state.step === 'awaiting_time_period') {
-    const period = interactiveReplyId === 'period:Morning' ? 'Morning' : interactiveReplyId === 'period:Evening' ? 'Evening' : undefined;
-    if (!period) {
-      await sendTextMessage(from, 'Please tap "Morning" or "Evening" above.');
-      return;
-    }
-
-    const availability = await computeAvailability(state.date!, state.doctorId);
-    const availableSlots = availability.slots.filter((s) => s.available);
-    const filtered = period === 'Morning'
-      ? availableSlots.filter((s) => s.time.includes('AM') || s.time.startsWith('12:00 PM'))
-      : availableSlots.filter((s) => !(s.time.includes('AM') || s.time.startsWith('12:00 PM')));
-
-    if (filtered.length === 0) {
-      await sendTextMessage(from, `No ${period.toLowerCase()} slots left on ${state.date} — try the other half of the day.`);
-      return;
-    }
-
-    state.timePeriod = period;
-    state.step = 'awaiting_time';
-    await sendListMessage(
-      from,
-      `${period} times on ${state.date}:`,
-      'Choose Time',
-      [{ title: period, rows: filtered.map((s) => ({ id: `time:${s.time}`, title: s.time })) }]
-    );
-    return;
-  }
-
-  if (state.step === 'awaiting_time') {
-    const timeSlot = interactiveReplyId?.startsWith('time:') ? interactiveReplyId.slice('time:'.length) : text.trim();
-    const slotCheck = await isSlotStillAvailable(state.date!, timeSlot, state.doctorId);
-    if (!slotCheck.valid && !slotCheck.degraded) {
-      // Use the checker's own reason — a lapsed slot and a just-taken slot
-      // need different instructions, and a patient who typed a past time
-      // should be told the time has passed, not that someone else took it.
-      await sendTextMessage(from, `${slotCheck.message || 'Sorry, that slot was just taken.'} Please pick another time from the list above.`);
-      return;
-    }
-
-    const service = SERVICES_LIVE.find((s) => s.id === state!.serviceId) || SERVICES_LIVE[0];
-    // Re-validate the chosen doctor is still bookable right before creating
-    // the appointment, same defensive reasoning as the slot-conflict check
-    // above — falls back to the first currently-bookable doctor rather than
-    // failing outright, since we're already past the point of re-prompting.
-    const bookableNow = getBookableDoctors();
-    const chosenDoctor = bookableNow.find((d) => d.id === state!.doctorId) || bookableNow[0];
-    // Estimated treatment cost is pulled from the centralized pricing table
-    // purely for display/transparency in the chat — matches the confirmed
-    // product decision to charge the same small refundable slot-booking
-    // deposit everywhere (website, chatbot, WhatsApp), not the full
-    // treatment price, up front through an automated bot flow.
-    const estimatedTreatmentCostDisplay = await getServicePriceDisplay(service.id);
-    const depositINR = clinicFeeConfig.confirmationFeeEnabled ? clinicFeeConfig.inClinicFeeINR : 0;
-    const appointmentId = generateDailyAppointmentId();
-    const patientName = state.contactName || `WhatsApp Patient ${from.slice(-4)}`;
-
-    if (!chosenDoctor) {
-      await sendTextMessage(from, "Sorry, there are no doctors currently available for booking. Please call the clinic directly.");
-      return;
-    }
-
-    if (depositINR <= 0) {
-      await sendTextMessage(from, "Sorry, online booking deposits are temporarily disabled. Please call the clinic to book this appointment.");
-      return;
-    }
-
-    const pendingAppointment: Appointment = {
-      id: appointmentId,
-      patientName,
-      patientPhone: from,
-      patientEmail: '',
-      doctorId: chosenDoctor.id,
-      doctorName: chosenDoctor.name,
-      serviceId: service.id,
-      serviceName: service.title,
-      date: state.date!,
-      timeSlot,
-      notes: '',
-      status: 'pending',
-      googleCalendarSynced: false,
-      whatsappConfirmationSent: false,
-      whatsappReminderScheduled: false,
-      rescheduleToken: `RSC-${Math.floor(10000 + Math.random() * 90000)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      consultationType: 'in-clinic',
-      paymentStatus: 'pending',
-      feeAmount: depositINR,
-      patientVisited: false,
-      channel: 'whatsapp'
-    };
-
-    try {
-      const link = await createPaymentLinkForAppointment(pendingAppointment, {
-        amountINR: depositINR,
-        description: `Vihana Dental Care — Appointment Deposit (${service.title})`,
-        patientName,
-        patientPhone: from
-      });
-
-      pendingAppointment.razorpayPaymentLinkId = link.paymentLinkId;
-      appointmentsStorage.unshift(pendingAppointment);
-      await recordPendingAppointment(pendingAppointment);
-
-      state.appointmentId = pendingAppointment.id;
-      state.step = 'awaiting_payment';
-
-      const costLine = estimatedTreatmentCostDisplay ? ` (estimated treatment cost: ${estimatedTreatmentCostDisplay})` : '';
-      await sendTextMessage(
-        from,
-        `${service.title}${costLine} on ${state.date} at ${timeSlot}.\n\nAppointment ID: #${pendingAppointment.id}\nA refundable deposit of ₹${depositINR} confirms your slot — tap below to pay securely:\n${link.shortUrl}`
-      );
-    } catch (error: any) {
-      console.error('WhatsApp payment link creation failed:', error?.message || error);
-      await sendTextMessage(from, "Sorry, we couldn't generate a payment link right now. Please try again shortly or call the clinic directly.");
-    }
-    return;
-  }
-
-  if (state.step === 'awaiting_payment') {
+  if (state?.step === 'awaiting_payment') {
     if (normalized === 'cancel') {
       whatsappConversations.delete(from);
       await sendTextMessage(from, 'No problem — booking cancelled. Send "hi" anytime to start again.');
       return;
     }
-
     if (normalized === 'retry' && state.appointmentId) {
       await retryWhatsAppPaymentLink(from, state.appointmentId);
       return;
     }
-
-    await sendTextMessage(from, "We're still waiting for your payment to confirm this appointment. Complete the payment link sent above, reply \"retry\" for a fresh link, or \"cancel\" to start over.");
+    if (!isGreeting) {
+      await sendTextMessage(from, "We're still waiting for your payment to confirm this appointment. Complete the payment link sent above, reply \"retry\" for a fresh link, or \"cancel\" to start over.");
+      return;
+    }
   }
+
+  if (!state || isGreeting) {
+    whatsappConversations.set(from, { step: 'awaiting_date', contactName });
+    await sendWelcome(from);
+    return;
+  }
+
+  // Typed fallbacks for the two steps where a patient may type instead of tap.
+  if (state.step === 'awaiting_date') {
+    const dateStr = parseDateInput(text);
+    if (!dateStr) {
+      await sendTextMessage(from, 'Please tap Today, Tomorrow or Pick a date above — or type a date like 25-09-2026.');
+      return;
+    }
+    await showTimesForDate(from, state, dateStr);
+    return;
+  }
+
+  if (state.step === 'awaiting_time' && state.date) {
+    await sendConfirmation(from, state, text.trim().toUpperCase());
+    return;
+  }
+
+  await sendTextMessage(from, 'Please tap one of the options above to continue, or send "hi" to start over.');
 }
 
 /** Regenerates a payment link for a still-pending WhatsApp booking — used both by the patient typing "retry" and by the payment_link.expired webhook handler. */

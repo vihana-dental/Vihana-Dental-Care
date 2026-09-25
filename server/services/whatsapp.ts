@@ -216,6 +216,42 @@ export function sendReplyButtons(to: string, bodyText: string, buttons: ReplyBut
   });
 }
 
+// The published WhatsApp Flow that shows the native calendar popup (see
+// docs/whatsapp-date-flow.json). Optional: without it the "Pick a date" button
+// falls back to asking for a typed date.
+const META_WHATSAPP_DATE_FLOW_ID = process.env.META_WHATSAPP_DATE_FLOW_ID || '';
+
+export function isDateFlowConfigured(): boolean {
+  return Boolean(META_WHATSAPP_DATE_FLOW_ID);
+}
+
+/**
+ * Sends a WhatsApp Flow as a tappable button message. The Flow opens as a
+ * native full-screen form inside WhatsApp; `data` seeds the first screen
+ * (here: the calendar's min/max/closed dates) via a navigate action, so the
+ * Flow needs no data endpoint of its own.
+ */
+export function sendFlowMessage(to: string, bodyText: string, ctaLabel: string, screen: string, data: Record<string, unknown>) {
+  return graphApiSend({
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'flow',
+      body: { text: bodyText },
+      action: {
+        name: 'flow',
+        parameters: {
+          flow_message_version: '3',
+          flow_id: META_WHATSAPP_DATE_FLOW_ID,
+          flow_cta: ctaLabel.slice(0, 30),
+          flow_action: 'navigate',
+          flow_action_payload: { screen, data }
+        }
+      }
+    }
+  });
+}
+
 /**
  * Verifies Meta's X-Hub-Signature-256 header (format: "sha256=<hex>") against
  * the raw request body, using the app secret. Skips verification (returns
@@ -253,6 +289,7 @@ export interface IncomingWhatsAppMessage {
   text: string;
   contactName?: string; // from the payload's contacts[].profile.name, when present
   interactiveReplyId?: string; // the row/button id, only present for list_reply/button_reply taps
+  flowResponse?: Record<string, any>; // the submitted Flow form, only present for nfm_reply
 }
 
 /** Meta batches messages inside entry[].changes[].value.messages[] — pulls out text and interactive replies. */
@@ -274,6 +311,14 @@ export function parseIncomingMessages(webhookBody: any): IncomingWhatsAppMessage
         } else if (msg.type === 'interactive' && msg.interactive?.type === 'button_reply') {
           const reply = msg.interactive.button_reply;
           messages.push({ from: msg.from, text: reply.title, contactName, interactiveReplyId: reply.id });
+        } else if (msg.type === 'interactive' && msg.interactive?.type === 'nfm_reply') {
+          let flowResponse: Record<string, any> = {};
+          try {
+            flowResponse = JSON.parse(msg.interactive.nfm_reply?.response_json || '{}');
+          } catch {
+            // malformed payload — treated as an empty submission by the handler
+          }
+          messages.push({ from: msg.from, text: '', contactName, flowResponse });
         }
       }
     }
