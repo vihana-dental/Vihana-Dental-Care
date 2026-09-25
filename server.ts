@@ -77,6 +77,7 @@ import {
   isDateFlowConfigured,
   describeWhatsAppConfig,
   registerFlowEncryptionKey,
+  configureFlowEndpoint,
   maskPhone,
   sendConfirmationMessage,
   sendReminderMessage,
@@ -3391,9 +3392,23 @@ async function startServer() {
     // the phone number before it will call /api/whatsapp/flow.
     const publicKey = getFlowPublicKeyPem();
     if (publicKey) {
-      registerFlowEncryptionKey(publicKey).then((result) => {
-        console.log(result.success ? '[whatsapp] Flow encryption key registered with Meta.' : `[whatsapp] Flow key registration failed: ${result.error}`);
-      });
+      registerFlowEncryptionKey(publicKey)
+        .then((result) => {
+          console.log(result.success ? '[whatsapp] Flow encryption key registered with Meta.' : `[whatsapp] Flow key registration failed: ${result.error}`);
+
+          // One-time setup of a DRAFT Flow: attach the endpoint + Meta app via
+          // the API when the editor's app picker has nothing to offer. Runs
+          // only while META_FLOW_SETUP_ID / META_APP_ID are set (remove both
+          // afterwards), and only after the key is registered above.
+          const setupFlowId = (process.env.META_FLOW_SETUP_ID || '').trim();
+          const setupAppId = (process.env.META_APP_ID || '').trim();
+          if (result.success && setupFlowId && setupAppId) {
+            const endpointUri = (process.env.FLOW_ENDPOINT_URI || 'https://vihanadental.in/api/whatsapp/flow').trim();
+            configureFlowEndpoint(setupFlowId, setupAppId, endpointUri).then((r) => {
+              console.log(`[whatsapp] Flow endpoint setup for flow ${setupFlowId}: ${r.success ? 'ok' : 'FAILED'} — ${r.detail}`);
+            });
+          }
+        });
     }
   });
 }

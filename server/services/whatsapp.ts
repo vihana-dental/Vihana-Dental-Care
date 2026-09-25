@@ -266,6 +266,27 @@ export function sendFlowMessage(to: string, bodyText: string, ctaLabel: string) 
   });
 }
 
+/**
+ * Attaches the data endpoint and the Meta app to a DRAFT Flow through the
+ * Graph API. This does what the Flow editor's "Set endpoint URI" and "Connect
+ * Meta app" steps do, for cases where the editor's app picker lists nothing.
+ * Only draft Flows can be updated; a published Flow is immutable.
+ */
+export async function configureFlowEndpoint(flowId: string, appId: string, endpointUri: string): Promise<{ success: boolean; detail: string }> {
+  if (!isWhatsAppConfigured()) return { success: false, detail: 'WhatsApp credentials not configured' };
+  try {
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${flowId}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${META_WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ application_id: appId, endpoint_uri: endpointUri }).toString()
+    });
+    const body = await res.text();
+    return { success: res.ok, detail: `${res.status} ${body.slice(0, 400)}` };
+  } catch (error: any) {
+    return { success: false, detail: error?.message || 'Unknown error' };
+  }
+}
+
 /** Non-secret identifiers, logged at startup so a wrong phone-number/Flow id is obvious from the logs. */
 export function describeWhatsAppConfig(): string {
   return `phoneNumberId=${META_WHATSAPP_PHONE_NUMBER_ID || '(unset)'} flowId=${META_WHATSAPP_DATE_FLOW_ID || '(unset)'} token=${META_WHATSAPP_ACCESS_TOKEN ? 'set' : 'unset'}`;
