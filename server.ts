@@ -55,6 +55,7 @@ import {
   editSlot
 } from './server/services/scheduleOverrides';
 import { loadSetting, saveSetting } from './server/services/settingsStore';
+import { BookingRules, BOOKING_RULES_SETTING_KEY, getBookingRules, setBookingRules, normalizeBookingRules, allowsMultiplePerSlot } from './server/services/bookingRules';
 import {
   listBlogPosts,
   getBlogPostBySlug,
@@ -2286,6 +2287,31 @@ function findActiveAppointment(doctorId: string, date: string, timeSlot: string)
 // Every slot for the requested date is returned with whether it's blocked
 // and whether an active appointment already sits on it, so the admin UI
 // can warn before a doctor blocks a slot out from under a real booking.
+function countActiveAppointments(doctorId: string, date: string, timeSlot: string): number {
+  return appointmentsStorage.filter(
+    (a) => a.doctorId === doctorId && a.date === date && a.timeSlot === timeSlot && ACTIVE_APPOINTMENT_STATUSES.has(a.status)
+  ).length;
+}
+
+// Clinic-wide booking rules. Currently one switch: whether more than one
+// appointment can be booked in the same time slot. Takes effect immediately on
+// the website, chat widget and WhatsApp (they share the availability check),
+// and is persisted so it survives a restart.
+app.get('/api/admin/booking-rules', requireAdminAuth, (req, res) => {
+  res.json({ success: true, rules: getBookingRules() });
+});
+
+app.patch('/api/admin/booking-rules', requireAdminAuth, async (req, res) => {
+  const { allowMultiplePerSlot } = req.body || {};
+  if (allowMultiplePerSlot !== undefined && typeof allowMultiplePerSlot !== 'boolean') {
+    return res.status(400).json({ success: false, error: 'allowMultiplePerSlot must be true or false.' });
+  }
+
+  const next = setBookingRules({ allowMultiplePerSlot });
+  const saved = await saveSetting(BOOKING_RULES_SETTING_KEY, next);
+  auditLog(req, `set multiple appointments per slot: ${next.allowMultiplePerSlot ? 'ON' : 'OFF'}`);
+  res.json({ success: true, rules: next, persisted: saved.success });
+});
 app.get('/api/admin/doctor-schedule', requireAdminAuth, (req, res) => {
   const { doctorId, date } = req.query;
   if (typeof doctorId !== 'string' || !doctorId || typeof date !== 'string' || !DATE_RE.test(date)) {
@@ -2298,6 +2324,8 @@ app.get('/api/admin/doctor-schedule', requireAdminAuth, (req, res) => {
     return {
       time,
       blocked: blocked.has(time),
+      // With "multiple per slot" on, several patients can share a slot.
+      bookedCount: countActiveAppointments(doctorId, date, time),
       // true for a slot the admin added (vs. one from the default weekly hours)
       custom: isCustomSlot(doctorId, date, time),
       appointmentId: appointment?.id,
@@ -2310,7 +2338,8 @@ app.get('/api/admin/doctor-schedule', requireAdminAuth, (req, res) => {
     date,
     slots,
     // Default slots the admin deleted from this day — offered back as "restore".
-    removedSlots: getRemovedDefaultSlots(doctorId, date)
+    removedSlots: getRemovedDefaultSlots(doctorId, date),
+    allowMultiplePerSlot: allowsMultiplePerSlot()
   });
 });
 
@@ -3461,6 +3490,12 @@ async function startServer() {
 
   // Fee settings are admin-editable, so they're persisted; without this every
   // deploy/restart silently reset them to the defaults.
+  const storedRules = await loadSetting<Partial<BookingRules>>(BOOKING_RULES_SETTING_KEY);
+  if (storedRules) {
+    setBookingRules(normalizeBookingRules(storedRules));
+    console.log(`Loaded booking rules from Supabase (multiple per slot: ${allowsMultiplePerSlot() ? 'on' : 'off'}).`);
+  }
+
   const storedFees = await loadSetting<Partial<FeeConfig>>(FEE_CONFIG_SETTING_KEY);
   if (storedFees) {
     clinicFeeConfig = normalizeFeeConfig(storedFees);

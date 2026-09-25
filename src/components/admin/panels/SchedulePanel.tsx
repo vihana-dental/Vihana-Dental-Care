@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarOff, AlertTriangle, X, Plus, Pencil, Trash2, Check, ChevronLeft, ChevronRight, RotateCcw, Sparkles } from 'lucide-react';
+import { CalendarOff, AlertTriangle, X, Plus, Pencil, Trash2, Check, ChevronLeft, ChevronRight, RotateCcw, Sparkles, Users } from 'lucide-react';
 import {
   PanelCard, PanelHeader, LoadingRow, ErrorBanner, ToggleSwitch, ConfirmDialog,
   inputClass, labelClass, primaryButtonClass, ghostButtonClass,
@@ -24,6 +24,8 @@ interface ScheduleSlot {
   custom?: boolean;
   appointmentId?: string;
   patientName?: string;
+  /** How many active appointments share this slot (more than 1 only when multiple-per-slot is on). */
+  bookedCount?: number;
 }
 
 interface ConflictInfo {
@@ -63,6 +65,9 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [busySlot, setBusySlot] = useState<string | null>(null);
+  const [allowMultiple, setAllowMultiple] = useState<boolean | null>(null);
+  const [rulesBusy, setRulesBusy] = useState(false);
+  const [rulesNote, setRulesNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [dayBusy, setDayBusy] = useState(false);
 
   const [newTime, setNewTime] = useState('');
@@ -92,6 +97,40 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
       })
       .catch(() => setDoctors([]));
   }, []);
+
+  useEffect(() => {
+    authedFetch('/api/admin/booking-rules')
+      .then((res) => (res.status === 401 ? onSessionExpired() : res.json()))
+      .then((data) => { if (data?.success) setAllowMultiple(Boolean(data.rules?.allowMultiplePerSlot)); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleMultiple = async (next: boolean) => {
+    setRulesBusy(true);
+    setRulesNote(null);
+    try {
+      const res = await authedFetch('/api/admin/booking-rules', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allowMultiplePerSlot: next })
+      });
+      if (res.status === 401) return onSessionExpired();
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Could not save this setting.');
+      setAllowMultiple(Boolean(data.rules.allowMultiplePerSlot));
+      setRulesNote(
+        data.persisted === false
+          ? { ok: false, text: 'Applied now, but it could not be stored and may reset if the site restarts. Try again in a moment.' }
+          : { ok: true, text: next ? 'On — patients can now book a time that already has an appointment.' : 'Off — a booked time slot now closes to other patients.' }
+      );
+      loadSchedule({ quiet: true });
+    } catch (err: any) {
+      setRulesNote({ ok: false, text: err?.message || 'Could not save this setting.' });
+    } finally {
+      setRulesBusy(false);
+    }
+  };
 
   const loadSchedule = async (opts: { quiet?: boolean } = {}) => {
     if (!doctorId) return;
@@ -286,6 +325,29 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
   return (
     <div className="space-y-4">
       <PanelCard>
+        <div className="p-4 sm:p-5 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-brand-200 border border-brand-300 flex items-center justify-center text-brand-900 shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-900">Multiple appointments in the same time slot</p>
+              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                {allowMultiple
+                  ? 'On: several patients can book the same time. A slot stays open after it is booked. Turn off to go back to one patient per slot.'
+                  : 'Off: one patient per time slot — once a slot is booked it closes to everyone else. Turn on if you see more than one patient at a time.'}
+              </p>
+              {rulesNote && <p className={`text-[11px] mt-1.5 font-medium ${rulesNote.ok ? 'text-emerald-700' : 'text-rose-600'}`}>{rulesNote.text}</p>}
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <ToggleSwitch checked={Boolean(allowMultiple)} onChange={toggleMultiple} disabled={rulesBusy || allowMultiple === null} />
+            <span className={`text-[10px] font-bold uppercase tracking-wide ${allowMultiple ? 'text-emerald-700' : 'text-slate-400'}`}>{allowMultiple ? 'Allowed' : 'One per slot'}</span>
+          </div>
+        </div>
+      </PanelCard>
+
+      <PanelCard>
         <PanelHeader
           icon={<CalendarOff className="w-5 h-5" />}
           title="Doctor Schedule"
@@ -373,7 +435,12 @@ export const SchedulePanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
 
                         <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
                           {slot.appointmentId && (
-                            <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5 truncate max-w-full">Booked · {slot.patientName}</span>
+                            <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5 truncate max-w-full">
+                              Booked · {slot.patientName}{(slot.bookedCount ?? 1) > 1 ? ` +${(slot.bookedCount ?? 1) - 1} more` : ''}
+                            </span>
+                          )}
+                          {slot.appointmentId && allowMultiple && !slot.blocked && (
+                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">Still open</span>
                           )}
                           {!slot.appointmentId && slot.blocked && (
                             <span className="text-[11px] font-semibold text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">Switched off</span>

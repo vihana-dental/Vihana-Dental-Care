@@ -27,6 +27,7 @@ import { Appointment, AvailabilitySlot } from '../../src/types';
 import { isSlotInPast } from '../../src/data/clinicData';
 import { clinicWallTimeToUtc, parseSlotLabel } from '../../src/lib/clinicTime';
 import { isSlotBlockedForDoctor, getEffectiveSlots } from './scheduleOverrides';
+import { allowsMultiplePerSlot } from './bookingRules';
 
 const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || '';
 const GOOGLE_OAUTH_CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET || '';
@@ -291,7 +292,9 @@ export async function computeAvailability(dateISO: string, doctorId?: string): P
   const slots: AvailabilitySlot[] = allSlots.map((time) => {
     if (lapsed.get(time)) return { time, available: false, reason: 'passed' };
     if (isSlotBlockedForDoctor(doctorId, dateISO, time)) return { time, available: false, reason: 'blocked' };
-    if (slotOverlapsBusy(dateISO, time, freeBusy.busy)) return { time, available: false, reason: 'booked' };
+    // An existing booking only closes a slot when the admin has NOT switched
+    // on "multiple appointments per time slot" (see bookingRules.ts).
+    if (!allowsMultiplePerSlot() && slotOverlapsBusy(dateISO, time, freeBusy.busy)) return { time, available: false, reason: 'booked' };
     return { time, available: true };
   });
 
