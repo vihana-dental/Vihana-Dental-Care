@@ -14,6 +14,7 @@
  */
 
 import crypto from 'crypto';
+import { applyDisplayOrder } from './displayOrder';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -72,7 +73,12 @@ const mockPosts: BlogPost[] = [];
 
 // ---------------- Public reads ----------------
 
+/** Posts in the order the doctor arranged them; any not yet placed (newly published) come first, newest first. */
 export async function listBlogPosts(): Promise<BlogPost[]> {
+  return applyDisplayOrder('blog', await readBlogPosts(), 'start');
+}
+
+async function readBlogPosts(): Promise<BlogPost[]> {
   if (!isSupabaseConfigured()) {
     return [...mockPosts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }

@@ -5,6 +5,7 @@ import {
   PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass,
   primaryButtonClass, ghostButtonClass, dangerButtonClass, ListFieldEditor
 } from '../shared';
+import { ReorderControls, ReorderHint, putOrder, useReorder } from '../reorder';
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const CATEGORIES = ['General', 'Cosmetic', 'Orthodontics', 'Implants', 'Surgical', 'Pediatric'] as const;
@@ -154,6 +155,13 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const reorder = useReorder<DentalService>({
+    items: services,
+    setItems: setServices,
+    save: (ids) => putOrder<DentalService>(authedFetch, '/api/admin/services/order', ids, 'services', onSessionExpired),
+    onError: setActionError
+  });
+
   const handleCreate = async () => {
     setCreating(true);
     setCreateError('');
@@ -251,10 +259,12 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
         {loading && <LoadingRow label="Loading services..." />}
         {loadError && <ErrorBanner message={loadError} onRetry={load} />}
 
+        <ReorderHint reorder={reorder} />
+
         {services && services.length > 0 && (
           <div className="space-y-3">
-            {services.map((service) => (
-              <div key={service.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            {services.map((service, index) => (
+              <div key={service.id} {...reorder.itemProps(service.id, 'bg-slate-50 border border-slate-200 rounded-xl p-4')}>
                 {editingId === service.id ? (
                   <ServiceForm
                     draft={editDraft} onChange={setEditDraft} onSubmit={() => handleSaveEdit(service.id)}
@@ -262,6 +272,7 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
                   />
                 ) : (
                   <div className="flex items-start gap-3">
+                    <ReorderControls id={service.id} label={service.title} index={index} count={services.length} reorder={reorder} className="self-center" />
                     <img src={service.image} alt="" className="w-16 h-16 object-cover rounded-lg border border-slate-200 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">

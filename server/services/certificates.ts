@@ -31,6 +31,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { ClinicCertificate } from '../../src/types';
+import { resolveOrder } from './displayOrder';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -463,6 +464,42 @@ export async function updateCertificate(id: string, input: UpdateCertificateInpu
     return { success: true, certificate: rowToCertificate(rows[0]) };
   } catch (error: any) {
     console.error('Supabase updateCertificate failed:', error?.message || error);
+    return { success: false, error: error?.message || 'Unknown Supabase error' };
+  }
+}
+
+/**
+ * Renumbers display_order 1..n to match `requestedIds`. Only real database
+ * rows can be reordered — the bundled fallback catalog (what the footer shows
+ * with no database, or while it's unreachable) is read-only, the same state
+ * the console already shows as "not deletable".
+ */
+export async function reorderCertificates(requestedIds: string[]): Promise<{ success: boolean; error?: string }> {
+  const current = await listCertificates();
+  if (!isSupabaseConfigured() || current.some((c) => STATIC_CERTIFICATES.some((s) => s.id === c.id))) {
+    return { success: false, error: 'These are the built-in documents shown while the certificates database is unavailable, so they cannot be reordered right now.' };
+  }
+
+  const ids = resolveOrder(requestedIds, current.map((c) => c.id));
+  const changed = ids
+    .map((id, index) => ({ id, order: index + 1 }))
+    .filter(({ id, order }) => current.find((c) => c.id === id)?.displayOrder !== order);
+
+  try {
+    const responses = await Promise.all(
+      changed.map(({ id, order }) =>
+        fetch(`${SUPABASE_URL}/rest/v1/clinic_certificates?id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: supabaseHeaders({ Prefer: 'return=minimal' }),
+          body: JSON.stringify({ display_order: order, updated_at: new Date().toISOString() })
+        })
+      )
+    );
+    const failed = responses.find((r) => !r.ok);
+    if (failed) throw new Error(`Supabase certificate reorder failed: ${failed.status} ${await failed.text()}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error('Supabase reorderCertificates failed:', error?.message || error);
     return { success: false, error: error?.message || 'Unknown Supabase error' };
   }
 }

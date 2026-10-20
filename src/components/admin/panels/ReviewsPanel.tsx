@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Star, Loader2, Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
 import { Review } from '../../../types';
 import { PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass, primaryButtonClass, ghostButtonClass } from '../shared';
+import { ReorderControls, ReorderHint, putOrder, useReorder } from '../reorder';
 
 type ReviewDraft = Omit<Review, 'id'>;
 const EMPTY_DRAFT: ReviewDraft = {
@@ -48,6 +49,13 @@ export const ReviewsPanel: React.FC<Props> = ({ authedFetch, onSessionExpired })
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const reorder = useReorder<Review>({
+    items: reviews,
+    setItems: setReviews,
+    save: (ids) => putOrder<Review>(authedFetch, '/api/admin/reviews/order', ids, 'reviews', onSessionExpired),
+    onError: setActionError
+  });
 
   const handleCreate = async () => {
     setCreating(true);
@@ -156,14 +164,17 @@ export const ReviewsPanel: React.FC<Props> = ({ authedFetch, onSessionExpired })
         {loading && <LoadingRow label="Loading reviews..." />}
         {loadError && <ErrorBanner message={loadError} onRetry={load} />}
 
+        <ReorderHint reorder={reorder} note="New reviews still start at the top." />
+
         {reviews && reviews.length > 0 && (
           <div className="space-y-3">
-            {reviews.map((review) => (
-              <div key={review.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            {reviews.map((review, index) => (
+              <div key={review.id} {...reorder.itemProps(review.id, 'bg-slate-50 border border-slate-200 rounded-xl p-4')}>
                 {editingId === review.id ? (
                   renderForm(editDraft, setEditDraft, () => handleSaveEdit(review.id), () => setEditingId(null), saving, 'Save Changes', saveError)
                 ) : (
                   <div className="flex items-start gap-3">
+                    <ReorderControls id={review.id} label={`review by ${review.authorName}`} index={index} count={reviews.length} reorder={reorder} className="self-center" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="text-sm font-bold text-slate-900">{review.authorName}</p>

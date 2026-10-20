@@ -11,6 +11,7 @@
  */
 
 import { FAQ } from '../../src/types';
+import { resolveOrder } from './displayOrder';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -156,6 +157,46 @@ export async function updateFAQ(id: string, input: FAQInput): Promise<FAQWriteRe
     return { success: true, faq: rowToFAQ(rows[0]) };
   } catch (error: any) {
     console.error('Supabase updateFAQ failed:', error?.message || error);
+    return { success: false, error: error?.message || 'Unknown Supabase error' };
+  }
+}
+
+/**
+ * Renumbers display_order 1..n to match `requestedIds`. Patches one row at a
+ * time (and only those whose number actually changes) rather than upserting
+ * the lot: an upsert would quietly re-create an FAQ deleted in another tab
+ * between the admin loading the list and dragging.
+ */
+export async function reorderFAQs(requestedIds: string[]): Promise<{ success: boolean; error?: string }> {
+  const current = await listFAQs();
+  const ids = resolveOrder(requestedIds, current.map((f) => f.id));
+  const changed = ids
+    .map((id, index) => ({ id, order: index + 1 }))
+    .filter(({ id, order }) => current.find((f) => f.id === id)?.order !== order);
+
+  if (!isSupabaseConfigured()) {
+    for (const { id, order } of changed) {
+      const faq = mockFAQs.find((f) => f.id === id);
+      if (faq) faq.order = order;
+    }
+    return { success: true };
+  }
+
+  try {
+    const responses = await Promise.all(
+      changed.map(({ id, order }) =>
+        fetch(`${SUPABASE_URL}/rest/v1/faqs?id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: supabaseHeaders({ Prefer: 'return=minimal' }),
+          body: JSON.stringify({ display_order: order, updated_at: new Date().toISOString() })
+        })
+      )
+    );
+    const failed = responses.find((r) => !r.ok);
+    if (failed) throw new Error(`Supabase FAQ reorder failed: ${failed.status} ${await failed.text()}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error('Supabase reorderFAQs failed:', error?.message || error);
     return { success: false, error: error?.message || 'Unknown Supabase error' };
   }
 }

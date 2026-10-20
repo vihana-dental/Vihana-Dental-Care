@@ -11,6 +11,7 @@
 
 import { DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS } from '../../src/data/clinicData';
 import { Doctor, ConsultantDoctor } from '../../src/types';
+import { applyDisplayOrder } from './displayOrder';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -104,7 +105,12 @@ async function ensureDoctorsSeeded(): Promise<void> {
   }
 }
 
+/** Lead doctors in the order the doctor arranged them in the admin console. */
 export async function listDoctors(): Promise<Doctor[]> {
+  return applyDisplayOrder('team_doctors', await readDoctors());
+}
+
+async function readDoctors(): Promise<Doctor[]> {
   if (!isSupabaseConfigured()) return mockDoctors;
   await ensureDoctorsSeeded();
   try {
@@ -263,7 +269,12 @@ async function ensureConsultantsSeeded(): Promise<void> {
   }
 }
 
+/** Visiting consultants in the order the doctor arranged them in the admin console. */
 export async function listConsultants(): Promise<ConsultantDoctor[]> {
+  return applyDisplayOrder('team_consultants', await readConsultants());
+}
+
+async function readConsultants(): Promise<ConsultantDoctor[]> {
   if (!isSupabaseConfigured()) return mockConsultants;
   await ensureConsultantsSeeded();
   try {

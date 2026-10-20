@@ -5,6 +5,7 @@
 
 import { GALLERY_ITEMS as STATIC_GALLERY } from '../../src/data/clinicData';
 import { GalleryItem } from '../../src/types';
+import { applyDisplayOrder } from './displayOrder';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -76,7 +77,12 @@ async function ensureSeeded(): Promise<void> {
   }
 }
 
+/** The gallery in the order the doctor arranged it in the admin console. */
 export async function listGalleryItems(): Promise<GalleryItem[]> {
+  return applyDisplayOrder('gallery', await readGalleryItems());
+}
+
+async function readGalleryItems(): Promise<GalleryItem[]> {
   if (!isSupabaseConfigured()) return mockGallery;
   await ensureSeeded();
   try {

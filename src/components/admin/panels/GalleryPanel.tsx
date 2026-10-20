@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Image as ImageIcon, Loader2, Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
 import { GalleryItem } from '../../../types';
 import { PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass, primaryButtonClass, ghostButtonClass } from '../shared';
+import { ReorderControls, ReorderHint, putOrder, useReorder } from '../reorder';
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const CATEGORIES = ['facilities', 'treatments', 'sterilization', 'smiles', 'posters'] as const;
@@ -106,6 +107,13 @@ export const GalleryPanel: React.FC<Props> = ({ authedFetch, onSessionExpired })
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const reorder = useReorder<GalleryItem>({
+    items,
+    setItems,
+    save: (ids) => putOrder<GalleryItem>(authedFetch, '/api/admin/gallery/order', ids, 'items', onSessionExpired),
+    onError: setActionError
+  });
+
   const handleCreate = async () => {
     setCreating(true);
     setCreateError('');
@@ -185,14 +193,22 @@ export const GalleryPanel: React.FC<Props> = ({ authedFetch, onSessionExpired })
         {loading && <LoadingRow label="Loading gallery..." />}
         {loadError && <ErrorBanner message={loadError} onRetry={load} />}
 
+        <ReorderHint reorder={reorder} note="Photos left-to-right, top-to-bottom; each category filter keeps this order." />
+
         {items && items.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {items.map((item) => (
-              <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+            {items.map((item, index) => (
+              <div key={item.id} {...reorder.itemProps(item.id, 'bg-slate-50 border border-slate-200 rounded-xl p-3')}>
                 {editingId === item.id ? (
                   <ItemForm draft={editDraft} onChange={setEditDraft} onSubmit={() => handleSaveEdit(item.id)} onCancel={() => setEditingId(null)} submitting={saving} submitLabel="Save Changes" error={saveError} />
                 ) : (
                   <>
+                    {reorder.enabled && (
+                      <div className="flex items-center justify-between pb-2">
+                        <span className="text-[11px] font-bold text-slate-400">#{index + 1}</span>
+                        <ReorderControls id={item.id} label={item.title} index={index} count={items.length} reorder={reorder} direction="horizontal" />
+                      </div>
+                    )}
                     <img src={item.imageUrl} alt="" className="w-full h-32 object-cover rounded-lg border border-slate-200" />
                     <div className="pt-2.5">
                       <p className="text-xs font-bold text-slate-900 line-clamp-1">{item.title}</p>

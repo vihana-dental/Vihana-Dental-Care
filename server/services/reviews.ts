@@ -9,6 +9,7 @@
 
 import { REVIEWS as STATIC_REVIEWS } from '../../src/data/clinicData';
 import { Review } from '../../src/types';
+import { applyDisplayOrder } from './displayOrder';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -81,7 +82,12 @@ async function ensureSeeded(): Promise<void> {
   }
 }
 
+/** Curated reviews in the order the doctor arranged them; any not yet placed (newly added) come first, newest first. */
 export async function listCuratedReviews(): Promise<Review[]> {
+  return applyDisplayOrder('reviews', await readCuratedReviews(), 'start');
+}
+
+async function readCuratedReviews(): Promise<Review[]> {
   if (!isSupabaseConfigured()) return mockReviews;
   await ensureSeeded();
   try {

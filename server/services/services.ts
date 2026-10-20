@@ -18,6 +18,7 @@
 import { SERVICES as STATIC_SERVICES } from '../../src/data/clinicData';
 import { DentalService } from '../../src/types';
 import { setServicePriceDisplay } from './pricing';
+import { applyDisplayOrder } from './displayOrder';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -105,7 +106,12 @@ async function ensureSeeded(): Promise<void> {
   }
 }
 
+/** The catalog in the order the doctor arranged it in the admin console. */
 export async function listServices(): Promise<DentalService[]> {
+  return applyDisplayOrder('services', await readServices());
+}
+
+async function readServices(): Promise<DentalService[]> {
   if (!isSupabaseConfigured()) return mockServices;
 
   await ensureSeeded();

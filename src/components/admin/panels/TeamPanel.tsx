@@ -5,6 +5,7 @@ import {
   PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass,
   primaryButtonClass, ghostButtonClass, dangerButtonClass, ListFieldEditor, ToggleSwitch as BookableSwitch
 } from '../shared';
+import { ReorderControls, ReorderHint, putOrder, useReorder } from '../reorder';
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -213,6 +214,19 @@ export const TeamPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const doctorOrder = useReorder<Doctor>({
+    items: doctors,
+    setItems: setDoctors,
+    save: (ids) => putOrder<Doctor>(authedFetch, '/api/admin/team/doctors/order', ids, 'doctors', onSessionExpired),
+    onError: setActionError
+  });
+  const consultantOrder = useReorder<ConsultantDoctor>({
+    items: consultants,
+    setItems: setConsultants,
+    save: (ids) => putOrder<ConsultantDoctor>(authedFetch, '/api/admin/team/consultants/order', ids, 'consultants', onSessionExpired),
+    onError: setActionError
+  });
+
   const openNewForm = () => {
     setNewDoctorDraft(EMPTY_DOCTOR);
     setNewConsultantDraft(EMPTY_CONSULTANT);
@@ -379,12 +393,14 @@ export const TeamPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
 
         {tab === 'doctors' && doctors && (
           <div className="space-y-3">
-            {doctors.map((doc) => (
-              <div key={doc.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <ReorderHint reorder={doctorOrder} note="Patients see doctors in this order when choosing who to book." />
+            {doctors.map((doc, index) => (
+              <div key={doc.id} {...doctorOrder.itemProps(doc.id, 'bg-slate-50 border border-slate-200 rounded-xl p-4')}>
                 {editingId === doc.id ? (
                   <DoctorForm draft={editDoctorDraft} onChange={setEditDoctorDraft} onSubmit={() => handleSaveDoctorEdit(doc.id)} onCancel={() => setEditingId(null)} submitting={saving} submitLabel="Save Changes" error={saveError} />
                 ) : (
                   <div className="flex items-start gap-3">
+                    <ReorderControls id={doc.id} label={doc.name} index={index} count={doctors.length} reorder={doctorOrder} className="self-center" />
                     <img src={doc.photo} alt="" className="w-16 h-16 object-cover rounded-lg border border-slate-200 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-900">{doc.name}</p>
@@ -410,12 +426,14 @@ export const TeamPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
 
         {tab === 'consultants' && consultants && (
           <div className="space-y-3">
-            {consultants.map((c) => (
-              <div key={c.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <ReorderHint reorder={consultantOrder} note="Bookable consultants are listed after the lead doctors in this order." />
+            {consultants.map((c, index) => (
+              <div key={c.id} {...consultantOrder.itemProps(c.id, 'bg-slate-50 border border-slate-200 rounded-xl p-4')}>
                 {editingId === c.id ? (
                   <ConsultantForm draft={editConsultantDraft} onChange={setEditConsultantDraft} onSubmit={() => handleSaveConsultantEdit(c.id)} onCancel={() => setEditingId(null)} submitting={saving} submitLabel="Save Changes" error={saveError} />
                 ) : (
                   <div className="flex items-start gap-3">
+                    <ReorderControls id={c.id} label={c.name} index={index} count={consultants.length} reorder={consultantOrder} className="self-center" />
                     <img src={c.photo} alt="" className="w-16 h-16 object-cover rounded-lg border border-slate-200 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-900">{c.name}</p>

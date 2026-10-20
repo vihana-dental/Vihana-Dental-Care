@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { HelpCircle, Loader2, Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
 import { FAQ } from '../../../types';
 import { PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass, primaryButtonClass, ghostButtonClass } from '../shared';
+import { ReorderControls, ReorderHint, putOrder, useReorder } from '../reorder';
 
 type FAQDraft = Omit<FAQ, 'id'>;
 
@@ -44,6 +45,15 @@ export const FAQPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) => 
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // FAQs carry their own order number, so a move renumbers them 1..n here
+  // exactly as the server does — the list stays sorted without a re-sort.
+  const reorder = useReorder<FAQ>({
+    items: faqs,
+    setItems: (next) => setFaqs(next.map((faq, i) => ({ ...faq, order: i + 1 }))),
+    save: (ids) => putOrder<FAQ>(authedFetch, '/api/admin/faqs/order', ids, 'faqs', onSessionExpired),
+    onError: setActionError
+  });
 
   const openNewForm = () => {
     setNewDraft({ question: '', answer: '', order: (faqs?.length || 0) + 1 });
@@ -145,14 +155,17 @@ export const FAQPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) => 
         {loading && <LoadingRow label="Loading FAQs..." />}
         {loadError && <ErrorBanner message={loadError} onRetry={load} />}
 
+        <ReorderHint reorder={reorder} />
+
         {faqs && faqs.length > 0 && (
           <div className="space-y-3">
-            {[...faqs].sort((a, b) => a.order - b.order).map((faq) => (
-              <div key={faq.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            {faqs.map((faq, index) => (
+              <div key={faq.id} {...reorder.itemProps(faq.id, 'bg-slate-50 border border-slate-200 rounded-xl p-4')}>
                 {editingId === faq.id ? (
                   renderForm(editDraft, setEditDraft, () => handleSaveEdit(faq.id), () => setEditingId(null), saving, 'Save Changes', saveError)
                 ) : (
                   <div className="flex items-start gap-3">
+                    <ReorderControls id={faq.id} label={faq.question} index={index} count={faqs.length} reorder={reorder} className="self-center" />
                     <span className="shrink-0 w-6 h-6 rounded-full bg-brand-200 text-brand-900 text-[11px] font-bold flex items-center justify-center mt-0.5">{faq.order}</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-900">{faq.question}</p>

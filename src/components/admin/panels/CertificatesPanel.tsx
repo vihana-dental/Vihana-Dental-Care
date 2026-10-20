@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Award, Loader2, Plus, Pencil, Trash2, CheckCircle2, FileText, Image as ImageIcon, ExternalLink, ShieldCheck } from 'lucide-react';
 import { ClinicCertificate } from '../../../types';
 import { PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass, primaryButtonClass, ghostButtonClass } from '../shared';
+import { ReorderControls, ReorderHint, putOrder, useReorder } from '../reorder';
 
 // Kept in step with server/services/certificates.ts — the server is the
 // authority and re-checks all of this (including the file's actual magic
@@ -92,6 +93,18 @@ export const CertificatesPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Documents carry their own order number, so a move renumbers them 1..n
+  // here exactly as the server does. The bundled fallback documents (shown
+  // only while the database is unavailable) can't be reordered — same as
+  // they can't be deleted.
+  const reorder = useReorder<ClinicCertificate>({
+    items: certificates,
+    setItems: (next) => setCertificates(next.map((cert, i) => ({ ...cert, displayOrder: i + 1 }))),
+    save: (ids) => putOrder<ClinicCertificate>(authedFetch, '/api/admin/certificates/order', ids, 'certificates', onSessionExpired),
+    onError: setActionError,
+    disabled: !!certificates?.some((cert) => cert.id.startsWith('static-'))
+  });
 
   const resetUploadForm = () => {
     setTitle('');
@@ -282,10 +295,12 @@ export const CertificatesPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
           <p className="text-sm text-slate-500 py-6 text-center">No documents uploaded yet.</p>
         )}
 
+        <ReorderHint reorder={reorder} />
+
         {certificates && certificates.length > 0 && (
           <div className="space-y-2">
-            {certificates.map((cert) => (
-              <div key={cert.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+            {certificates.map((cert, index) => (
+              <div key={cert.id} {...reorder.itemProps(cert.id, 'bg-slate-50 border border-slate-200 rounded-xl p-3')}>
                 {editingId === cert.id ? (
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -308,6 +323,7 @@ export const CertificatesPanel: React.FC<Props> = ({ authedFetch, onSessionExpir
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
+                    <ReorderControls id={cert.id} label={cert.title} index={index} count={certificates.length} reorder={reorder} />
                     <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${
                       cert.mimeType === 'application/pdf'
                         ? 'bg-rose-50 border-rose-100 text-rose-600'

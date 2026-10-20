@@ -68,7 +68,8 @@ import { appendAppointmentRow, updateAppointmentRowById } from './server/service
 import { persistAppointment, loadAllAppointments, deleteAppointmentRow, isAppointmentsPersistenceConfigured } from './server/services/appointmentsStore';
 import { getServicePriceDisplay, getAllServicePriceDisplays, setServicePriceDisplay } from './server/services/pricing';
 import { listServices, getServiceById, createService, updateService, deleteService } from './server/services/services';
-import { listFAQs, createFAQ, updateFAQ, deleteFAQ } from './server/services/faqs';
+import { listFAQs, createFAQ, updateFAQ, deleteFAQ, reorderFAQs } from './server/services/faqs';
+import { DisplayOrderList, NewItemPosition, parseOrderBody, saveDisplayOrder } from './server/services/displayOrder';
 import {
   listDoctors, createDoctor, updateDoctor, deleteDoctor,
   listConsultants, createConsultant, updateConsultant, deleteConsultant
@@ -80,6 +81,7 @@ import {
   createCertificate,
   updateCertificate,
   deleteCertificate,
+  reorderCertificates,
   validateCertificateFile,
   MAX_CERTIFICATE_BYTES
 } from './server/services/certificates';
@@ -249,12 +251,21 @@ function getBookableDoctors(): BookableDoctorOption[] {
   return [...doctors, ...consultants];
 }
 
+// The service an appointment is filed under when the booking doesn't name a
+// real one. Pinned to General Consultation rather than "whatever is first in
+// SERVICES_LIVE", because the doctor can now drag services into any order and
+// a reorder must not silently change what these bookings get recorded as.
+const DEFAULT_SERVICE_ID = 'general-consultation';
+function getDefaultService(): DentalService {
+  return SERVICES_LIVE.find((s) => s.id === DEFAULT_SERVICE_ID) || SERVICES_LIVE[0];
+}
+
 // Resolves a doctorId to a { id, name } pair for attaching to an
 // appointment, checking BOTH DOCTORS_LIVE and CONSULTANTS_LIVE — now that
 // consultants can also be bookable, a doctorId picked via the booking flow
 // might belong to either pool, and a lookup against DOCTORS_LIVE alone
 // would silently fall back to the wrong person for any consultant booking.
-// Falls back to the first lead doctor only if the id matches neither pool
+// Falls back to the clinic's lead doctor only if the id matches neither pool
 // (e.g. a stale/invalid id) — this is a lookup for an id the caller already
 // chose, not the bookable-filtered picker itself, so it deliberately
 // doesn't filter by `bookable` here (see Phase 2 notes: bookable gates the
@@ -264,7 +275,7 @@ function resolveDoctorOrConsultant(doctorId?: string): { id: string; name: strin
   if (doctor) return { id: doctor.id, name: doctor.name };
   const consultant = CONSULTANTS_LIVE.find((c) => c.id === doctorId);
   if (consultant) return { id: consultant.id, name: consultant.name };
-  return { id: DOCTORS_LIVE[0].id, name: DOCTORS_LIVE[0].name };
+  return getClinicDoctor();
 }
 
 // In-memory data persistence for demo session
@@ -835,7 +846,7 @@ app.post('/api/payments/create-order', publicApiLimiter, async (req, res) => {
   }
 
   const doctor = resolveDoctorOrConsultant(doctorId);
-  const service = SERVICES_LIVE.find(s => s.id === serviceId) || SERVICES_LIVE[0];
+  const service = SERVICES_LIVE.find(s => s.id === serviceId) || getDefaultService();
   const appointmentId = generateDailyAppointmentId();
 
   const pendingAppointment: Appointment = {
@@ -1079,7 +1090,7 @@ app.post('/api/razorpay/create-payment-link', publicApiLimiter, async (req, res)
   }
 
   const doctor = resolveDoctorOrConsultant(doctorId);
-  const service = SERVICES_LIVE.find(s => s.id === serviceId) || SERVICES_LIVE[0];
+  const service = SERVICES_LIVE.find(s => s.id === serviceId) || getDefaultService();
   const appointmentId = generateDailyAppointmentId();
 
   const pendingAppointment: Appointment = {
@@ -1664,7 +1675,7 @@ async function confirmBookingDirectly(from: string, state: WhatsAppConversationS
       patientName: state.contactName || `WhatsApp Patient ${from.slice(-4)}`,
       patientPhone: from,
       doctorId: doctor.id,
-      serviceId: SERVICES_LIVE[0]?.id,
+      serviceId: getDefaultService()?.id,
       serviceNameOverride: WHATSAPP_SERVICE_LABEL,
       date: state.date!,
       timeSlot,
@@ -1870,7 +1881,7 @@ interface CreateConfirmedAppointmentInput {
 async function createConfirmedAppointment(input: CreateConfirmedAppointmentInput) {
   const isOnline = input.consultationType === 'online-video';
   const doctor = resolveDoctorOrConsultant(input.doctorId);
-  const service = SERVICES_LIVE.find(s => s.id === input.serviceId) || SERVICES_LIVE[0];
+  const service = SERVICES_LIVE.find(s => s.id === input.serviceId) || getDefaultService();
   const rescheduleToken = `RSC-${Math.floor(10000 + Math.random() * 90000)}`;
 
   const newAppointment: Appointment = {
@@ -3085,6 +3096,61 @@ app.delete('/api/admin/certificates/:id', requireAdminAuth, async (req, res) => 
 
   auditLog(req, `deleted certificate ${req.params.id}`, 'certificate');
   res.json({ success: true });
+});
+
+// ---------------- REORDERING (admin) ----------------
+// Drag-to-reorder in the console saves the whole new order of one list as
+// `{ ids: [...] }`, and the response carries the list as the server now holds
+// it — so the console always shows exactly what the public site will. The
+// lists with no order column keep their order in clinic_settings (see
+// server/services/displayOrder.ts); FAQs and certificates renumber their
+// existing display_order instead.
+function registerOrderRoute<T extends { id: string }>(opts: {
+  path: string;
+  list: DisplayOrderList;
+  responseKey: string;
+  load: () => Promise<T[]>;
+  newItems?: NewItemPosition;
+  onSaved?: (items: T[]) => void;
+}) {
+  app.put(opts.path, requireAdminAuth, async (req, res) => {
+    const ids = parseOrderBody(req.body);
+    if (!ids) return res.status(400).json({ success: false, error: 'ids must be an array of item ids.' });
+
+    const current = await opts.load();
+    const result = await saveDisplayOrder(opts.list, ids, current.map((item) => item.id), opts.newItems);
+    if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save the new order.' });
+
+    const items = await opts.load();
+    opts.onSaved?.(items);
+    res.json({ success: true, [opts.responseKey]: items });
+  });
+}
+
+registerOrderRoute({ path: '/api/admin/services/order', list: 'services', responseKey: 'services', load: listServices, onSaved: (items) => { SERVICES_LIVE = items; } });
+registerOrderRoute({ path: '/api/admin/team/doctors/order', list: 'team_doctors', responseKey: 'doctors', load: listDoctors, onSaved: (items) => { DOCTORS_LIVE = items; } });
+registerOrderRoute({ path: '/api/admin/team/consultants/order', list: 'team_consultants', responseKey: 'consultants', load: listConsultants, onSaved: (items) => { CONSULTANTS_LIVE = items; } });
+registerOrderRoute({ path: '/api/admin/gallery/order', list: 'gallery', responseKey: 'items', load: listGalleryItems });
+// Newest-first lists: anything published after the last reorder still lands on top.
+registerOrderRoute({ path: '/api/admin/blog/order', list: 'blog', responseKey: 'posts', load: listBlogPosts, newItems: 'start' });
+registerOrderRoute({ path: '/api/admin/reviews/order', list: 'reviews', responseKey: 'reviews', load: listCuratedReviews, newItems: 'start' });
+
+app.put('/api/admin/faqs/order', requireAdminAuth, async (req, res) => {
+  const ids = parseOrderBody(req.body);
+  if (!ids) return res.status(400).json({ success: false, error: 'ids must be an array of item ids.' });
+
+  const result = await reorderFAQs(ids);
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save the new order.' });
+  res.json({ success: true, faqs: await listFAQs() });
+});
+
+app.put('/api/admin/certificates/order', requireAdminAuth, async (req, res) => {
+  const ids = parseOrderBody(req.body);
+  if (!ids) return res.status(400).json({ success: false, error: 'ids must be an array of item ids.' });
+
+  const result = await reorderCertificates(ids);
+  if (!result.success) return res.status(502).json({ success: false, error: result.error || 'Could not save the new order.' });
+  res.json({ success: true, certificates: await listCertificates() });
 });
 
 // ---------------- CURATED REVIEWS (admin writes) ----------------

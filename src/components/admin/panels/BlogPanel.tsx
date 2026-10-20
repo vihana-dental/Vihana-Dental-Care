@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Newspaper, Loader2, Image as ImageIcon, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
 import { PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass, primaryButtonClass, ghostButtonClass, dangerButtonClass } from '../shared';
+import { ReorderControls, ReorderHint, putOrder, useReorder } from '../reorder';
 
 interface BlogPost {
   id: string;
@@ -65,6 +66,13 @@ export const BlogPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const reorder = useReorder<BlogPost>({
+    items: posts,
+    setItems: setPosts,
+    save: (ids) => putOrder<BlogPost>(authedFetch, '/api/admin/blog/order', ids, 'posts', onSessionExpired),
+    onError: setActionError
+  });
 
   const handleNewImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -192,10 +200,12 @@ export const BlogPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
         {loadError && <ErrorBanner message={loadError} onRetry={load} />}
         {posts && !loading && posts.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No posts published yet.</p>}
 
+        <ReorderHint reorder={reorder} note="New posts still start at the top." />
+
         {posts && posts.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {posts.map((post) => (
-              <div key={post.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+            {posts.map((post, index) => (
+              <div key={post.id} {...reorder.itemProps(post.id, 'bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3')}>
                 {editingId === post.id ? (
                   <div className="space-y-2">
                     <label className="block">
@@ -217,6 +227,7 @@ export const BlogPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =>
                 ) : (
                   <>
                     <div className="flex items-start gap-3">
+                      <ReorderControls id={post.id} label={post.title} index={index} count={posts.length} reorder={reorder} className="self-center" />
                       <img src={post.imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-slate-200 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-slate-900 truncate">{post.title}</p>
