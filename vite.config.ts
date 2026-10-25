@@ -1,11 +1,34 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, type Plugin} from 'vite';
+
+// Inlines the (small, ~13KB) built stylesheet into index.html. As a separate
+// <link> it was a render-blocking request that had to finish a full round trip
+// before first paint; inlined, the HTML is the only thing first paint waits on.
+function inlineCriticalCss(): Plugin {
+  return {
+    name: 'inline-critical-css',
+    enforce: 'post',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const bundle = ctx.bundle;
+        if (!bundle) return html;
+        return html.replace(/<link rel="stylesheet"[^>]*href="([^"]+\.css)"[^>]*>/g, (tag, href) => {
+          const file = bundle[href.replace(/^\//, '')];
+          if (!file || file.type !== 'asset' || typeof file.source !== 'string') return tag;
+          return `<style>${file.source}</style>`;
+        });
+      },
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), inlineCriticalCss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

@@ -6,24 +6,35 @@ interface InitialLoaderProps {
 }
 
 export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
-  const [stage, setStage] = useState<'drawing' | 'pulsing' | 'exiting' | 'done'>('drawing');
+  // The intro is a brand flourish, not a loading screen — nothing is actually
+  // being waited on — so it is kept short and shown once per browser session.
+  // It used to hold the page back for 3.2s on every visit, which was most of
+  // the measured LCP and Speed Index.
+  const [stage, setStage] = useState<'drawing' | 'pulsing' | 'exiting' | 'done'>(() => {
+    try {
+      if (sessionStorage.getItem('vihana-intro-seen')) return 'done';
+      sessionStorage.setItem('vihana-intro-seen', '1');
+    } catch { /* storage blocked — just play it */ }
+    return 'drawing';
+  });
 
   useEffect(() => {
-    // Stage 1: Line draw (1.5s)
+    if (stage === 'done') { if (onComplete) onComplete(); return; }
+    // Stage 1: Line draw
     const timer1 = setTimeout(() => {
       setStage('pulsing');
-    }, 1500);
+    }, 550);
 
     // Stage 2: Soft glowing pulse (0.8s)
     const timer2 = setTimeout(() => {
       setStage('exiting');
-    }, 2300);
+    }, 900);
 
     // Stage 3: Exit animation completion (0.9s)
     const timer3 = setTimeout(() => {
       setStage('done');
       if (onComplete) onComplete();
-    }, 3200);
+    }, 1350);
 
     return () => {
       clearTimeout(timer1);
@@ -53,6 +64,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
   // would only fire on a real unmount that never happens.
   const restoreScrollRef = useRef<(() => void) | null>(null);
   useEffect(() => {
+    if (stage === 'done') return; // returning visitor: nothing to lock
     const scrollY = window.scrollY;
     const { style } = document.body;
     const prevPosition = style.position;
@@ -90,7 +102,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
           initial={{ y: 0 }}
           animate={stage === 'exiting' ? { y: '-100vh' } : { y: 0 }}
           transition={{
-            duration: 0.85,
+            duration: 0.45,
             ease: [0.76, 0, 0.24, 1] // Heavy eased cubic-bezier curve
           }}
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0d1117] text-white select-none overflow-hidden"
@@ -116,7 +128,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
               }
               transition={
                 stage === 'pulsing'
-                  ? { duration: 0.8, repeat: Infinity, ease: 'easeInOut' }
+                  ? { duration: 0.35, repeat: 1, ease: 'easeInOut' }
                   : { duration: 0.4 }
               }
               className="relative flex items-center justify-center w-28 h-28 sm:w-36 sm:h-36"
@@ -136,7 +148,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 1 }}
                   transition={{
-                    duration: 1.5,
+                    duration: 0.6,
                     ease: [0.4, 0, 0.2, 1],
                   }}
                 />
@@ -147,8 +159,8 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 0.8 }}
                   transition={{
-                    duration: 1.2,
-                    delay: 0.3,
+                    duration: 0.5,
+                    delay: 0.1,
                     ease: 'easeInOut',
                   }}
                 />
@@ -162,7 +174,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{
                     duration: 0.5,
-                    delay: 1.1,
+                    delay: 0.4,
                     type: 'spring',
                     stiffness: 200,
                   }}
@@ -174,7 +186,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.6 }}
+              transition={{ delay: 0.1, duration: 0.4 }}
               className="text-center space-y-1.5"
             >
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
@@ -192,7 +204,7 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
               className="h-full bg-gradient-to-r from-brand-800 via-brand-600 to-brand-accent"
               initial={{ width: '0%' }}
               animate={{ width: stage === 'exiting' ? '100%' : '80%' }}
-              transition={{ duration: 2.2, ease: 'easeInOut' }}
+              transition={{ duration: 1.0, ease: 'easeInOut' }}
             />
           </div>
         </motion.div>

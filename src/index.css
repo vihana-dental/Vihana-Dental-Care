@@ -77,3 +77,15 @@ body {
 .scroll-thin::-webkit-scrollbar-thumb:hover {
   background-color: #31a8f6;
 }
+
+/* Hero photo settle — CSS-only so the LCP image never waits on JS. */
+@keyframes hero-settle {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+.hero-settle {
+  animation: hero-settle 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-settle { animation: none; }
+}

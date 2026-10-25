@@ -52,7 +52,7 @@ export const StickyCtaBar: React.FC<StickyCtaBarProps> = ({ onOpenBooking }) => 
         href={whatsappHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="hidden lg:flex fixed bottom-24 right-6 z-50 items-center gap-2 pl-4 pr-5 h-14 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm shadow-2xl shadow-emerald-500/30 transition-all hover:scale-105"
+        className="hidden lg:flex fixed bottom-24 right-6 z-50 items-center gap-2 pl-4 pr-5 h-14 rounded-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-2xl shadow-emerald-500/30 transition-all hover:scale-105"
         id="desktop-whatsapp-bubble"
         aria-label="Book Appointments on Whatsapp"
       >

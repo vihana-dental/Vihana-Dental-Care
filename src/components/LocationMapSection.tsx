@@ -16,8 +16,8 @@ export const LocationMapSection: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 bg-brand-700/20 text-brand-500 border border-brand-700/30 text-xs font-semibold px-3 py-1 rounded-full">
-            <MapPin className="w-3.5 h-3.5 text-brand-600" />
+          <div className="inline-flex items-center gap-1.5 bg-brand-700/20 text-brand-400 border border-brand-700/30 text-xs font-semibold px-3 py-1 rounded-full">
+            <MapPin className="w-3.5 h-3.5 text-brand-400" />
             <span>Clinic Location & Directions</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
@@ -37,19 +37,19 @@ export const LocationMapSection: React.FC = () => {
                   <span>{CLINIC_INFO.name}</span>
                   <Sparkles className="w-4 h-4 text-amber-400" />
                 </h3>
-                <p className="text-xs text-brand-600 font-medium">Coimbatore Multispecialty Center</p>
+                <p className="text-xs text-brand-400 font-medium">Coimbatore Multispecialty Center</p>
               </div>
 
               <div className="space-y-4 text-xs sm:text-sm text-slate-300">
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+                  <MapPin className="w-5 h-5 text-brand-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Address</p>
                     <a
                       href={CLINIC_INFO.googleMapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      aria-label={`Open ${CLINIC_INFO.name}'s location in Google Maps (opens in a new tab)`}
+                      aria-label={`${CLINIC_INFO.address}, Coimbatore, Tamil Nadu - ${CLINIC_INFO.pincode} (opens Google Maps in a new tab)`}
                       className="mt-0.5 block hover:text-brand-500 transition-colors"
                     >
                       {CLINIC_INFO.address}, Coimbatore, Tamil Nadu - {CLINIC_INFO.pincode}
@@ -58,7 +58,7 @@ export const LocationMapSection: React.FC = () => {
                 </div>
 
                 <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-start gap-3 group">
-                  <Phone className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+                  <Phone className="w-5 h-5 text-brand-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Call Us</p>
                     <p className="mt-0.5 group-hover:text-brand-500 transition-colors">{CLINIC_INFO.phone}</p>
@@ -79,7 +79,7 @@ export const LocationMapSection: React.FC = () => {
                 </a>
 
                 <a href={`mailto:${CLINIC_INFO.email}`} className="flex items-start gap-3 group">
-                  <Mail className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+                  <Mail className="w-5 h-5 text-brand-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Email Us</p>
                     <p className="mt-0.5 group-hover:text-brand-500 transition-colors">{CLINIC_INFO.email}</p>
@@ -87,7 +87,7 @@ export const LocationMapSection: React.FC = () => {
                 </a>
 
                 <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+                  <Clock className="w-5 h-5 text-brand-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Clinic Timings</p>
                     <p className="mt-0.5">{CLINIC_INFO.workingHours.weekdays}</p>
@@ -114,7 +114,7 @@ export const LocationMapSection: React.FC = () => {
                 href={clinicWhatsAppHref()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"
+                className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Chat on WhatsApp</span>

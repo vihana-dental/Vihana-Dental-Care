@@ -1,0 +1,24 @@
+# Vihana Dental Care
+
+> Multispecialty dental clinic in Kalapatti, Coimbatore, Tamil Nadu, India, led by Dr. N. Sanchana, M.D.S. (Orthodontics). Services include painless/laser root canals, computer-guided dental implants, Invisalign and clear aligners, metal/ceramic/Damon braces, cosmetic dentistry, teeth whitening, wisdom-tooth surgery and pediatric dentistry.
+
+## Contact
+- Address: No 77, Post Office Street, Kalapatti, Coimbatore, Tamil Nadu 641048, India
+- Phone: +91 98943 17823
+- WhatsApp: +91 86680 82140
+- Hours: Monday–Saturday 9:00 AM–1:30 PM and 5:00 PM–8:30 PM; Sunday 10:30 AM–1:00 PM; emergency care on call
+- Rating: 4.9 / 5 on Google (185+ reviews)
+
+## Pages
+- [Home, services, team, gallery, blog, reviews and location](https://vihanadental.in/): single-page site; every section is on the home page
+- [Privacy Policy](https://vihanadental.in/privacy-policy.html)
+- [Terms of Service](https://vihanadental.in/terms-of-service.html)
+- [Refund & Cancellation Policy](https://vihanadental.in/refund-cancellation-policy.html)
+- [Data Deletion](https://vihanadental.in/data-deletion.html)
+
+## Booking
+Appointments can be booked online on the home page ("Book Appointment Online"), or through WhatsApp. The site also exposes WebMCP tools (`get_clinic_info`, `list_dental_services`, `open_booking_form`) to browser agents; booking is only completed by the patient.
+
+## Optional
+- [Sitemap](https://vihanadental.in/sitemap.xml)
+- [Instagram](https://www.instagram.com/vihanadental/)

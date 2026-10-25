@@ -98,7 +98,7 @@ export const InquirySection: React.FC = () => {
                     href={CLINIC_INFO.googleMapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`Open ${CLINIC_INFO.name}'s location in Google Maps (opens in a new tab)`}
+                    aria-label={`${CLINIC_INFO.address}, ${CLINIC_INFO.city} - ${CLINIC_INFO.pincode} (opens Google Maps in a new tab)`}
                     className="text-xs text-slate-300 mt-0.5 block hover:text-brand-500 transition-colors"
                   >
                     {CLINIC_INFO.address}, {CLINIC_INFO.city} - {CLINIC_INFO.pincode}
@@ -221,8 +221,9 @@ export const InquirySection: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Service Interest</label>
+                  <label htmlFor="inquiry-service" className="block text-xs font-bold text-slate-700 mb-1">Service Interest</label>
                   <select
+                    id="inquiry-service"
                     value={service}
                     onChange={(e) => setService(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-700 outline-none bg-white"

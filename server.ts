@@ -551,10 +551,48 @@ app.get('/api/clinic-info', async (req, res) => {
   });
 });
 
+// ---------------- PUBLIC IMAGE OFFLOADING ----------------
+// Doctor-uploaded gallery/blog photos are stored as base64 data URIs, which
+// used to be inlined into the list JSON — the gallery response alone was 2.1MB
+// and the blog 175KB, downloaded by every visitor before a single photo was
+// even in view. The public list endpoints now swap each data URI for a small
+// versioned URL, and /api/media/:kind/:id serves the decoded bytes as a real,
+// separately cacheable (and lazy-loadable) image. The version in the query
+// string is a hash of the stored content, so an edited photo gets a new URL
+// and the long `immutable` cache lifetime stays safe.
+const MEDIA_DATA_URI_RE = /^data:(image\/(?:png|jpeg|webp|gif|avif));base64,([A-Za-z0-9+/=\s]+)$/;
+
+function mediaVersion(uri: string): string {
+  return crypto.createHash('sha1').update(uri).digest('hex').slice(0, 12);
+}
+
+function externalizeImages<T extends { id: string; imageUrl?: string }>(kind: 'gallery' | 'blog', rows: T[]): T[] {
+  return rows.map((row) =>
+    typeof row.imageUrl === 'string' && row.imageUrl.startsWith('data:')
+      ? { ...row, imageUrl: `/api/media/${kind}/${encodeURIComponent(row.id)}?v=${mediaVersion(row.imageUrl)}` }
+      : row
+  );
+}
+
+app.get('/api/media/:kind/:id', async (req, res) => {
+  const { kind, id } = req.params;
+  let uri: string | undefined;
+  if (kind === 'gallery') uri = (await listGalleryItems()).find((i) => i.id === id)?.imageUrl;
+  else if (kind === 'blog') uri = (await listBlogPosts()).find((p) => p.id === id)?.imageUrl;
+  const match = uri ? MEDIA_DATA_URI_RE.exec(uri) : null;
+  if (!match) return res.status(404).end();
+
+  res.setHeader('Content-Type', match[1]);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(Buffer.from(match[2].replace(/\s/g, ''), 'base64'));
+});
+
 // ---------------- BLOG (public reads) ----------------
 app.get('/api/blog', async (req, res) => {
   const posts = await listBlogPosts();
-  res.json({ success: true, posts });
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  res.json({ success: true, posts: externalizeImages('blog', posts) });
 });
 
 app.get('/api/blog/:slug', async (req, res) => {
@@ -562,7 +600,7 @@ app.get('/api/blog/:slug', async (req, res) => {
   if (!post) {
     return res.status(404).json({ success: false, error: 'Post not found.' });
   }
-  res.json({ success: true, post });
+  res.json({ success: true, post: externalizeImages('blog', [post])[0] });
 });
 
 // ---------------- TEAM / GALLERY / FAQ / CURATED REVIEWS (public reads) ----------------
@@ -583,7 +621,8 @@ app.get('/api/bookable-doctors', (req, res) => {
 
 app.get('/api/gallery', async (req, res) => {
   const items = await listGalleryItems();
-  res.json({ success: true, items });
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  res.json({ success: true, items: externalizeImages('gallery', items) });
 });
 
 app.get('/api/faqs', async (req, res) => {
@@ -3592,6 +3631,13 @@ async function startServer() {
             res.setHeader('Cache-Control', `public, max-age=${ONE_YEAR_SECONDS}, immutable`);
           } else if (filePath.endsWith('index.html')) {
             res.setHeader('Cache-Control', 'no-cache');
+          } else if (filePath.includes(`${path.sep}images${path.sep}`) || filePath.includes(`${path.sep}certifications${path.sep}`)) {
+            // Photos are replaced by uploading a new, differently-named file
+            // (the names carry a timestamp), so a month is safe and spares
+            // returning visitors a re-download of every image.
+            res.setHeader('Cache-Control', 'public, max-age=2592000, stale-while-revalidate=86400');
+          } else if (/\.(txt|xml|json)$/.test(filePath)) {
+            res.setHeader('Cache-Control', 'public, max-age=3600');
           } else {
             res.setHeader('Cache-Control', 'public, max-age=86400');
           }

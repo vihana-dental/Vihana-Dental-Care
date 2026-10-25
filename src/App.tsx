@@ -11,6 +11,7 @@ import { StickyCtaBar } from './components/StickyCtaBar';
 import { ScrollExploreHint } from './components/ScrollExploreHint';
 import { Footer } from './components/Footer';
 import { DeferredSection } from './components/DeferredSection';
+import { registerWebMcpTools } from './lib/webmcp';
 
 // Split out of the initial bundle. Everything below is either far below the
 // fold on the homepage or on a route most visitors never open, so shipping it
@@ -72,6 +73,16 @@ export function App() {
     if (serviceId) setBookingServiceId(serviceId);
     setIsBookingModalOpen(true);
   };
+
+  // Expose a few safe tools (clinic info, services, open booking form) to
+  // in-browser AI agents via WebMCP. No-op where unsupported.
+  useEffect(() => {
+    return registerWebMcpTools({
+      openBooking: (serviceId) => handleOpenBooking(serviceId),
+      goToSection: (tab) => setActiveTab(tab),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Switching sections used to leave the scroll position wherever it was
   // (often mid-page or at the footer), making every navigation feel like it

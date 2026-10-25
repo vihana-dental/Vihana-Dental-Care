@@ -144,16 +144,19 @@ export const Hero: React.FC<HeroProps> = ({ onOpenBooking, onRevealed }) => {
           <source media="(max-width: 1023px)" srcSet={heroPhotoMobileJpg} type="image/jpeg" />
           <source media="(min-width: 1024px)" srcSet={heroPhotoDesktopWebp} type="image/webp" />
           <source media="(min-width: 1024px)" srcSet={heroPhotoDesktopJpg} type="image/jpeg" />
-          <motion.img
+          {/* A plain <img> with a CSS-only settle: a JS-driven scale on the LCP
+              element kept Chrome from treating it as painted until the
+              animation framework had mounted. */}
+          <img
             src={heroPhotoDesktopJpg}
             alt="Vihana Dental Care — a genuine, confident smile"
+            width={1080}
+            height={1920}
             loading="eager"
+            decoding="async"
             fetchPriority="high"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover hero-settle"
             referrerPolicy="no-referrer"
-            initial={prefersReducedMotion ? false : { scale: 1.08 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
           />
         </picture>
         {/* A short fade at the very bottom into Panel 2's navy, so the seam

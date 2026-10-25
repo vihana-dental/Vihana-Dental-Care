@@ -12,6 +12,8 @@
     <meta name="author" content="Vihana Dental Care" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://vihanadental.in/" />
+    <link rel="alternate" type="text/markdown" href="/llms.txt" title="LLM-readable site summary" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
     <meta name="theme-color" content="#002a45" />
     <link rel="icon" type="image/jpeg" href="/images/vihana_dental_logo_1784918513788.jpg" />
 
@@ -140,23 +142,43 @@
          on-page "Common Patient Questions" section, so the two can never
          drift out of sync the way a hand-maintained duplicate here could. -->
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-11335208700"></script>
+    <!-- Google tag (gtag.js). The stub below queues events immediately, but the
+         170KB library itself is only fetched after the page has loaded and the
+         visitor interacts (or after a short fallback), so it never competes
+         with the hero for bandwidth or main-thread time. -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'AW-11335208700');
+      (function () {
+        var loaded = false;
+        function load() {
+          if (loaded) return;
+          loaded = true;
+          var s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtag/js?id=AW-11335208700';
+          document.head.appendChild(s);
+        }
+        ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(function (e) {
+          window.addEventListener(e, load, { once: true, passive: true });
+        });
+        window.addEventListener('load', function () { setTimeout(load, 6000); });
+      })();
     </script>
   </head>
   <body>
+    <!-- Static first-paint hero: the same cropped photo React renders in
+         src/components/Hero.tsx, present in the HTML so the page's largest
+         element paints with the document instead of waiting for the JS bundle
+         to download, parse and mount. It lives OUTSIDE #root (so React never
+         removes it — removal would discard Chrome's LCP candidate) at
+         z-index:-1, which keeps it underneath the app's own opaque
+         backgrounds once React has mounted. -->
+    <div id="boot-hero" aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:100vh;z-index:-1;overflow:hidden;background:#020618;pointer-events:none"><picture><source media="(max-width: 1023px)" srcset="/images/hero-mobile.webp" type="image/webp" /><source media="(min-width: 1024px)" srcset="/images/hero-desktop.webp" type="image/webp" /><img src="/images/hero-desktop.jpg" alt="" fetchpriority="high" decoding="async" style="display:block;width:100%;height:100%;object-fit:cover" /></picture></div>
     <div id="root"></div>
-    <!-- The Razorpay Checkout SDK is deliberately NOT loaded here. It used to
-         be a synchronous <script> at this point, which blocked HTML parsing
-         on a third-party payment bundle for every visitor, including the many
-         who never open the booking modal. It is now fetched on demand at the
-         payment step — see src/lib/razorpayLoader.ts. -->
+    <script>if (location.pathname !== "/") { var h = document.getElementById("boot-hero"); if (h) h.remove(); }</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

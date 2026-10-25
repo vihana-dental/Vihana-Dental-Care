@@ -159,14 +159,14 @@ export const TestimonialsView: React.FC = () => {
                       referrerPolicy="no-referrer"
                     />
                     <div>
-                      <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-1">
+                      <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-1">
                         <span>{review.authorName}</span>
                         {review.verifiedGoogle && (
                           <span className="text-[10px] bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded font-bold border border-brand-300">
                             Google Verified
                           </span>
                         )}
-                      </h4>
+                      </h3>
                       <p className="text-xs text-slate-400">{review.relativeTimeDescription}</p>
                     </div>
                   </div>
