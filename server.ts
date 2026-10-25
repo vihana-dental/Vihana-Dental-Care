@@ -141,11 +141,21 @@ declare global {
 // sign-in popup relies on that reference to postMessage the ID token back,
 // so the default setting broke every login attempt with "Cannot read
 // properties of null (reading 'postMessage')".
+// Embedding is controlled by CSP frame-ancestors (which supersedes the legacy
+// X-Frame-Options, so frameguard is off): the site may be framed by itself and
+// by The Paper Plane's own pages only. This is the only CSP directive set —
+// no script/connect allowlist — so it cannot break login or payments.
 app.use(helmet({
   contentSecurityPolicy: false,
+  frameguard: false,
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
 }));
+app.use((_req, res, next) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://www.thepaperplane.co.in https://thepaperplane.co.in");
+  next();
+});
+
 
 // gzip every compressible response. Nothing was compressing text at all, so
 // the JS bundle went over the wire at its full uncompressed size — the
