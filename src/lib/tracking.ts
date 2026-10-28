@@ -33,6 +33,12 @@ export function initClickTracking(): void {
         trackEvent('phone_click', { link_url: href, link_text: (link.textContent || '').trim().slice(0, 80), page_path: location.pathname });
       } else if (/^https?:\/\/(wa\.me|api\.whatsapp\.com)\//i.test(href)) {
         trackEvent('whatsapp_click', { link_url: href, link_text: (link.textContent || '').trim().slice(0, 80), page_path: location.pathname });
+        // Google Ads conversion for "Book appointment" WhatsApp links only,
+        // queued on click before the browser follows the link.
+        const label = `${link.textContent || ''} ${link.getAttribute('aria-label') || ''}`;
+        if (/book|appointment/i.test(label) && typeof (window as any).gtag === 'function') {
+          (window as any).gtag('event', 'conversion', { send_to: 'AW-11335208700/lx5jCP7A4-IcEPydhp0q' });
+        }
       }
     },
     true
