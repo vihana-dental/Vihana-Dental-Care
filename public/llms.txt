@@ -10,14 +10,22 @@
 - Rating: 4.9 / 5 on Google (185+ reviews)
 
 ## Pages
-- [Home, services, team, gallery, blog, reviews and location](https://vihanadental.in/): single-page site; every section is on the home page
+- [Home, services, team, gallery and reviews](https://vihanadental.in/)
+- [Invisalign & clear aligners in Coimbatore](https://vihanadental.in/invisalign-coimbatore)
+- [Dental implants in Coimbatore](https://vihanadental.in/dental-implants-coimbatore)
+- [Root canal treatment in Coimbatore](https://vihanadental.in/root-canal-treatment-coimbatore)
+- [Braces in Coimbatore: metal, ceramic and Damon](https://vihanadental.in/braces-coimbatore)
+- [Teeth whitening in Coimbatore](https://vihanadental.in/teeth-whitening-coimbatore)
+- [Kids dentist in Coimbatore](https://vihanadental.in/kids-dentist-coimbatore)
+- [Dental blog](https://vihanadental.in/blog)
+- [Contact & location](https://vihanadental.in/contact)
 - [Privacy Policy](https://vihanadental.in/privacy-policy.html)
 - [Terms of Service](https://vihanadental.in/terms-of-service.html)
 - [Refund & Cancellation Policy](https://vihanadental.in/refund-cancellation-policy.html)
 - [Data Deletion](https://vihanadental.in/data-deletion.html)
 
 ## Booking
-Appointments can be booked online on the home page ("Book Appointment Online"), or through WhatsApp. The site also exposes WebMCP tools (`get_clinic_info`, `list_dental_services`, `open_booking_form`) to browser agents; booking is only completed by the patient.
+Appointments can be booked online on the home page ("Book Appointment Online" on any page), or through WhatsApp. The site also exposes WebMCP tools (`get_clinic_info`, `list_dental_services`, `open_booking_form`) to browser agents; booking is only completed by the patient.
 
 ## Optional
 - [Sitemap](https://vihanadental.in/sitemap.xml)
