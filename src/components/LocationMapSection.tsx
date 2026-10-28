@@ -1,6 +1,6 @@
 import React from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
-import { CLINIC_INFO, clinicWhatsAppHref } from '../data/clinicData';
+import { CLINIC_INFO, clinicWhatsAppHref, clinicTelHref } from '../data/clinicData';
 import { MapPin, Phone, Clock, ExternalLink, Navigation, Sparkles, MessageCircle, Mail } from 'lucide-react';
 
 // This section used to hold a local copy of the clinic's WhatsApp number,
@@ -57,7 +57,7 @@ export const LocationMapSection: React.FC = () => {
                   </div>
                 </div>
 
-                <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-start gap-3 group">
+                <a href={clinicTelHref()} className="flex items-start gap-3 group">
                   <Phone className="w-5 h-5 text-brand-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-white">Call Us</p>

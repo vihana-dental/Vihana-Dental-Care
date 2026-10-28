@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CLINIC_INFO, SERVICES, clinicWhatsAppHref } from '../data/clinicData';
+import { CLINIC_INFO, SERVICES, clinicWhatsAppHref, clinicTelHref } from '../data/clinicData';
 import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle, Mail, Award, Instagram } from 'lucide-react';
 import { CertificationsModal } from './CertificationsModal';
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
@@ -117,7 +117,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               <MapPin className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
               <span>{CLINIC_INFO.address}, Coimbatore - {CLINIC_INFO.pincode}</span>
             </a>
-            <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-center gap-2 text-slate-300 hover:text-brand-500 transition-colors">
+            <a href={clinicTelHref()} className="flex items-center gap-2 text-slate-300 hover:text-brand-500 transition-colors">
               <Phone className="w-4 h-4 text-brand-400 shrink-0" />
               <span>{CLINIC_INFO.phone}</span>
             </a>

@@ -9,7 +9,7 @@ import {
   X,
   MessageCircle
 } from 'lucide-react';
-import { CLINIC_INFO, clinicWhatsAppHref, whatsAppBotHref } from '../data/clinicData';
+import { CLINIC_INFO, clinicWhatsAppHref, whatsAppBotHref, clinicTelHref } from '../data/clinicData';
 
 // Updated to point to the public/images folder
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
@@ -95,7 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-4 flex-wrap">
             <a
-              href={`tel:${CLINIC_INFO.phone}`}
+              href={clinicTelHref()}
               className="flex items-center gap-1.5 hover:text-brand-500 transition-colors"
               id="top-bar-phone"
             >
