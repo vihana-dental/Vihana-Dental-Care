@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -69,6 +70,8 @@ import { persistAppointment, loadAllAppointments, deleteAppointmentRow, isAppoin
 import { getServicePriceDisplay, getAllServicePriceDisplays, setServicePriceDisplay } from './server/services/pricing';
 import { listServices, getServiceById, createService, updateService, deleteService } from './server/services/services';
 import { listFAQs, createFAQ, updateFAQ, deleteFAQ, reorderFAQs } from './server/services/faqs';
+import { renderPage } from './server/ssr/renderPage';
+import { SERVICE_PAGES, buildSitemap, resolvePage, type PageData } from './src/seo/site';
 import { DisplayOrderList, NewItemPosition, parseOrderBody, saveDisplayOrder } from './server/services/displayOrder';
 import {
   listDoctors, createDoctor, updateDoctor, deleteDoctor,
@@ -3617,11 +3620,85 @@ async function startServer() {
     console.log('Loaded booking fee settings from Supabase.');
   }
 
+  // ---------------- SERVER-RENDERED PAGES + SITEMAP ----------------
+  // The service landing pages, /blog, each blog post and /contact are rendered
+  // here per request from the same live data the rest of the site uses
+  // (doctor-editable services, FAQs, team, blog), so each URL answers with its
+  // own title, description, canonical, structured data and readable content —
+  // no JavaScript needed — and the browser then hydrates it. Everything else
+  // keeps the SPA shell below.
+  let shellTemplate: string | null = null;
+  let viteDev: Awaited<ReturnType<typeof createViteServer>> | null = null;
+
+  async function getShellTemplate(url: string): Promise<string> {
+    if (viteDev) {
+      return viteDev.transformIndexHtml(url, fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8'));
+    }
+    if (!shellTemplate) shellTemplate = fs.readFileSync(path.join(process.cwd(), 'dist', 'index.html'), 'utf-8');
+    return shellTemplate;
+  }
+
+  // Strips data-URI images (doctor-uploaded photos can be megabytes of base64)
+  // so they never bloat the page; those entries just render without a photo.
+  const noDataImage = <T extends { image?: string; photo?: string }>(row: T): T => ({
+    ...row,
+    ...(row.image?.startsWith('data:') ? { image: '' } : {}),
+    ...(row.photo?.startsWith('data:') ? { photo: '' } : {})
+  });
+
+  async function loadPageData(pathname: string): Promise<PageData | null> {
+    const page = resolvePage(pathname);
+    if (!page) return null;
+    const data: PageData = { path: pathname, services: [], faqs: [], doctors: [], consultants: [], posts: [] };
+
+    if (page.kind === 'service') {
+      const { def } = page;
+      data.services = SERVICES_LIVE.filter((s) => def.serviceIds.includes(s.id)).map(noDataImage);
+      if (data.services.length === 0) return null;
+      data.faqs = await listFAQs();
+      data.doctors = DOCTORS_LIVE.filter((d) => def.specialistIds.includes(d.id)).map(noDataImage);
+      data.consultants = CONSULTANTS_LIVE.filter((c) => def.specialistIds.includes(c.id)).map(noDataImage);
+    } else if (page.kind === 'blog-index' || page.kind === 'blog-post') {
+      data.posts = externalizeImages('blog', await listBlogPosts());
+      if (page.kind === 'blog-post') {
+        data.post = data.posts.find((p) => p.slug === page.slug);
+        if (!data.post) return null;
+      }
+    }
+    return data;
+  }
+
+  app.get(['/blog', '/blog/:slug', '/contact', ...SERVICE_PAGES.map((p) => p.path)], async (req, res, next) => {
+    try {
+      const data = await loadPageData(req.path.length > 1 ? req.path.replace(/\/+$/, '') : req.path);
+      if (!data) return next();
+      const html = renderPage(await getShellTemplate(req.originalUrl), data);
+      if (!html) return next();
+      res.set('Cache-Control', 'no-cache');
+      res.status(200).type('html').send(html);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Dynamic so new blog posts appear without a redeploy; the static pages come
+  // from the same route table the pages themselves use.
+  app.get('/sitemap.xml', async (_req, res, next) => {
+    try {
+      const posts = await listBlogPosts();
+      res.set('Cache-Control', 'public, max-age=3600');
+      res.type('application/xml').send(buildSitemap(posts));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
     });
+    viteDev = vite;
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
