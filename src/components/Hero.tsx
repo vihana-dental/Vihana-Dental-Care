@@ -324,6 +324,12 @@ export const Hero: React.FC<HeroProps> = ({ onOpenBooking, onRevealed }) => {
                 </svg>
               </div>
 
+              {/* Keyword line for search: states what the clinic is and where, in
+                  plain words, directly under the headline. */}
+              <p className="mt-5 text-sm sm:text-base font-semibold text-white/90 max-w-md mx-auto lg:mx-0 leading-relaxed">
+                Dentist in Kalapatti, Coimbatore: implants, Invisalign, braces and root canals.
+              </p>
+
               {/* Punchline — the original ad's own line */}
               <p className="mt-5 text-base sm:text-lg text-white/60 font-medium italic">
                 Even a missing eyebrow only gets noticed second to that.
