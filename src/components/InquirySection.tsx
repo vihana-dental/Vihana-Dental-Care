@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send, CheckCircle2, Clock, Sparkles, MessageCircle, AlertTriangle } from 'lucide-react';
-import { CLINIC_INFO, SERVICES, clinicWhatsAppHref } from '../data/clinicData';
+import { CLINIC_INFO, SERVICES, clinicWhatsAppHref, clinicTelHref } from '../data/clinicData';
+import { trackEvent } from '../lib/tracking';
 
 // DPDP Act, 2023 §5-6 — the notice a patient agrees to before we take their
 // contact details, kept as a constant so the exact wording shown can be
@@ -40,6 +41,7 @@ export const InquirySection: React.FC = () => {
 
       const data = await res.json();
       if (data.success) {
+        trackEvent('form_submit', { form_id: 'contact_inquiry', page_path: window.location.pathname });
         setSubmitted(true);
         setName('');
         setEmail('');
@@ -106,7 +108,7 @@ export const InquirySection: React.FC = () => {
                 </div>
               </div>
 
-              <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-start gap-4 group">
+              <a href={clinicTelHref()} className="flex items-start gap-4 group">
                 <div className="p-3 bg-brand-700/20 text-brand-500 rounded-xl border border-brand-700/30">
                   <Phone className="w-5 h-5" />
                 </div>
@@ -159,7 +161,7 @@ export const InquirySection: React.FC = () => {
               </p>
               <p>
                 For urgent dental trauma or toothache emergencies, call{' '}
-                <a href={`tel:${CLINIC_INFO.phone}`} className="underline hover:text-brand-500 transition-colors">{CLINIC_INFO.phone}</a> immediately.
+                <a href={clinicTelHref()} className="underline hover:text-brand-500 transition-colors">{CLINIC_INFO.phone}</a> immediately.
               </p>
             </div>
           </div>

@@ -91,6 +91,16 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab]);
 
+  // Links from the standalone pages ("/#services", "/#about"...) land here with
+  // a hash; once the intro loader has released the scroll lock and the section
+  // has mounted, scroll to it.
+  useEffect(() => {
+    const id = window.location.hash.replace('#', '');
+    if (!id) return;
+    const t = setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 1700);
+    return () => clearTimeout(t);
+  }, []);
+
   // A distinct browser-tab title per section — helps with bookmarking and
   // multi-tab browsing even though this is a single-page app with no real
   // per-route URLs for search engines to index separately.

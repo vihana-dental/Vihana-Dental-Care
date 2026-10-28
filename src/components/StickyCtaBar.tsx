@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Phone, MessageCircle, Calendar } from 'lucide-react';
-import { CLINIC_INFO, whatsAppBotHref } from '../data/clinicData';
+import { CLINIC_INFO, whatsAppBotHref, clinicTelHref } from '../data/clinicData';
 
 interface StickyCtaBarProps {
   onOpenBooking: () => void;
@@ -18,7 +18,7 @@ export const StickyCtaBar: React.FC<StickyCtaBarProps> = ({ onOpenBooking }) => 
       <div className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-3 gap-2 p-2.5">
           <a
-            href={`tel:${CLINIC_INFO.phone}`}
+            href={clinicTelHref()}
             className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-slate-700 bg-slate-100 active:bg-slate-200 transition-colors"
             id="sticky-call-now"
           >

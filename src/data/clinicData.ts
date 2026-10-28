@@ -90,6 +90,12 @@ function waLink(number: string, message?: string): string {
     : `https://wa.me/${digits}`;
 }
 
+/** Dialable tel: link for the clinic's main number. The visible text keeps its
+ *  spaces ("+91 98943 17823"); the href must not, or some phones fail to dial. */
+export function clinicTelHref(): string {
+  return `tel:${CLINIC_INFO.phone.replace(/[^0-9+]/g, '')}`;
+}
+
 /** Chat with the clinic directly — pairs with the visible number. */
 export function clinicWhatsAppHref(message?: string): string {
   return waLink(CLINIC_INFO.whatsapp, message);

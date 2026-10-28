@@ -189,9 +189,9 @@ export const InitialLoader: React.FC<InitialLoaderProps> = ({ onComplete }) => {
               transition={{ delay: 0.1, duration: 0.4 }}
               className="text-center space-y-1.5"
             >
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
+              <p className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
                 VIHANA <span className="text-brand-600 font-extrabold">DENTAL CARE</span>
-              </h1>
+              </p>
               <p className="text-xs uppercase tracking-[0.25em] text-slate-400 font-medium">
                 Kalapatti • Coimbatore
               </p>

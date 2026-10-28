@@ -9,14 +9,15 @@ import {
   X,
   MessageCircle
 } from 'lucide-react';
-import { CLINIC_INFO, clinicWhatsAppHref, whatsAppBotHref } from '../data/clinicData';
+import { CLINIC_INFO, clinicWhatsAppHref, whatsAppBotHref, clinicTelHref } from '../data/clinicData';
 
 // Updated to point to the public/images folder
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
 interface NavbarProps {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
+  /** Home page only. Without it (the standalone pages) every item is a plain link. */
+  setActiveTab?: (tab: string) => void;
   onOpenBooking: (serviceId?: string) => void;
 }
 
@@ -31,16 +32,28 @@ export const Navbar: React.FC<NavbarProps> = ({
   // (Hero -> Services -> About -> Team -> Gallery -> Blog -> Reviews ->
   // Contact), so the nav and scroll-spy agree with what the user actually
   // scrolls past instead of listing sections out of sequence.
-  const navItems = [
-    { id: 'home', label: 'Home' },
-    { id: 'services', label: 'Services' },
-    { id: 'about', label: 'About Us' },
-    { id: 'team', label: 'Our Team' },
-    { id: 'gallery', label: 'Gallery' },
-    { id: 'blog', label: 'Blog' },
-    { id: 'reviews', label: 'Reviews' },
-    { id: 'location', label: 'Contact & Map' },
+  // `href` is where the link goes for crawlers, new-tab clicks and the
+  // standalone pages; `tab` is the in-page tab the home page switches to
+  // instead. Blog and Contact have their own pages, so they always navigate.
+  const navItems: { id: string; label: string; href: string; tab?: string }[] = [
+    { id: 'home', label: 'Home', href: '/', tab: 'home' },
+    { id: 'services', label: 'Services', href: '/#services', tab: 'services' },
+    { id: 'about', label: 'About Us', href: '/#about', tab: 'about' },
+    { id: 'team', label: 'Our Team', href: '/#team', tab: 'team' },
+    { id: 'gallery', label: 'Gallery', href: '/#gallery', tab: 'gallery' },
+    { id: 'blog', label: 'Blog', href: '/blog' },
+    { id: 'reviews', label: 'Reviews', href: '/#reviews', tab: 'reviews' },
+    { id: 'location', label: 'Contact & Map', href: '/contact' },
   ];
+
+  /** Keeps the home page's tab switching, but lets modified clicks (new tab) and the standalone pages use the real href. */
+  const navClick = (item: { tab?: string }, after?: () => void) => (e: React.MouseEvent) => {
+    if (setActiveTab && item.tab && !(e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)) {
+      e.preventDefault();
+      setActiveTab(item.tab);
+    }
+    after?.();
+  };
 
   // "Book on WhatsApp" is a booking CTA, so it hands off to the automated
   // assistant; the top-bar "WhatsApp Us" link below reaches the clinic itself.
@@ -95,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-4 flex-wrap">
             <a
-              href={`tel:${CLINIC_INFO.phone}`}
+              href={clinicTelHref()}
               className="flex items-center gap-1.5 hover:text-brand-500 transition-colors"
               id="top-bar-phone"
             >
@@ -134,8 +147,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Main Navigation */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
         {/* Logo with Motion */}
-        <motion.div 
-          onClick={() => setActiveTab('home')} 
+        <motion.a
+          href="/"
+          onClick={navClick({ tab: 'home' })}
+          aria-label="Vihana Dental Care home"
           className="cursor-pointer flex items-center gap-3 group"
           id="navbar-logo-button"
           whileHover={{ scale: 1.01 }}
@@ -145,28 +160,32 @@ export const Navbar: React.FC<NavbarProps> = ({
             <img 
               src={vihanaLogo} 
               alt="Vihana Dental Care Logo"
+              width={40}
+              height={40}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-slate-900 leading-tight flex items-center gap-1.5">
+            {/* A <div>, not an <h1>: each page owns exactly one H1 in its own content. */}
+            <div className="text-xl font-extrabold tracking-tight text-slate-900 leading-tight flex items-center gap-1.5">
               <span>VIHANA</span>
               <span className="text-brand-900 font-light">DENTAL CARE</span>
-            </h1>
+            </div>
             <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">
               COIMBATORE
             </p>
           </div>
-        </motion.div>
+        </motion.a>
 
         {/* Desktop Links */}
         <nav className="hidden lg:flex items-center gap-1">
           {navItems.map((item) => (
-            <button
+            <a
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all relative ${
+              href={item.href}
+              onClick={navClick(item)}
+              className={`inline-block px-3.5 py-2 rounded-lg text-sm font-medium transition-all relative ${
                 highlightedTab === item.id
                   ? 'text-brand-950 font-bold'
                   : 'text-slate-600 hover:text-brand-900 hover:bg-slate-50'
@@ -181,7 +200,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 />
               )}
-            </button>
+            </a>
           ))}
         </nav>
 
@@ -223,18 +242,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="lg:hidden bg-white border-b border-slate-200 px-4 pt-2 pb-6 space-y-2 overflow-hidden"
           >
             {navItems.map((item) => (
-              <button
+              <a
                 key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium ${
+                href={item.href}
+                onClick={navClick(item, () => setMobileMenuOpen(false))}
+                className={`block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium ${
                   highlightedTab === item.id ? 'bg-brand-200 text-brand-950 font-bold' : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {item.label}
-              </button>
+              </a>
             ))}
             <a
               href={bookingBotHref}

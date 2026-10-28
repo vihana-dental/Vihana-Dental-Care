@@ -1,15 +1,25 @@
 import React, { useState } from 'react';
-import { CLINIC_INFO, SERVICES, clinicWhatsAppHref } from '../data/clinicData';
-import { MapPin, Phone, Clock, ExternalLink, ShieldCheck, MessageCircle, Mail, Award, Instagram } from 'lucide-react';
+import { CLINIC_INFO, clinicWhatsAppHref, clinicTelHref } from '../data/clinicData';
+import { SERVICE_PAGES } from '../seo/site';
+import { MapPin, Phone, Clock, ExternalLink, MessageCircle, Mail, Award, Instagram } from 'lucide-react';
 import { CertificationsModal } from './CertificationsModal';
 const vihanaLogo = '/images/vihana_dental_logo_1784918513788.jpg';
 
 interface FooterProps {
-  setActiveTab: (tab: string) => void;
+  /** Home page only. Without it (the standalone pages) every item is a plain link. */
+  setActiveTab?: (tab: string) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
   const [certsOpen, setCertsOpen] = useState(false);
+
+  /** Keeps the home page's tab switching, but lets modified clicks (new tab) and the standalone pages use the real href. */
+  const tabClick = (tab: string) => (e: React.MouseEvent) => {
+    if (setActiveTab && !(e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)) {
+      e.preventDefault();
+      setActiveTab(tab);
+    }
+  };
 
   // Bottom padding has to clear the floating CTAs, which are position:fixed
   // and therefore sit over whatever occupies the bottom of the viewport — at
@@ -31,6 +41,8 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
                 <img loading="lazy" decoding="async" 
                   src={vihanaLogo} 
                   alt="Vihana Dental Care Logo"
+                  width={40}
+                  height={40}
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
@@ -46,9 +58,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-2">
-              <span className="bg-slate-900 text-brand-500 text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-brand-400" /> HIPAA Encrypted Practice
-              </span>
               <button
                 onClick={() => setCertsOpen(true)}
                 className="bg-slate-900 hover:bg-slate-800 text-brand-500 text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1 transition-colors"
@@ -63,29 +72,39 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Navigation</h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <button onClick={() => setActiveTab('home')} className="hover:text-brand-400 transition-colors">
+                <a href="/" onClick={tabClick('home')} className="hover:text-brand-400 transition-colors">
                   Home Page
-                </button>
+                </a>
               </li>
               <li>
-                <button onClick={() => setActiveTab('about')} className="hover:text-brand-400 transition-colors">
+                <a href="/#about" onClick={tabClick('about')} className="hover:text-brand-400 transition-colors">
                   About Specialist Doctors
-                </button>
+                </a>
               </li>
               <li>
-                <button onClick={() => setActiveTab('services')} className="hover:text-brand-400 transition-colors">
+                <a href="/#services" onClick={tabClick('services')} className="hover:text-brand-400 transition-colors">
                   Dental Services & Pricing
-                </button>
+                </a>
               </li>
               <li>
-                <button onClick={() => setActiveTab('gallery')} className="hover:text-brand-400 transition-colors">
+                <a href="/#gallery" onClick={tabClick('gallery')} className="hover:text-brand-400 transition-colors">
                   Clinic Photo Gallery
-                </button>
+                </a>
               </li>
               <li>
-                <button onClick={() => setActiveTab('reviews')} className="hover:text-brand-400 transition-colors">
+                <a href="/#reviews" onClick={tabClick('reviews')} className="hover:text-brand-400 transition-colors">
                   Google Patient Reviews (4.9★)
-                </button>
+                </a>
+              </li>
+              <li>
+                <a href="/blog" className="hover:text-brand-400 transition-colors">
+                  Dental Blog
+                </a>
+              </li>
+              <li>
+                <a href="/contact" className="hover:text-brand-400 transition-colors">
+                  Contact & Location
+                </a>
               </li>
             </ul>
           </div>
@@ -94,11 +113,11 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Core Treatments</h4>
             <ul className="space-y-2 text-xs text-slate-400">
-              {SERVICES.slice(0, 5).map((s) => (
-                <li key={s.id}>
-                  <button onClick={() => setActiveTab('services')} className="hover:text-brand-500 transition-colors text-left">
-                    {s.title}
-                  </button>
+              {SERVICE_PAGES.map((p) => (
+                <li key={p.path}>
+                  <a href={p.path} className="hover:text-brand-500 transition-colors text-left">
+                    {p.navLabel}
+                  </a>
                 </li>
               ))}
             </ul>
@@ -117,7 +136,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               <MapPin className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
               <span>{CLINIC_INFO.address}, Coimbatore - {CLINIC_INFO.pincode}</span>
             </a>
-            <a href={`tel:${CLINIC_INFO.phone}`} className="flex items-center gap-2 text-slate-300 hover:text-brand-500 transition-colors">
+            <a href={clinicTelHref()} className="flex items-center gap-2 text-slate-300 hover:text-brand-500 transition-colors">
               <Phone className="w-4 h-4 text-brand-400 shrink-0" />
               <span>{CLINIC_INFO.phone}</span>
             </a>

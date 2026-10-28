@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SERVICES as STATIC_SERVICES } from '../data/clinicData';
 import { DentalService, FAQ } from '../types';
+import { STATIC_FAQS } from '../data/staticFaqs';
+import { fixCopy, servicePagePath } from '../seo/site';
+import { imgDims } from '../seo/imageSizes';
 import {
   Sparkles,
   CheckCircle2,
@@ -10,37 +13,6 @@ import {
   X,
   MessageCircleQuestion
 } from 'lucide-react';
-
-// The site's original FAQ copy, used only as the initial render before
-// /api/faqs (Supabase-backed — see server/services/faqs.ts) loads, and as
-// the fallback if that fetch fails.
-const STATIC_FAQS: FAQ[] = [
-  {
-    id: 'static-1', order: 1,
-    question: 'Do you offer painless root canals in Kalapatti?',
-    answer: 'Yes, Vihana Dental Care provides 100% painless root canals in Kalapatti using computer-controlled local anesthesia and advanced microscopic laser technology to ensure complete patient comfort.'
-  },
-  {
-    id: 'static-2', order: 2,
-    question: 'What is the cost of dental implants in Coimbatore?',
-    answer: 'The cost of computer-guided dental implants at Vihana Dental Care ranges from ₹22,000 to ₹45,000 per implant, utilizing premium titanium posts for lifetime durability.'
-  },
-  {
-    id: 'static-3', order: 3,
-    question: 'How long does an Invisalign treatment take?',
-    answer: 'Invisalign clear aligner treatments typically take between 6 to 18 months depending on case complexity. We use 3D iTero scanners to provide exact timelines during your first consultation.'
-  },
-  {
-    id: 'static-4', order: 4,
-    question: 'Is teeth whitening safe for enamel?',
-    answer: 'Absolutely. Our advanced laser teeth whitening procedure is completely safe for enamel. It removes deep stains without causing structural damage or long-term sensitivity.'
-  },
-  {
-    id: 'static-5', order: 5,
-    question: 'Why do I need X-rays?',
-    answer: "Digital X-rays let us see what a visual exam alone can't — cavities forming between teeth, bone loss around the roots, or early-stage infections. Catching these early usually means simpler, less invasive treatment than waiting until they cause pain."
-  }
-];
 
 const FAQ_JSON_LD_SCRIPT_ID = 'faq-json-ld';
 
@@ -167,7 +139,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                 <div className="relative h-56 overflow-hidden bg-slate-100">
                   <img loading="lazy" decoding="async"
                     src={service.image}
-                    alt={`${service.title} in Kalapatti`}
+                    alt={`${fixCopy(service.title)} in Kalapatti`}
+                    {...imgDims(service.image)}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     referrerPolicy="no-referrer"
                   />
@@ -183,7 +156,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                 {/* Content */}
                 <div className="p-6 space-y-4">
                   <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-brand-900 transition-colors">
-                    {service.title}
+                    {fixCopy(service.title)}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
                     {service.shortDescription}
@@ -213,13 +186,24 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
 
               {/* Action Footer */}
               <div className="p-6 pt-0 flex items-center gap-2.5">
-                <motion.button
-                  onClick={() => setSelectedServiceModal(service)}
-                  whileTap={{ scale: 0.97 }}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-3 rounded-2xl transition-colors"
-                >
-                  View Details
-                </motion.button>
+                {/* Treatments with their own page link there (crawlable, shareable);
+                    the rest keep the in-page details popup. */}
+                {servicePagePath(service.id) ? (
+                  <a
+                    href={servicePagePath(service.id)}
+                    className="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-3 rounded-2xl transition-colors"
+                  >
+                    View Details
+                  </a>
+                ) : (
+                  <motion.button
+                    onClick={() => setSelectedServiceModal(service)}
+                    whileTap={{ scale: 0.97 }}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-3 rounded-2xl transition-colors"
+                  >
+                    View Details
+                  </motion.button>
+                )}
                 <motion.button
                   onClick={() => onSelectServiceToBook(service.id)}
                   whileTap={{ scale: 0.97 }}
@@ -273,7 +257,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
               <div className="relative h-60 bg-slate-900">
                 <img loading="lazy" decoding="async"
                   src={selectedServiceModal.image}
-                  alt={selectedServiceModal.title}
+                  alt={fixCopy(selectedServiceModal.title)}
+                  {...imgDims(selectedServiceModal.image)}
                   className="w-full h-full object-cover opacity-90"
                   referrerPolicy="no-referrer"
                 />
@@ -289,7 +274,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
                   <span className="bg-brand-700 text-white text-xs font-bold px-2.5 py-1 rounded-full">
                     {selectedServiceModal.category}
                   </span>
-                  <h3 className="text-2xl font-bold mt-2">{selectedServiceModal.title}</h3>
+                  <h3 className="text-2xl font-bold mt-2">{fixCopy(selectedServiceModal.title)}</h3>
                 </div>
               </div>
 
