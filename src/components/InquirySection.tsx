@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send, CheckCircle2, Clock, Sparkles, MessageCircle, AlertTriangle } from 'lucide-react';
 import { CLINIC_INFO, SERVICES, clinicWhatsAppHref, clinicTelHref } from '../data/clinicData';
+import { trackEvent } from '../lib/tracking';
 
 // DPDP Act, 2023 §5-6 — the notice a patient agrees to before we take their
 // contact details, kept as a constant so the exact wording shown can be
@@ -40,6 +41,7 @@ export const InquirySection: React.FC = () => {
 
       const data = await res.json();
       if (data.success) {
+        trackEvent('form_submit', { form_id: 'contact_inquiry', page_path: window.location.pathname });
         setSubmitted(true);
         setName('');
         setEmail('');
