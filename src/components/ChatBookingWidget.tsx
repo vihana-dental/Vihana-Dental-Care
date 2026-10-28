@@ -581,7 +581,7 @@ export const ChatBookingWidget: React.FC = () => {
                         onClick={() => handleDoctorSelect(doc.id)}
                         className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 hover:border-brand-600 hover:bg-brand-200/60 transition-colors text-left"
                       >
-                        <img loading="lazy" decoding="async" src={doc.photo} alt={doc.name} className="w-9 h-9 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                        <img loading="lazy" decoding="async" src={doc.photo} alt={doc.name} width={36} height={36} className="w-9 h-9 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-900 truncate">{doc.name}</p>
                           <p className="text-[10px] text-slate-500 truncate">{doc.displayTitle}</p>

@@ -439,6 +439,8 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                       <img loading="lazy" decoding="async"
                         src={serv.image}
                         alt={serv.title}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 rounded-lg object-cover shrink-0"
                         referrerPolicy="no-referrer"
                       />
@@ -470,6 +472,8 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                       <img loading="lazy" decoding="async"
                         src={doc.photo}
                         alt={doc.name}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 rounded-full object-cover mb-2 border border-brand-700"
                         referrerPolicy="no-referrer"
                       />

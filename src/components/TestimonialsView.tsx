@@ -155,6 +155,8 @@ export const TestimonialsView: React.FC = () => {
                     <img loading="lazy" decoding="async"
                       src={review.authorPhoto || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100"}
                       alt={review.authorName}
+                      width={40}
+                      height={40}
                       className="w-10 h-10 rounded-full object-cover border border-slate-200"
                       referrerPolicy="no-referrer"
                     />

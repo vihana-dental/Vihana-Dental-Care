@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { GALLERY_ITEMS as STATIC_GALLERY_ITEMS } from '../data/clinicData';
 import { GalleryItem } from '../types';
 import { Maximize2, X, Image as ImageIcon } from 'lucide-react';
+import { imgDims } from '../seo/imageSizes';
 
 export const GalleryView: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
@@ -92,6 +93,7 @@ export const GalleryView: React.FC = () => {
               <img loading="lazy" decoding="async"
                 src={item.imageUrl}
                 alt={item.title}
+                {...imgDims(item.imageUrl)}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                 referrerPolicy="no-referrer"
               />
@@ -138,6 +140,7 @@ export const GalleryView: React.FC = () => {
                 <img loading="lazy" decoding="async"
                   src={activeImage.imageUrl}
                   alt={activeImage.title}
+                  {...imgDims(activeImage.imageUrl)}
                   className="max-h-[68vh] w-auto object-contain rounded-2xl"
                   referrerPolicy="no-referrer"
                 />

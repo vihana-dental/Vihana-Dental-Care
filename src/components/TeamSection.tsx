@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { DOCTORS as STATIC_DOCTORS, CONSULTANT_DOCTORS as STATIC_CONSULTANTS } from '../data/clinicData';
 import { Doctor, ConsultantDoctor } from '../types';
 import { UserCheck, Stethoscope, Sparkles } from 'lucide-react';
+import { imgDims } from '../seo/imageSizes';
 
 // Uniform credentials block shared by the lead-doctor card and every
 // consultant card: Qualification -> Specialized Training -> UG -> PG ->
@@ -116,6 +117,7 @@ export const TeamSection: React.FC = () => {
                   <img loading="lazy" decoding="async"
                     src={doc.photo}
                     alt={doc.name}
+                    {...imgDims(doc.photo, [640, 800])}
                     className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
                     referrerPolicy="no-referrer"
                   />
@@ -199,6 +201,7 @@ export const TeamSection: React.FC = () => {
                   <img loading="lazy" decoding="async"
                     src={doc.photo}
                     alt={doc.name}
+                    {...imgDims(doc.photo, [640, 450])}
                     className="w-full h-full object-cover object-top"
                     referrerPolicy="no-referrer"
                   />
