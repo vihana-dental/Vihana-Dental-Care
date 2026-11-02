@@ -17,6 +17,7 @@ import { FAQPanel } from './admin/panels/FAQPanel';
 import { ReviewsPanel } from './admin/panels/ReviewsPanel';
 import { GoogleReviewsOverridePanel } from './admin/panels/GoogleReviewsOverridePanel';
 import { CalendarPanel } from './admin/panels/CalendarPanel';
+import { PopupPanel } from './admin/panels/PopupPanel';
 
 const SESSION_STORAGE_KEY = 'vihana_doctor_admin_token';
 const GOOGLE_LOGIN_CLIENT_ID = import.meta.env.VITE_GOOGLE_LOGIN_CLIENT_ID as string | undefined;
@@ -52,6 +53,7 @@ const SECTION_TITLES: Record<AdminSection, string> = {
   blog: 'Blog',
   faqs: 'FAQs',
   reviews: 'Reviews',
+  popup: 'Welcome Popup',
   calendar: 'Calendar & Sheets'
 };
 
@@ -200,6 +202,7 @@ export const DoctorAdminPage: React.FC = () => {
               <GoogleReviewsOverridePanel {...panelProps} />
             </div>
           )}
+          {activeSection === 'popup' && <PopupPanel {...panelProps} />}
           {activeSection === 'calendar' && <CalendarPanel {...panelProps} />}
         </div>
       </main>

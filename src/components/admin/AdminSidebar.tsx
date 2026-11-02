@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   LayoutGrid, IndianRupee, Video, Stethoscope, Users, Image as ImageIcon,
-  Newspaper, HelpCircle, Star, CalendarCheck2, LogOut, ShieldCheck, CalendarDays, CalendarRange, UserCog, CalendarOff, Award
+  Newspaper, HelpCircle, Star, CalendarCheck2, LogOut, ShieldCheck, CalendarDays, CalendarRange, UserCog, CalendarOff, Award, PanelTop
 } from 'lucide-react';
 
 export type AdminSection =
   | 'overview' | 'appointments' | 'live-calendar' | 'schedule' | 'patients' | 'fees' | 'consults' | 'services' | 'team'
-  | 'gallery' | 'certificates' | 'blog' | 'faqs' | 'reviews' | 'calendar';
+  | 'gallery' | 'certificates' | 'blog' | 'faqs' | 'reviews' | 'popup' | 'calendar';
 
 type NavItem = { id: AdminSection; label: string; icon: React.ReactNode };
 
@@ -41,7 +41,8 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" /> },
       { id: 'blog', label: 'Blog', icon: <Newspaper className="w-4 h-4" /> },
       { id: 'faqs', label: 'FAQs', icon: <HelpCircle className="w-4 h-4" /> },
-      { id: 'reviews', label: 'Reviews', icon: <Star className="w-4 h-4" /> }
+      { id: 'reviews', label: 'Reviews', icon: <Star className="w-4 h-4" /> },
+      { id: 'popup', label: 'Welcome Popup', icon: <PanelTop className="w-4 h-4" /> }
     ]
   }
 ];

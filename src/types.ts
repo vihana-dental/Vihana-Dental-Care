@@ -126,6 +126,22 @@ export interface GalleryItem {
 // Doctor-editable FAQ entries — shown on the Services page and mirrored
 // into that page's FAQPage JSON-LD structured data. `order` controls
 // display order (lower first); admin-assigned on create, editable.
+/**
+ * The welcome popup shown once to each visitor (see SitePopup.tsx). kind
+ * "image" is a poster (an uploaded file kept as a data: URI, or an https
+ * link); "video" is any https link: a direct .mp4/.webm, a YouTube video or
+ * short, or an Instagram reel/post. `version` goes up whenever the admin asks
+ * for it to be shown again, which is what resets "once per visitor".
+ */
+export interface SitePopupConfig {
+  enabled: boolean;
+  kind: 'image' | 'video';
+  url: string;
+  version: number;
+}
+
+export const DEFAULT_SITE_POPUP: SitePopupConfig = { enabled: false, kind: 'image', url: '', version: 1 };
+
 export interface FAQ {
   id: string;
   question: string;

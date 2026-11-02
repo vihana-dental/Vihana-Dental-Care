@@ -2,6 +2,7 @@ import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { StickyCtaBar } from '../components/StickyCtaBar';
+import { SitePopup } from '../components/SitePopup';
 import { BookingContext } from './BookingContext';
 
 // Same lazy chunks the home page uses, so booking behaves identically.
@@ -33,6 +34,7 @@ export const PageShell: React.FC<{ activeNav: string; children: React.ReactNode 
         <main className="flex-1">{children}</main>
         <Footer />
         <StickyCtaBar onOpenBooking={() => openBooking()} />
+        {mounted && <SitePopup />}
         {mounted && (
           <Suspense fallback={null}>
             <ChatBookingWidget />

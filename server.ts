@@ -71,6 +71,8 @@ import { getServicePriceDisplay, getAllServicePriceDisplays, setServicePriceDisp
 import { listServices, getServiceById, createService, updateService, deleteService } from './server/services/services';
 import { listFAQs, createFAQ, updateFAQ, deleteFAQ, reorderFAQs } from './server/services/faqs';
 import { renderPage } from './server/ssr/renderPage';
+import { SITE_POPUP_SETTING_KEY, normalizeSitePopup, validateSitePopup } from './server/services/sitePopup';
+import { DEFAULT_SITE_POPUP, type SitePopupConfig } from './src/types';
 import { SERVICE_PAGES, buildSitemap, resolvePage, type PageData } from './src/seo/site';
 import { DisplayOrderList, NewItemPosition, parseOrderBody, saveDisplayOrder } from './server/services/displayOrder';
 import {
@@ -198,6 +200,10 @@ app.use(express.json({
 // Persisted in Supabase (clinic_settings) and loaded at startup; the defaults
 // below are only what a brand-new install starts with.
 const FEE_CONFIG_SETTING_KEY = 'booking_fee_config';
+
+// Welcome popup (poster / video / reel) shown once per visitor. Edited in the
+// admin console and persisted the same way as the fee config above.
+let sitePopup: SitePopupConfig = DEFAULT_SITE_POPUP;
 let clinicFeeConfig: FeeConfig = { ...DEFAULT_FEE_CONFIG };
 
 // ---------------- DOCTOR ADMIN AUTH (Google Sign-In, allowlisted emails) ----------------
@@ -592,6 +598,7 @@ app.get('/api/media/:kind/:id', async (req, res) => {
   let uri: string | undefined;
   if (kind === 'gallery') uri = (await listGalleryItems()).find((i) => i.id === id)?.imageUrl;
   else if (kind === 'blog') uri = (await listBlogPosts()).find((p) => p.id === id)?.imageUrl;
+  else if (kind === 'popup') uri = sitePopup.kind === 'image' ? sitePopup.url : undefined;
   const match = uri ? MEDIA_DATA_URI_RE.exec(uri) : null;
   if (!match) return res.status(404).end();
 
@@ -2701,6 +2708,36 @@ app.post('/api/admin/logout', requireAdminAuth, (req, res) => {
   res.json({ success: true });
 });
 
+// ---------------- WELCOME POPUP ----------------
+// Public: only ever the live, enabled popup. An uploaded poster is swapped for
+// a small versioned URL (same approach as the gallery and blog images).
+app.get('/api/site-popup', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  if (!sitePopup.enabled || !sitePopup.url) return res.json({ success: true, popup: null });
+  const url = sitePopup.url.startsWith('data:')
+    ? `/api/media/popup/current?v=${mediaVersion(sitePopup.url)}`
+    : sitePopup.url;
+  res.json({ success: true, popup: { kind: sitePopup.kind, url, version: sitePopup.version } });
+});
+
+app.get('/api/admin/site-popup', requireAdminAuth, (_req, res) => {
+  res.json({ success: true, popup: sitePopup });
+});
+
+app.put('/api/admin/site-popup', requireAdminAuth, async (req, res) => {
+  const draft = normalizeSitePopup(req.body);
+  const problem = validateSitePopup(draft);
+  if (problem) return res.status(400).json({ success: false, error: problem });
+
+  // New media, or an explicit request, makes everyone see it again.
+  const changed = draft.kind !== sitePopup.kind || draft.url !== sitePopup.url;
+  const next: SitePopupConfig = { ...draft, version: sitePopup.version + (changed || req.body?.showAgain ? 1 : 0) };
+  sitePopup = next;
+  const saved = await saveSetting(SITE_POPUP_SETTING_KEY, next);
+  auditLog(req, `updated welcome popup (${next.enabled ? `on, ${next.kind}` : 'off'})`);
+  res.json({ success: true, popup: sitePopup, persisted: saved.success });
+});
+
 app.get('/api/admin/fee-config', requireAdminAuth, (req, res) => {
   res.json({ success: true, feeConfig: clinicFeeConfig });
 });
@@ -3613,6 +3650,9 @@ async function startServer() {
     setBookingRules(normalizeBookingRules(storedRules));
     console.log(`Loaded booking rules from Supabase (multiple per slot: ${allowsMultiplePerSlot() ? 'on' : 'off'}).`);
   }
+
+  const storedPopup = await loadSetting<Partial<SitePopupConfig>>(SITE_POPUP_SETTING_KEY);
+  if (storedPopup) sitePopup = normalizeSitePopup(storedPopup);
 
   const storedFees = await loadSetting<Partial<FeeConfig>>(FEE_CONFIG_SETTING_KEY);
   if (storedFees) {

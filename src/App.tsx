@@ -11,6 +11,7 @@ import { StickyCtaBar } from './components/StickyCtaBar';
 import { ScrollExploreHint } from './components/ScrollExploreHint';
 import { Footer } from './components/Footer';
 import { DeferredSection } from './components/DeferredSection';
+import { SitePopup } from './components/SitePopup';
 import { registerWebMcpTools } from './lib/webmcp';
 
 // Split out of the initial bundle. Everything below is either far below the
@@ -209,6 +210,9 @@ export function App() {
 
       {/* Footer */}
       <Footer setActiveTab={setActiveTab} />
+
+      {/* One-time welcome poster/video, set in /doctor-admin */}
+      <SitePopup />
 
       {/* Sticky High-Contrast Conversion CTAs */}
       <StickyCtaBar onOpenBooking={() => handleOpenBooking()} />
