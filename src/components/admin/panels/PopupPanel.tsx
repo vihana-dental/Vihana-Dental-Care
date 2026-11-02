@@ -12,6 +12,7 @@ interface Props {
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const MAX_EDGE_PX = 1400;
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 /** Reads a poster and shrinks it (long edge 1400px, WebP) so it stays light for visitors. */
 function prepareImage(file: File): Promise<string> {
@@ -47,6 +48,7 @@ export const PopupPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =
   const [saveError, setSaveError] = useState('');
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [uploadError, setUploadError] = useState('');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
   const load = async () => {
@@ -87,6 +89,27 @@ export const PopupPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =
       setDraft((d) => ({ ...d, kind: 'image', url: uri }));
     } catch (err: any) {
       setUploadError(err?.message || 'Could not use that image.');
+    }
+  };
+
+  const handleVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadError('');
+    if (!/^video\/(mp4|webm|quicktime)$/.test(file.type)) return setUploadError('Please choose an MP4, WebM or MOV video.');
+    if (file.size > MAX_VIDEO_BYTES) return setUploadError('That video is over 50MB. Please compress it, or paste a link instead.');
+    setUploadingVideo(true);
+    try {
+      const res = await authedFetch('/api/admin/site-popup/video', { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      if (res.status === 401) return onSessionExpired();
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Upload failed.');
+      setDraft((d) => ({ ...d, kind: 'video', url: data.url }));
+    } catch (err: any) {
+      setUploadError(err?.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploadingVideo(false);
     }
   };
 
@@ -179,8 +202,22 @@ export const PopupPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }) =
                 </div>
               </div>
             ) : (
-              <div className="space-y-2">
-                <label className={labelClass}>Video link (https://)</label>
+              <div className="space-y-3">
+                <div>
+                  <label className={labelClass}>Upload a video file (MP4, WebM or MOV, up to 50MB)</label>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    onChange={handleVideoFile}
+                    disabled={uploadingVideo}
+                    className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-800 file:text-white file:text-xs file:font-bold hover:file:bg-brand-900 file:cursor-pointer cursor-pointer disabled:opacity-50"
+                  />
+                  {uploadingVideo && (
+                    <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" />Uploading video, please wait...</p>
+                  )}
+                  {uploadError && <p className="text-xs text-rose-600 mt-1">{uploadError}</p>}
+                </div>
+                <label className={labelClass}>…or paste a video link (https://)</label>
                 <input
                   type="url"
                   value={draft.url}

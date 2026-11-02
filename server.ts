@@ -72,6 +72,7 @@ import { listServices, getServiceById, createService, updateService, deleteServi
 import { listFAQs, createFAQ, updateFAQ, deleteFAQ, reorderFAQs } from './server/services/faqs';
 import { renderPage } from './server/ssr/renderPage';
 import { SITE_POPUP_SETTING_KEY, normalizeSitePopup, validateSitePopup } from './server/services/sitePopup';
+import { MAX_VIDEO_BYTES, uploadPopupVideo } from './server/services/popupVideo';
 import { DEFAULT_SITE_POPUP, type SitePopupConfig } from './src/types';
 import { SERVICE_PAGES, buildSitemap, resolvePage, type PageData } from './src/seo/site';
 import { DisplayOrderList, NewItemPosition, parseOrderBody, saveDisplayOrder } from './server/services/displayOrder';
@@ -2722,6 +2723,15 @@ app.get('/api/site-popup', (_req, res) => {
 
 app.get('/api/admin/site-popup', requireAdminAuth, (_req, res) => {
   res.json({ success: true, popup: sitePopup });
+});
+
+// Raw video body. Auth runs first so nothing is buffered for an unauthenticated caller.
+app.put('/api/admin/site-popup/video', requireAdminAuth, express.raw({ type: 'video/*', limit: MAX_VIDEO_BYTES }), async (req, res) => {
+  const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+  const result = await uploadPopupVideo(body, String(req.headers['content-type'] || ''));
+  if (!result.success) return res.status(400).json(result);
+  auditLog(req, `uploaded welcome popup video (${Math.round(body.length / 1024)} KB)`);
+  res.json(result);
 });
 
 app.put('/api/admin/site-popup', requireAdminAuth, async (req, res) => {
