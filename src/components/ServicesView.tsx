@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SERVICES as STATIC_SERVICES } from '../data/clinicData';
-import { DentalService, FAQ } from '../types';
+import { DentalService, FAQ, ServicesSectionConfig, DEFAULT_SERVICES_SECTION } from '../types';
 import { STATIC_FAQS } from '../data/staticFaqs';
 import { fixCopy, servicePagePath } from '../seo/site';
 import { imgDims } from '../seo/imageSizes';
@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Clock,
   Calendar,
+  Star,
   X,
   MessageCircleQuestion
 } from 'lucide-react';
@@ -30,11 +31,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
   // back to the static catalog on any fetch error.
   const [services, setServices] = useState<DentalService[]>(STATIC_SERVICES);
   const [faqs, setFaqs] = useState<FAQ[]>(STATIC_FAQS);
+  // Which services are highlighted as Signature Services, and the two headings
+  // (edited in /doctor-admin). Defaults match a fresh install.
+  const [section, setSection] = useState<ServicesSectionConfig>(DEFAULT_SERVICES_SECTION);
 
   useEffect(() => {
     fetch('/api/clinic-info')
       .then((res) => res.json())
-      .then((data) => { if (Array.isArray(data.services)) setServices(data.services); })
+      .then((data) => {
+        if (Array.isArray(data.services)) setServices(data.services);
+        if (data.servicesSection && Array.isArray(data.servicesSection.signatureIds)) setSection({ ...DEFAULT_SERVICES_SECTION, ...data.servicesSection });
+      })
       .catch(() => {});
 
     fetch('/api/faqs')
@@ -70,11 +77,33 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
     return () => { document.getElementById(FAQ_JSON_LD_SCRIPT_ID)?.remove(); };
   }, [faqs]);
 
-  const categories = ['All', 'Implants', 'Orthodontics', 'General', 'Cosmetic', 'Surgical', 'Pediatric'];
+  // Signature services are shown in their own highlighted block; the regular
+  // grid (with its category filter) holds everything else.
+  const signatureServices = services.filter((svc) => section.signatureIds.includes(svc.id));
+  const regularServices = services.filter((svc) => !section.signatureIds.includes(svc.id));
 
-  const filteredServices = activeCategory === 'All'
-    ? services
-    : services.filter(s => s.category === activeCategory);
+  const categoryOrder = ['Implants', 'Orthodontics', 'General', 'Cosmetic', 'Surgical', 'Pediatric', 'Family', 'Dental Tourism'];
+  const present = new Set<string>(regularServices.map((svc) => svc.category));
+  const categories = ['All', ...categoryOrder.filter((c) => present.has(c)), ...Array.from(present).filter((c) => !categoryOrder.includes(c))];
+  const shownCategory = categories.includes(activeCategory) ? activeCategory : 'All';
+
+  const filteredServices = shownCategory === 'All'
+    ? regularServices
+    : regularServices.filter((svc) => svc.category === shownCategory);
+
+  /** "View Details" goes to the treatment's own page when it has one, otherwise opens the popup. */
+  const detailsAction = (service: DentalService, dark: boolean) => {
+    const cls = `flex-1 text-center text-xs font-bold py-3 rounded-2xl transition-colors ${
+      dark ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+    }`;
+    return servicePagePath(service.id) ? (
+      <a href={servicePagePath(service.id)} className={cls}>View Details</a>
+    ) : (
+      <motion.button onClick={() => setSelectedServiceModal(service)} whileTap={{ scale: 0.97 }} className={cls}>
+        View Details
+      </motion.button>
+    );
+  };
 
   return (
     <section className="py-20 bg-[#F5F5F7] text-slate-800">
@@ -99,123 +128,175 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceToBoo
           </p>
         </motion.div>
 
-        {/* Category Filter Pills */}
-        <div className="flex items-center justify-center gap-2 flex-wrap pb-2">
-          {categories.map((cat) => (
-            <motion.button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              whileTap={{ scale: 0.96 }}
-              transition={{ type: "spring", stiffness: 120, damping: 15 }}
-              className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all ${
-                activeCategory === cat
-                  ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/10'
-                  : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-100'
-              }`}
-            >
-              {cat}
-            </motion.button>
-          ))}
-        </div>
-
-        {/* Services Grid */}
-        <motion.div 
-          layout
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {filteredServices.map((service, index) => (
-            <motion.div
-              key={service.id}
-              layout
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-30px" }}
-              transition={{ type: "spring", stiffness: 100, damping: 20, delay: (index % 3) * 0.08 }}
-              whileHover={{ y: -6 }}
-              className="bg-white rounded-[28px] border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 flex flex-col justify-between group"
-            >
-              <div>
-                {/* Service Image */}
-                <div className="relative h-56 overflow-hidden bg-slate-100">
-                  <img loading="lazy" decoding="async"
-                    src={service.image}
-                    alt={`${fixCopy(service.title)} in Kalapatti`}
-                    {...imgDims(service.image)}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                    referrerPolicy="no-referrer"
-                  />
-                  {/* White, not brand-500: this pill sits on a translucent dark
-                      scrim over a photograph, so a mid-blue label had to fight
-                      both the scrim and whatever was behind it and read as
-                      washed out. White holds up against any image underneath. */}
-                  <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full border border-slate-700">
-                    {service.category}
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-6 space-y-4">
-                  <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-brand-900 transition-colors">
-                    {fixCopy(service.title)}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-                    {service.shortDescription}
-                  </p>
-
-                  {/* Highlights */}
-                  <div className="space-y-2 pt-1">
-                    {service.benefits.slice(0, 2).map((benefit, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-xs text-slate-700 font-medium">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
-                        <span>{benefit}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                    <span className="flex items-center gap-1 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      {service.durationMinutes} mins per session
-                    </span>
-                    <span className="font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-full">
-                      {service.priceRange}
-                    </span>
-                  </div>
-                </div>
+        {/* Signature Services — the highlighted treatments */}
+        {signatureServices.length > 0 && (
+          <div className="space-y-6">
+            <div className="max-w-2xl space-y-2">
+              <div className="inline-flex items-center gap-1.5 bg-brand-700 text-white text-[11px] font-bold px-3 py-1 rounded-full">
+                <Star className="w-3 h-3 fill-current" />
+                <span>Signature</span>
               </div>
+              <h3 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{section.signatureTitle}</h3>
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed">{section.signatureIntro}</p>
+            </div>
 
-              {/* Action Footer */}
-              <div className="p-6 pt-0 flex items-center gap-2.5">
-                {/* Treatments with their own page link there (crawlable, shareable);
-                    the rest keep the in-page details popup. */}
-                {servicePagePath(service.id) ? (
-                  <a
-                    href={servicePagePath(service.id)}
-                    className="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-3 rounded-2xl transition-colors"
-                  >
-                    View Details
-                  </a>
-                ) : (
-                  <motion.button
-                    onClick={() => setSelectedServiceModal(service)}
-                    whileTap={{ scale: 0.97 }}
-                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-3 rounded-2xl transition-colors"
-                  >
-                    View Details
-                  </motion.button>
-                )}
-                <motion.button
-                  onClick={() => onSelectServiceToBook(service.id)}
-                  whileTap={{ scale: 0.97 }}
-                  className="flex-1 bg-brand-800 hover:bg-brand-700 text-white text-xs font-bold py-3 rounded-2xl shadow-md shadow-brand-800/20 flex items-center justify-center gap-1.5 transition-all"
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {signatureServices.map((service) => (
+                <article
+                  key={service.id}
+                  className="group rounded-[28px] overflow-hidden bg-slate-900 text-white shadow-xl shadow-slate-900/10 flex flex-col"
                 >
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Book Now</span>
+                  <div className="relative h-60 overflow-hidden bg-slate-800">
+                    <img loading="lazy" decoding="async"
+                      src={service.image}
+                      alt={`${fixCopy(service.title)} in Kalapatti`}
+                      {...imgDims(service.image)}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent" />
+                    <span className="absolute top-4 left-4 inline-flex items-center gap-1 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full border border-white/20">
+                      <Star className="w-3 h-3 fill-current text-amber-300" />
+                      {service.category}
+                    </span>
+                    <h4 className="absolute bottom-4 left-6 right-6 text-xl sm:text-2xl font-extrabold leading-tight">{fixCopy(service.title)}</h4>
+                  </div>
+
+                  <div className="p-6 flex flex-col flex-1 gap-4">
+                    <p className="text-sm text-slate-300 leading-relaxed">{service.shortDescription}</p>
+                    <div className="space-y-2">
+                      {service.benefits.slice(0, 2).map((benefit, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-xs text-slate-200 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                          <span>{benefit}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-auto pt-4 border-t border-white/10 flex items-center justify-between gap-3 text-xs text-slate-300">
+                      <span className="flex items-center gap-1 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        {service.durationMinutes} mins
+                      </span>
+                      <span className="font-bold text-slate-900 bg-white px-3 py-1 rounded-full text-right">{service.priceRange}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      {detailsAction(service, true)}
+                      <motion.button
+                        onClick={() => onSelectServiceToBook(service.id)}
+                        whileTap={{ scale: 0.97 }}
+                        className="flex-1 bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold py-3 rounded-2xl flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>Book Now</span>
+                      </motion.button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Services — everything else, with the category filter */}
+        {regularServices.length > 0 && (
+          <div className="space-y-6">
+            <div className="max-w-2xl space-y-2">
+              <h3 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{section.servicesTitle}</h3>
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed">{section.servicesIntro}</p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap pb-1">
+              {categories.map((cat) => (
+                <motion.button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 120, damping: 15 }}
+                  className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all ${
+                    shownCategory === cat
+                      ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/10'
+                      : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-100'
+                  }`}
+                >
+                  {cat}
                 </motion.button>
-              </div>
+              ))}
+            </div>
+
+            <motion.div
+              layout
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {filteredServices.map((service, index) => (
+                <motion.div
+                  key={service.id}
+                  layout
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-30px" }}
+                  transition={{ type: "spring", stiffness: 100, damping: 20, delay: (index % 3) * 0.08 }}
+                  whileHover={{ y: -6 }}
+                  className="bg-white rounded-[28px] border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="relative h-56 overflow-hidden bg-slate-100">
+                      <img loading="lazy" decoding="async"
+                        src={service.image}
+                        alt={`${fixCopy(service.title)} in Kalapatti`}
+                        {...imgDims(service.image)}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full border border-slate-700">
+                        {service.category}
+                      </div>
+                    </div>
+
+                    <div className="p-6 space-y-4">
+                      <h4 className="text-xl font-extrabold text-slate-900 group-hover:text-brand-900 transition-colors">
+                        {fixCopy(service.title)}
+                      </h4>
+                      <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
+                        {service.shortDescription}
+                      </p>
+
+                      <div className="space-y-2 pt-1">
+                        {service.benefits.slice(0, 2).map((benefit, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-xs text-slate-700 font-medium">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                            <span>{benefit}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          {service.durationMinutes} mins per session
+                        </span>
+                        <span className="font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-full text-right">
+                          {service.priceRange}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6 pt-0 flex items-center gap-2.5">
+                    {detailsAction(service, false)}
+                    <motion.button
+                      onClick={() => onSelectServiceToBook(service.id)}
+                      whileTap={{ scale: 0.97 }}
+                      className="flex-1 bg-brand-800 hover:bg-brand-700 text-white text-xs font-bold py-3 rounded-2xl shadow-md shadow-brand-800/20 flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Book Now</span>
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ))}
             </motion.div>
-          ))}
-        </motion.div>
+          </div>
+        )}
 
         {/* AEO Voice Search Optimization Block */}
         <section className="mt-20 pt-16 border-t border-slate-200">

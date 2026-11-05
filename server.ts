@@ -73,7 +73,8 @@ import { listFAQs, createFAQ, updateFAQ, deleteFAQ, reorderFAQs } from './server
 import { renderPage } from './server/ssr/renderPage';
 import { SITE_POPUP_SETTING_KEY, normalizeSitePopup, validateSitePopup } from './server/services/sitePopup';
 import { MAX_VIDEO_BYTES, uploadPopupVideo } from './server/services/popupVideo';
-import { DEFAULT_SITE_POPUP, type SitePopupConfig } from './src/types';
+import { SERVICES_SECTION_SETTING_KEY, normalizeServicesSection } from './server/services/servicesSection';
+import { DEFAULT_SITE_POPUP, DEFAULT_SERVICES_SECTION, type SitePopupConfig, type ServicesSectionConfig } from './src/types';
 import { SERVICE_PAGES, buildSitemap, resolvePage, type PageData } from './src/seo/site';
 import { DisplayOrderList, NewItemPosition, parseOrderBody, saveDisplayOrder } from './server/services/displayOrder';
 import {
@@ -205,6 +206,9 @@ const FEE_CONFIG_SETTING_KEY = 'booking_fee_config';
 // Welcome popup (poster / video / reel) shown once per visitor. Edited in the
 // admin console and persisted the same way as the fee config above.
 let sitePopup: SitePopupConfig = DEFAULT_SITE_POPUP;
+
+// How the Services section is split into Signature Services and Services (admin-editable).
+let servicesSection: ServicesSectionConfig = DEFAULT_SERVICES_SECTION;
 let clinicFeeConfig: FeeConfig = { ...DEFAULT_FEE_CONFIG };
 
 // ---------------- DOCTOR ADMIN AUTH (Google Sign-In, allowlisted emails) ----------------
@@ -566,6 +570,7 @@ app.get('/api/clinic-info', async (req, res) => {
   res.json({
     info: CLINIC_INFO,
     services: SERVICES_LIVE,
+    servicesSection,
     doctors: DOCTORS_LIVE,
     feeConfig: getPublicFeeConfig()
   });
@@ -2882,7 +2887,7 @@ app.delete('/api/admin/blog/:id', requireAdminAuth, async (req, res) => {
 function parseServiceInput(body: any): { input?: any; error?: string } {
   const { title, category, shortDescription, fullDescription, image, durationMinutes, priceRange, benefits, procedures, iconName } = body;
   if (typeof title !== 'string' || !title.trim()) return { error: 'title is required.' };
-  const validCategories = ['General', 'Cosmetic', 'Orthodontics', 'Implants', 'Surgical', 'Pediatric'];
+  const validCategories = ['General', 'Cosmetic', 'Orthodontics', 'Implants', 'Surgical', 'Pediatric', 'Family', 'Dental Tourism'];
   if (typeof category !== 'string' || !validCategories.includes(category)) {
     return { error: `category must be one of: ${validCategories.join(', ')}.` };
   }
@@ -2910,6 +2915,17 @@ function parseServiceInput(body: any): { input?: any; error?: string } {
     }
   };
 }
+
+app.get('/api/admin/services-section', requireAdminAuth, (_req, res) => {
+  res.json({ success: true, section: servicesSection });
+});
+
+app.put('/api/admin/services-section', requireAdminAuth, async (req, res) => {
+  servicesSection = normalizeServicesSection(req.body);
+  const saved = await saveSetting(SERVICES_SECTION_SETTING_KEY, servicesSection);
+  auditLog(req, `updated services section (${servicesSection.signatureIds.length} signature services)`);
+  res.json({ success: true, section: servicesSection, persisted: saved.success });
+});
 
 app.get('/api/admin/services', requireAdminAuth, async (req, res) => {
   res.json({ success: true, services: SERVICES_LIVE });
@@ -3648,6 +3664,23 @@ async function startServer() {
   SERVICES_LIVE = await listServices();
   DOCTORS_LIVE = await listDoctors();
   CONSULTANTS_LIVE = await listConsultants();
+  // One-time: a live catalog that predates Family Dentistry and Dental Tourism gets
+  // them added. The flag stops this re-running, so deleting either in the admin sticks.
+  if (!(await loadSetting<{ done: boolean }>('services_seed_family_tourism_v1'))) {
+    const have = new Set(SERVICES_LIVE.map((s) => s.id));
+    let allAdded = true;
+    for (const s of STATIC_SERVICES.filter((x) => ['family-dentistry', 'dental-tourism'].includes(x.id) && !have.has(x.id))) {
+      const { id: _id, ...input } = s;
+      const result = await createService(input);
+      if (!result.success) allAdded = false;
+    }
+    SERVICES_LIVE = await listServices();
+    if (allAdded) await saveSetting('services_seed_family_tourism_v1', { done: true });
+  }
+
+  const storedSection = await loadSetting<Partial<ServicesSectionConfig>>(SERVICES_SECTION_SETTING_KEY);
+  if (storedSection) servicesSection = normalizeServicesSection(storedSection);
+
   console.log(`Loaded ${SERVICES_LIVE.length} service(s), ${DOCTORS_LIVE.length} doctor(s), and ${CONSULTANTS_LIVE.length} consultant(s) from Supabase.`);
 
   await loadScheduleOverrides();

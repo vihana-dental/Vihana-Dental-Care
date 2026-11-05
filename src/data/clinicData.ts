@@ -497,6 +497,52 @@ export const SERVICES: DentalService[] = [
       "Retainer Fitting Post-Treatment"
     ],
     iconName: "CheckCircle2"
+  },
+  {
+    id: "family-dentistry",
+    title: "Family Dentistry",
+    category: "Family",
+    shortDescription: "One clinic for the whole family: check-ups, cleaning, fillings and preventive care for children, adults and older family members.",
+    fullDescription: "Look after everyone's teeth in one place. Dr. N. Sanchana and the Vihana Dental Care team see patients of different ages, so parents, children and grandparents can each get a proper check-up and a clear plan. Care ranges from routine check-ups and cleaning to fillings, with referral to a specialist where a case needs it.",
+    image: vihanaOperatory,
+    durationMinutes: 30,
+    priceRange: "Consultation ₹300 - ₹600",
+    benefits: [
+      "Care for children, adults and older family members at one clinic",
+      "Clear, honest treatment recommendations for each person",
+      "Preventive care focused on catching problems early",
+      "Specialist referral when a case needs it"
+    ],
+    procedures: [
+      "Patient History & Symptom Review",
+      "Oral Examination & Digital X-rays where needed",
+      "Cleaning & Preventive Care",
+      "Treatment Plan & Cost Estimate"
+    ],
+    iconName: "Users"
+  },
+  {
+    id: "dental-tourism",
+    title: "Dental Tourism",
+    category: "Dental Tourism",
+    shortDescription: "Visiting Coimbatore for treatment? Plan your care with an online consultation first and a cost estimate before you travel.",
+    fullDescription: "Coming from another city or country for dental treatment? Start with an online video consultation so the team can understand your case, explain your options and share a cost estimate before you travel. Where the treatment allows, visits are planned around your stay in Coimbatore, and all care takes place at our clinic in Kalapatti.",
+    image: vihanaExteriorSign,
+    durationMinutes: 30,
+    priceRange: "Cost estimate shared after consultation",
+    benefits: [
+      "Start with an online video consultation from anywhere",
+      "Treatment options and cost explained before you travel",
+      "Visits planned around your stay where the treatment allows",
+      "All treatment at one clinic in Kalapatti, Coimbatore"
+    ],
+    procedures: [
+      "Online Video Consultation",
+      "Review of X-rays & Treatment Options",
+      "Cost Estimate & Treatment Plan",
+      "Treatment Visits at the Clinic"
+    ],
+    iconName: "Plane"
   }
 ];
 

@@ -62,7 +62,7 @@ export interface ClinicInfo {
 export interface DentalService {
   id: string;
   title: string;
-  category: 'General' | 'Cosmetic' | 'Orthodontics' | 'Implants' | 'Surgical' | 'Pediatric';
+  category: 'General' | 'Cosmetic' | 'Orthodontics' | 'Implants' | 'Surgical' | 'Pediatric' | 'Family' | 'Dental Tourism';
   shortDescription: string;
   fullDescription: string;
   image: string;
@@ -72,6 +72,28 @@ export interface DentalService {
   procedures: string[];
   iconName: string;
 }
+
+/**
+ * How the Services section is split on the website. Services whose ids are in
+ * `signatureIds` are highlighted under the signature heading; every other
+ * service goes in the regular Services grid. The four texts are the two
+ * headings and their one-line intros. Edited in the admin console.
+ */
+export interface ServicesSectionConfig {
+  signatureIds: string[];
+  signatureTitle: string;
+  signatureIntro: string;
+  servicesTitle: string;
+  servicesIntro: string;
+}
+
+export const DEFAULT_SERVICES_SECTION: ServicesSectionConfig = {
+  signatureIds: ['invisalign-aligners', 'pediatric-dentistry', 'family-dentistry'],
+  signatureTitle: 'Signature Services',
+  signatureIntro: 'The treatments at the heart of Vihana Dental Care.',
+  servicesTitle: 'Services',
+  servicesIntro: 'Everything else we offer, from check-ups to implants.'
+};
 
 export interface Doctor {
   id: string;

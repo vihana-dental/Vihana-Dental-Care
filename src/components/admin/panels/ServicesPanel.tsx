@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Stethoscope, Loader2, Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
-import { DentalService } from '../../../types';
+import { Stethoscope, Loader2, Plus, Pencil, Trash2, CheckCircle2, Star } from 'lucide-react';
+import { DentalService, ServicesSectionConfig, DEFAULT_SERVICES_SECTION } from '../../../types';
 import {
-  PanelCard, PanelHeader, LoadingRow, ErrorBanner, inputClass, labelClass,
+  PanelCard, PanelHeader, LoadingRow, ErrorBanner, SuccessBanner, inputClass, labelClass,
   primaryButtonClass, ghostButtonClass, dangerButtonClass, ListFieldEditor
 } from '../shared';
 import { ReorderControls, ReorderHint, putOrder, useReorder } from '../reorder';
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
-const CATEGORIES = ['General', 'Cosmetic', 'Orthodontics', 'Implants', 'Surgical', 'Pediatric'] as const;
+const CATEGORIES = ['General', 'Cosmetic', 'Orthodontics', 'Implants', 'Surgical', 'Pediatric', 'Family', 'Dental Tourism'] as const;
 
 function readImageAsDataUri(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -137,6 +137,12 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
 
+  // Signature Services block: which services are highlighted + the two headings.
+  const [section, setSection] = useState<ServicesSectionConfig>(DEFAULT_SERVICES_SECTION);
+  const [savedSection, setSavedSection] = useState<ServicesSectionConfig>(DEFAULT_SERVICES_SECTION);
+  const [sectionSaving, setSectionSaving] = useState(false);
+  const [sectionNote, setSectionNote] = useState<{ ok: boolean; text: string } | null>(null);
+
   const load = async () => {
     setLoading(true);
     setLoadError('');
@@ -146,6 +152,9 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Failed to load services.');
       setServices(data.services);
+      const secRes = await authedFetch('/api/admin/services-section');
+      const sec = await secRes.json();
+      if (sec.success) { setSection(sec.section); setSavedSection(sec.section); }
     } catch (err: any) {
       setLoadError(err?.message || 'Could not load services.');
     } finally {
@@ -181,6 +190,41 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
       setCreateError(err?.message || 'Could not save this service. Please try again.');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const sectionDirty = JSON.stringify(section) !== JSON.stringify(savedSection);
+
+  const toggleSignature = (id: string) =>
+    setSection((prev) => ({
+      ...prev,
+      signatureIds: prev.signatureIds.includes(id) ? prev.signatureIds.filter((x) => x !== id) : [...prev.signatureIds, id]
+    }));
+
+  const saveSection = async () => {
+    setSectionSaving(true);
+    setSectionNote(null);
+    try {
+      const res = await authedFetch('/api/admin/services-section', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(section)
+      });
+      if (res.status === 401) return onSessionExpired();
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Could not save.');
+      setSection(data.section);
+      setSavedSection(data.section);
+      setSectionNote(
+        data.persisted === false
+          ? { ok: false, text: 'Live now, but it could not be stored, so it may reset if the site restarts. Save again in a moment.' }
+          : { ok: true, text: 'Saved. The Services section on the website is updated.' }
+      );
+      setTimeout(() => setSectionNote((n) => (n?.ok ? null : n)), 4000);
+    } catch (err: any) {
+      setSectionNote({ ok: false, text: err?.message || 'Could not save. Please try again.' });
+    } finally {
+      setSectionSaving(false);
     }
   };
 
@@ -244,6 +288,50 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
         }
       />
       <div className="p-6 space-y-5">
+        {services && (
+          <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
+            <div className="flex items-start gap-2">
+              <Star className="w-4 h-4 text-amber-500 fill-current mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-slate-900">Website layout: Signature Services and Services</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Mark services as Signature with the star on each row below. Signature services are highlighted at the top of the
+                  website's Services section; all others appear under Services. Edit the headings here, then save.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Signature heading</label>
+                <input type="text" value={section.signatureTitle} onChange={(e) => setSection({ ...section, signatureTitle: e.target.value })} className={inputClass} maxLength={80} />
+              </div>
+              <div>
+                <label className={labelClass}>Services heading</label>
+                <input type="text" value={section.servicesTitle} onChange={(e) => setSection({ ...section, servicesTitle: e.target.value })} className={inputClass} maxLength={80} />
+              </div>
+              <div>
+                <label className={labelClass}>Signature intro line</label>
+                <textarea value={section.signatureIntro} onChange={(e) => setSection({ ...section, signatureIntro: e.target.value })} rows={2} className={inputClass} maxLength={300} />
+              </div>
+              <div>
+                <label className={labelClass}>Services intro line</label>
+                <textarea value={section.servicesIntro} onChange={(e) => setSection({ ...section, servicesIntro: e.target.value })} rows={2} className={inputClass} maxLength={300} />
+              </div>
+            </div>
+            <p className="text-xs text-slate-600">
+              <span className="font-semibold">{section.signatureIds.filter((id) => services.some((x) => x.id === id)).length}</span> signature service(s) selected.
+            </p>
+            {sectionNote && (sectionNote.ok ? <SuccessBanner message={sectionNote.text} /> : <ErrorBanner message={sectionNote.text} />)}
+            <div className="flex items-center gap-3">
+              <button onClick={saveSection} disabled={sectionSaving || !sectionDirty} className={primaryButtonClass}>
+                {sectionSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                <span>{sectionSaving ? 'Saving...' : 'Save layout'}</span>
+              </button>
+              {sectionDirty && !sectionSaving && <span className="text-xs text-amber-700 font-medium">You have unsaved changes</span>}
+            </div>
+          </div>
+        )}
+
         {showNewForm && (
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">New Service</p>
@@ -283,6 +371,15 @@ export const ServicesPanel: React.FC<Props> = ({ authedFetch, onSessionExpired }
                       <p className="text-xs text-slate-400 mt-1">{service.durationMinutes} min · {service.priceRange}</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => toggleSignature(service.id)}
+                        aria-pressed={section.signatureIds.includes(service.id)}
+                        className={`p-2 rounded-lg ${section.signatureIds.includes(service.id) ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:bg-slate-200'}`}
+                        aria-label={`${section.signatureIds.includes(service.id) ? 'Remove' : 'Mark'} ${service.title} ${section.signatureIds.includes(service.id) ? 'from' : 'as'} Signature`}
+                        title={section.signatureIds.includes(service.id) ? 'Signature service (click to remove)' : 'Mark as Signature service'}
+                      >
+                        <Star className={`w-4 h-4 ${section.signatureIds.includes(service.id) ? 'fill-current' : ''}`} />
+                      </button>
                       <button onClick={() => startEditing(service)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-200" aria-label={`Edit ${service.title}`} title="Edit">
                         <Pencil className="w-4 h-4" />
                       </button>
