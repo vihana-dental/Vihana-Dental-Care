@@ -74,6 +74,7 @@ import { renderPage } from './server/ssr/renderPage';
 import { SITE_POPUP_SETTING_KEY, normalizeSitePopup, validateSitePopup } from './server/services/sitePopup';
 import { MAX_VIDEO_BYTES, uploadPopupVideo } from './server/services/popupVideo';
 import { SERVICES_SECTION_SETTING_KEY, normalizeServicesSection } from './server/services/servicesSection';
+import { memo, clearMemo } from './server/services/memoCache';
 import { DEFAULT_SITE_POPUP, DEFAULT_SERVICES_SECTION, type SitePopupConfig, type ServicesSectionConfig } from './src/types';
 import { SERVICE_PAGES, buildSitemap, resolvePage, type PageData } from './src/seo/site';
 import { DisplayOrderList, NewItemPosition, parseOrderBody, saveDisplayOrder } from './server/services/displayOrder';
@@ -599,11 +600,27 @@ function externalizeImages<T extends { id: string; imageUrl?: string }>(kind: 'g
   );
 }
 
+// Cached readers for the PUBLIC endpoints (see server/services/memoCache.ts for
+// why). Admin routes keep calling the uncached functions, and any admin write
+// clears the cache so edits show immediately.
+const cachedBlogPosts = () => memo('blog', listBlogPosts);
+const cachedBlogPostsPublic = () => memo('blog:public', async () => externalizeImages('blog', await cachedBlogPosts()));
+const cachedGalleryItems = () => memo('gallery', listGalleryItems);
+const cachedGalleryPublic = () => memo('gallery:public', async () => externalizeImages('gallery', await cachedGalleryItems()));
+const cachedFaqs = () => memo('faqs', listFAQs);
+const cachedCertificates = () => memo('certificates', listCertificates);
+const cachedCuratedReviews = () => memo('reviews:curated', listCuratedReviews);
+
+app.use('/api/admin', (req, res, next) => {
+  if (req.method !== 'GET') res.on('finish', clearMemo);
+  next();
+});
+
 app.get('/api/media/:kind/:id', async (req, res) => {
   const { kind, id } = req.params;
   let uri: string | undefined;
-  if (kind === 'gallery') uri = (await listGalleryItems()).find((i) => i.id === id)?.imageUrl;
-  else if (kind === 'blog') uri = (await listBlogPosts()).find((p) => p.id === id)?.imageUrl;
+  if (kind === 'gallery') uri = (await cachedGalleryItems()).find((i) => i.id === id)?.imageUrl;
+  else if (kind === 'blog') uri = (await cachedBlogPosts()).find((p) => p.id === id)?.imageUrl;
   else if (kind === 'popup') uri = sitePopup.kind === 'image' ? sitePopup.url : undefined;
   const match = uri ? MEDIA_DATA_URI_RE.exec(uri) : null;
   if (!match) return res.status(404).end();
@@ -616,23 +633,23 @@ app.get('/api/media/:kind/:id', async (req, res) => {
 
 // ---------------- BLOG (public reads) ----------------
 app.get('/api/blog', async (req, res) => {
-  const posts = await listBlogPosts();
+  const posts = await cachedBlogPostsPublic();
   res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-  res.json({ success: true, posts: externalizeImages('blog', posts) });
+  res.json({ success: true, posts });
 });
 
 app.get('/api/blog/:slug', async (req, res) => {
-  const post = await getBlogPostBySlug(req.params.slug);
+  const post = (await cachedBlogPostsPublic()).find((p) => p.slug === req.params.slug);
   if (!post) {
     return res.status(404).json({ success: false, error: 'Post not found.' });
   }
-  res.json({ success: true, post: externalizeImages('blog', [post])[0] });
+  res.json({ success: true, post });
 });
 
 // ---------------- TEAM / GALLERY / FAQ / CURATED REVIEWS (public reads) ----------------
 app.get('/api/team', async (req, res) => {
-  const [doctors, consultants] = await Promise.all([listDoctors(), listConsultants()]);
-  res.json({ success: true, doctors, consultants });
+  // The in-memory mirrors are refreshed on every admin write, so no database read is needed.
+  res.json({ success: true, doctors: DOCTORS_LIVE, consultants: CONSULTANTS_LIVE });
 });
 
 // The single shared doctor-picker roster for all three booking channels
@@ -646,13 +663,13 @@ app.get('/api/bookable-doctors', (req, res) => {
 });
 
 app.get('/api/gallery', async (req, res) => {
-  const items = await listGalleryItems();
+  const items = await cachedGalleryPublic();
   res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-  res.json({ success: true, items: externalizeImages('gallery', items) });
+  res.json({ success: true, items });
 });
 
 app.get('/api/faqs', async (req, res) => {
-  const faqs = await listFAQs();
+  const faqs = await cachedFaqs();
   res.json({ success: true, faqs });
 });
 
@@ -662,7 +679,7 @@ app.get('/api/faqs', async (req, res) => {
 // the visitor chooses to open, so loading the list never ships megabytes of
 // base64 nobody looked at.
 app.get('/api/certificates', async (req, res) => {
-  const certificates = await listCertificates();
+  const certificates = await cachedCertificates();
   res.json({ success: true, certificates });
 });
 
@@ -685,7 +702,7 @@ app.get('/api/certificates/:id/file', async (req, res) => {
 });
 
 app.get('/api/reviews/curated', async (req, res) => {
-  const reviews = await listCuratedReviews();
+  const reviews = await cachedCuratedReviews();
   res.json({ success: true, reviews });
 });
 
@@ -3580,7 +3597,7 @@ app.post('/api/gemini/booking-bot', publicApiLimiter, async (req, res) => {
       services: SERVICES_LIVE,
       doctors: DOCTORS_LIVE,
       consultants: CONSULTANTS_LIVE,
-      faqs: await listFAQs(),
+      faqs: await cachedFaqs(),
       feeConfig: getPublicFeeConfig()
     });
 
@@ -3738,11 +3755,11 @@ async function startServer() {
       const { def } = page;
       data.services = SERVICES_LIVE.filter((s) => def.serviceIds.includes(s.id)).map(noDataImage);
       if (data.services.length === 0) return null;
-      data.faqs = await listFAQs();
+      data.faqs = await cachedFaqs();
       data.doctors = DOCTORS_LIVE.filter((d) => def.specialistIds.includes(d.id)).map(noDataImage);
       data.consultants = CONSULTANTS_LIVE.filter((c) => def.specialistIds.includes(c.id)).map(noDataImage);
     } else if (page.kind === 'blog-index' || page.kind === 'blog-post') {
-      data.posts = externalizeImages('blog', await listBlogPosts());
+      data.posts = await cachedBlogPostsPublic();
       if (page.kind === 'blog-post') {
         data.post = data.posts.find((p) => p.slug === page.slug);
         if (!data.post) return null;
@@ -3768,7 +3785,7 @@ async function startServer() {
   // from the same route table the pages themselves use.
   app.get('/sitemap.xml', async (_req, res, next) => {
     try {
-      const posts = await listBlogPosts();
+      const posts = await cachedBlogPosts();
       res.set('Cache-Control', 'public, max-age=3600');
       res.type('application/xml').send(buildSitemap(posts));
     } catch (err) {
